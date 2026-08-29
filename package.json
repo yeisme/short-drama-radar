@@ -1,0 +1,24 @@
+{
+  "name": "@yeisme/short-drama-radar",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Short-drama trend radar: crawler-first daily intelligence for douyin/xiaohongshu, with scoring and feishu card contract output.",
+  "bin": {
+    "radar": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test --timeout 30000",
+    "test:integration": "bun run scripts/integration-test-run.ts -- bun test test/integration"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "bun-types": "^1.4.0",
+    "typescript": "^5.7.0"
+  }
+}
