@@ -4,15 +4,18 @@ import type { RadarDb } from "../db/client.ts";
 import { dailyItems, rawSnapshots } from "../db/schema.ts";
 import type { Adapter, AdapterContext, FetchResult, RawItem } from "../adapters/types.ts";
 import { makeFirecrawlAdapter } from "../adapters/firecrawl.ts";
-import { browserFallbackAdapter, douyinSignedAdapter, xiaohongshuBackendAdapter } from "../adapters/xiaohongshu.ts";
+import { makeXhsBackendAdapter } from "../adapters/agentreach-xhs.ts";
+import { makeDouyinSignedAdapter } from "../adapters/douyin-signed.ts";
+import { makeBrowserAdapter } from "../adapters/browser.ts";
 
-export function defaultAdapters(): Adapter[] {
+export function defaultAdapters(opts: { xhsKeyword?: string; douyinKeyword?: string } = {}): Adapter[] {
   return [
     makeFirecrawlAdapter("douyin"),
     makeFirecrawlAdapter("xiaohongshu"),
-    xiaohongshuBackendAdapter,
-    douyinSignedAdapter,
-    browserFallbackAdapter,
+    makeXhsBackendAdapter(opts.xhsKeyword ?? "短剧"),
+    makeDouyinSignedAdapter(opts.douyinKeyword ?? "短剧"),
+    makeBrowserAdapter("douyin"),
+    makeBrowserAdapter("xiaohongshu"),
   ];
 }
 
@@ -25,11 +28,16 @@ export interface CollectSummary {
   date: string;
 }
 
+export interface CollectHooks {
+  onLayer?: (result: FetchResult) => void;
+}
+
 export async function collect(
   db: RadarDb,
   adapters: Adapter[],
   ctx: AdapterContext,
   now: Date = new Date(),
+  hooks: CollectHooks = {},
 ): Promise<CollectSummary> {
   const date = now.toISOString().slice(0, 10);
   const fetchedAt = now.toISOString();
@@ -44,6 +52,7 @@ export async function collect(
     } catch (err) {
       result = { source: adapter.name, layer: adapter.layer, items: [], degraded: true, errors: [`adapter threw: ${(err as Error).message}`] };
     }
+    hooks.onLayer?.(result);
     summary.errors.push(...result.errors.map((e) => `${result.source}: ${e}`));
     if (result.degraded) summary.degradedLayers.push(result.source);
     for (const item of result.items) {

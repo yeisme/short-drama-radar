@@ -1,0 +1,32 @@
+{
+  "status_code": 0,
+  "data": [
+    {
+      "aweme_info": {
+        "aweme_id": "740000000000000101",
+        "desc": "赘婿逆袭名场面｜三分钟看完今日更新短剧",
+        "author": { "sec_uid": "MS4wLjABAAAA-u0000000000000000000000000000001", "nickname": "短剧速递" },
+        "create_time": 1758931200,
+        "statistics": { "digg_count": 15000, "comment_count": 1200, "collect_count": 3400, "share_count": 890 }
+      }
+    },
+    {
+      "aweme_info": {
+        "aweme_id": "740000000000000102",
+        "desc": "千金马甲掉落！豪门短剧钩子拆解",
+        "author": { "sec_uid": "MS4wLjABAAAA-u0000000000000000000000000000002", "nickname": "追剧小灵通" },
+        "create_time": 1758927600,
+        "statistics": { "digg_count": 9800, "comment_count": 760, "collect_count": 2100, "share_count": 402 }
+      }
+    },
+    {
+      "aweme_info": {
+        "aweme_id": "740000000000000103",
+        "desc": "复仇爽剧结局反转，评论区已吵翻",
+        "author": { "sec_uid": "MS4wLjABAAAA-u0000000000000000000000000000003", "nickname": "爽剧bot" },
+        "create_time": 1758924000,
+        "statistics": { "digg_count": 6600, "comment_count": 1500, "collect_count": 900, "share_count": 350 }
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "_comment": "Frozen legacy 0.0.x private --json draft. Retired by radar-cli-agent-contract; kept as migration evidence only. The permanently compatible contract is short-drama-radar.card.v1 (see card-v1-golden.json), NOT this envelope.",
+  "ok": true,
+  "app": "short-drama-radar",
+  "command": "card",
+  "data": {
+    "contract": "short-drama-radar.card.v1",
+    "date": "2026-08-29",
+    "top": { "douyin": [], "xiaohongshu": [] }
+  },
+  "errors": []
+}

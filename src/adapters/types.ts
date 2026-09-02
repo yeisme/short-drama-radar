@@ -32,6 +32,7 @@ export interface AdapterContext {
   agentReachBin: string;
   timeoutMs: number;
   fixtureDir?: string; // tests inject fixtures here; live runs leave it empty
+  accountsPath?: string; // Layer 2 account pool descriptor file (user-level, no credentials)
 }
 
 export function emptyResult(name: string, layer: number, errors: string[]): FetchResult {

@@ -1,0 +1,33 @@
+{
+  "notes": [
+    {
+      "note_id": "660000000000000101",
+      "display_title": "短剧拆解：三秒钩子怎么写才有完播率",
+      "xsec_url": "https://www.xiaohongshu.com/explore/660000000000000101?xsec_token=abc",
+      "user": { "user_id": "5f0000000000000000000001", "nickname": "短剧观察员" },
+      "time": "2026-08-28",
+      "liked_count": 1200,
+      "collected_count": 340,
+      "comment_count": 88
+    },
+    {
+      "note_id": "660000000000000102",
+      "display_title": "七月短剧爆款复盘：赘婿题材又杀回来了",
+      "xsec_url": "https://www.xiaohongshu.com/explore/660000000000000102?xsec_token=def",
+      "user": { "user_id": "5f0000000000000000000002", "nickname": "剧透社" },
+      "time": "2026-08-27",
+      "liked_count": 860,
+      "collected_count": 210,
+      "comment_count": 45
+    },
+    {
+      "note_id": "660000000000000103",
+      "display_title": "银发短剧投流实录：情感钩子密度分析",
+      "url": "https://www.xiaohongshu.com/explore/660000000000000103",
+      "author": { "id": "5f0000000000000000000003", "name": "投流老王" },
+      "liked_count": 430,
+      "collect_count": 96,
+      "comments": 21
+    }
+  ]
+}

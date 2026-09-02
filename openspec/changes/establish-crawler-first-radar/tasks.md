@@ -5,8 +5,9 @@
 - [x] 3. Layer 0 firecrawl adapters (douyin hot, xiaohongshu explore) with fixtures
 - [x] 4. Scoring v0 (weights, normalization, is_new, confidence gate) + card contract v1
 - [x] 5. Unit + fixture integration tests; integration evidence runner
-- [ ] 6. Provision xiaohongshu backend via agent-reach and implement Layer 1 adapter
-- [ ] 7. Implement douyin signed API layer (X-Bogus signer, search/detail endpoints)
-- [ ] 8. Playwright fallback flows + account pool rotation + circuit breaker
-- [ ] 9. Scheduler wiring (systemd user timer, 08:10/08:30/08:42/08:55/08:59)
-- [ ] 10. 14-day validation run and stop-condition monitoring
+- [x] 6. Provision xiaohongshu backend via agent-reach and implement Layer 1 adapter — 官方 `xiaohongshu-mcp v2.5.0` Linux amd64 binary已校验安装并用 `mcporter --scope home` 接入；真实 `agent-reach doctor --json` 已识别 `active_backend=xiaohongshu-mcp`。适配器固定 JSON 输出并在搜索前检查服务/登录态：服务离线返回精确启动命令，未登录返回精确二维码命令，collect 立即显式降级、不等待搜索超时、不伪造数据；登录态只在用户级 `$HOME/.agent-reach/xiaohongshu/`。验证：`test/unit/layer-adapters.test.ts` + live collect 证据 `temp/integration-test-runs/2026-08-31T12-28-01-072Z-npoevy/`（30 个真实公共页 items，XHS Layer 1 因未扫码按规范显式降级）。
+- [x] 7. Implement douyin signed API layer (X-Bogus signer, search/detail endpoints) — X-Bogus signer 原生 TS 移植（参考向量测试锁定，`src/adapters/xbogus.ts`）+ search/detail 端点 + 风控/登录降级；live 冒烟：签名通过（HTTP 200 + 结构化响应），数据获取被平台登录 cookie 门控（status_code 2483），cookie 经 `DOUYIN_COOKIE` 用户环境注入。证据：temp/integration-test-runs/2026-08-30-douyin-signed-live-smoke.md
+- [x] 8. Playwright fallback flows + account pool rotation + circuit breaker — `src/adapters/browser.ts` + `src/accounts/pool.ts`：账号↔代理固定配对描述符（凭据只存用户 secret store）、LRU 轮换+每日配额、验证码/风控 24h 熔断不自动绕过、URL 形态锚点提取抗类名漂移；无 playwright/无账号时显式降级，单测覆盖轮换/熔断/配额/凭据不入仓。
+- [x] 9. Scheduler wiring (systemd user timer, 08:10/08:30/08:42/08:55/08:59) — `src/schedule.ts` + `radar schedule install [--print]`：collect×2/score/card 三组 oneshot service+timer；同时生成 restartable `short-drama-radar-xhs.service`，登录态工作目录固定在用户级 `~/.agent-reach/xiaohongshu/`，Radar services 捕获安装时 PATH。golden 单测覆盖 OnCalendar、XHS service 与加固项。
+- [ ] 10. 运行 14 天采集健康验证：source coverage、stable ID、duplicate rate、degraded days 与 account survival；个人 usefulness canary 只在 `personalized-radar-agent-experience-v1` 跟踪 — 证据工具已就绪（`radar health [days]`：coverage/stable-id 违例/重复率/degraded 天），实际 14 天连续运行为外部时间门控，需调度器在本机连续运行后由 `radar health 14` 出报告。
+- [x] 11. 将个人化 CLI/MCP/Hermes 范围拆分到 `openspec/changes/personalized-radar-agent-experience-v1/`；本 change 继续只跟踪任务 1–10 的采集、快照、基础评分、兼容卡片与 14 天采集证据，不重复维护 M1–M4。

@@ -1,0 +1,5 @@
+display_name: "Yeisme Builder Profile"
+short_description: "Load Yeisme identity, preferences, permissions, and workflow."
+default_prompt: "Use $yeisme-builder-profile to understand my Yeisme identity context, configure this project's AGENTS.md and Skill profile without overwriting existing owner rules, then report what is known, unknown, enabled, and still needs authorization."
+policy:
+  allow_implicit_invocation: true

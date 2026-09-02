@@ -10,6 +10,11 @@ export interface RadarConfig {
   firecrawlBaseUrl: string;
   // Layer 1 adapters shell out to agent-reach / platform CLIs.
   agentReachBin: string;
+  accountsPath: string; // Layer 2 pool descriptors (no credentials inside)
+  layer1: {
+    xhsKeyword: string;
+    douyinKeyword: string;
+  };
   accountPool: {
     xiaohongshu: number;
     douyin: number;
@@ -31,6 +36,11 @@ export const defaultConfig: RadarConfig = {
   dbPath: process.env.RADAR_DB_PATH ?? join(RADAR_HOME, "radar.db"),
   firecrawlBaseUrl: process.env.FIRECRAWL_BASE_URL ?? "http://10.10.1.101:32741",
   agentReachBin: process.env.AGENT_REACH_BIN ?? "agent-reach",
+  accountsPath: process.env.RADAR_ACCOUNTS_PATH ?? join(RADAR_HOME, "accounts.json"),
+  layer1: {
+    xhsKeyword: "短剧",
+    douyinKeyword: "短剧",
+  },
   accountPool: {
     xiaohongshu: 3,
     douyin: 3,
@@ -49,7 +59,13 @@ export function loadConfig(): RadarConfig {
   const path = process.env.RADAR_CONFIG_PATH ?? join(RADAR_HOME, "config.json");
   if (!existsSync(path)) return defaultConfig;
   const raw = JSON.parse(readFileSync(path, "utf8")) as Partial<RadarConfig>;
-  return { ...defaultConfig, ...raw, accountPool: { ...defaultConfig.accountPool, ...(raw.accountPool ?? {}) }, schedule: { ...defaultConfig.schedule, ...(raw.schedule ?? {}) } };
+  return {
+    ...defaultConfig,
+    ...raw,
+    layer1: { ...defaultConfig.layer1, ...(raw.layer1 ?? {}) },
+    accountPool: { ...defaultConfig.accountPool, ...(raw.accountPool ?? {}) },
+    schedule: { ...defaultConfig.schedule, ...(raw.schedule ?? {}) },
+  };
 }
 
 export function ensureRadarHome(): void {

@@ -1,6 +1,6 @@
 # Short-Drama Radar 子项目说明
 
-本目录是 `short-drama-radar` TypeScript/Bun CLI 子项目，独立 git submodule，默认分支 `develop`。它拥有短剧领域情报数据：四层采集（公共页 → 平台后端 CLI → 受控浏览器 → 人工兜底）、SQLite 快照、标准化去重、标签/评分 v0、人工质检门和 `short-drama-radar.card.v1` 卡片合同。云婉（外部项目）拥有通用调度、去重投递和飞书发送；短剧业务逻辑不得塞入云婉。
+本目录是 `short-drama-radar` TypeScript/Bun CLI 子项目，独立 git submodule，默认分支 `develop`。它拥有单人优先的短剧机会情报：四层采集（公共页 → 平台后端 CLI → 受控浏览器 → 人工兜底）、SQLite 快照、标准化去重、基础标签/评分、个人 Profile/revision、append-only 反馈、机会簇、个人排序、Morning Edition、运行证据和 `short-drama-radar.card.v1` 兼容合同。外部 Agent/客户端只消费稳定 CLI/MCP/API 投影，不得接管领域真源。
 
 ## 工作语言
 
@@ -19,8 +19,9 @@
 
 ## 架构边界
 
-- 拥有：短剧候选发现、快照历史、跨平台标准化、钩子/题材/情绪标签、v0 评分、`confidence`、卡片合同 payload、运行证据。
-- 不拥有：剧本生成、投放管理、多人协作后台、飞书投递实现、通用采集调度（云婉）。
+- 拥有：短剧候选发现、快照历史、跨平台标准化、钩子/题材/情绪标签、基础 market score/`confidence`、个人 Profile/revision、反馈 ledger、机会簇、personal fit、Morning Edition、卡片合同 payload、MCP 安全投影和运行/审计证据。
+- 不拥有：剧本/分镜/图片/音频/视频生成、投放管理、多人协作后台、云同步、远程 Agent 服务、Workbench/DSH UI、飞书投递实现、通用跨项目调度。
+- Hermes、Workbench 与 DSH 是 consumer：不得读取 Radar SQLite、用户配置或审计文件，不得保存第二份 Profile/排序/Edition 真源，不得自动批准 production mutation。
 - 抖音官方开放平台不覆盖全平台热榜，不能作为主源；小红书“传播增速”用互动增量作代理值，禁止伪造播放量。
 
 ## 禁止事项
@@ -29,6 +30,8 @@
 - 不静默用旧数据出卡；缺数据必须显式 `degraded` 标记。
 - 不自动绕过验证码与平台风控；账号池耗尽即降级+告警。
 - 不绕过 Drizzle 写裸 SQL 做业务读写。
+- 不让 MCP/Profile suggestion、Hermes memory 或客户端 cache 直接覆盖 Profile 真源；Profile mutation 只走 Radar CLI/application service。
+- 不在未完成 canary 前把 remote endpoint、A2A、公共 Hermes Skill 或多用户能力标为 ready。
 
 ## 测试与验证
 
@@ -43,4 +46,4 @@ RADAR_FIXTURE_DIR=test/fixtures bun run src/cli.ts run --json   # 离线端到�
 
 ## 14 天验证
 
-按根计划执行：D1–2 采集主路就绪（每平台每天 ≥30 候选）；D3–5 快照/去重（稳定 ID ≥90%，重复率 ≤5%）；D6–9 影子运行（连续 4 天 9:00 前送达，Top10 人工合理率 ≥80%，降级天数 >30% 触发停止评审）；D10–14 10 名目标用户收费验证（≥2 人实付 79 元）。
+首轮只做单人 canary：D1–3 完成 Profile 与采集/证据基线；D4–7 验证机会聚类、个人排序、空榜和降级；D8–14 连续生成 Morning Edition 并记录 `saved|dismissed|used|not_relevant|too_risky|already_seen`。通过门：至少 10 天有可审查 Edition，非空 Edition 中 ≥60% 至少一个 `saved|used`，明显误报/不可解释项 ≤25%，反馈只改变未来 Edition，且无秘密泄露、跨 Profile 污染或断线自动重复采集。通过后再用 5–8 个隔离 Profile/用户样本验证差异，不把收费或团队化作为首轮完成条件。

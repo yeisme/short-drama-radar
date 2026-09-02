@@ -11,7 +11,7 @@ import { buildCard } from "../../src/pipeline/card.ts";
 // Component-style integration: fixture-fed adapters through the real DB and
 // the full collect -> score -> card path. Run evidence via scripts/integration-test-run.ts.
 describe("daily pipeline (fixtures)", () => {
-  test("collect -> score -> card produces Top5+Top5 contract payload", async () => {
+  test("collect -> score -> card produces up-to-Top5 confidence-gated payload", async () => {
     const dir = mkdtempSync(join(tmpdir(), "radar-it-"));
     const db = openDb(join(dir, "test.db"));
     const fixtureDir = new URL("../fixtures", import.meta.url).pathname;
@@ -22,13 +22,17 @@ describe("daily pipeline (fixtures)", () => {
       agentReachBin: "unused",
       timeoutMs: 5_000,
       fixtureDir,
+      accountsPath: join(dir, "accounts.json"), // absent pool: Layer 2 degrades loudly
     }, now);
-    expect(collectSummary.items).toBe(9); // 5 douyin + 4 xiaohongshu
-    expect(collectSummary.degradedLayers).toContain("agent-reach-xhs"); // Layer 1 stub degrades loudly
-    expect(collectSummary.degradedLayers).toContain("douyin-signed-api");
+    expect(collectSummary.items).toBe(15); // 5+4 Layer 0 fixtures + 3+3 Layer 1 fixtures
+    // Layer 1 fixture feeds succeed; Layer 2 is skipped explicitly in fixture mode.
+    expect(collectSummary.degradedLayers).toContain("playwright-browser-douyin");
+    expect(collectSummary.degradedLayers).toContain("playwright-browser-xiaohongshu");
+    expect(collectSummary.degradedLayers).not.toContain("agent-reach-xhs");
+    expect(collectSummary.degradedLayers).not.toContain("douyin-signed-api");
 
     const scoreSummary = await scoreDay(db, "2026-08-29");
-    expect(scoreSummary.scored).toBe(9);
+    expect(scoreSummary.scored).toBe(15);
 
     const rows = db.select().from(dailyItems).all();
     for (const r of rows) {
@@ -38,9 +42,12 @@ describe("daily pipeline (fixtures)", () => {
 
     const card = buildCard(db, "2026-08-29", now);
     expect(card.contract).toBe("short-drama-radar.card.v1");
-    expect(card.top.douyin.length).toBe(5);
-    expect(card.top.xiaohongshu.length).toBe(4); // fixture only has 4 xhs candidates
-    expect(card.sourceStatus.notes.join(" ")).toContain("xiaohongshu");
+    expect(card.top.douyin.length).toBe(3);
+    expect(card.top.xiaohongshu.length).toBe(3); // Layer 0 confidence=40 stays out of automatic card entry.
+    expect(card.sourceStatus.notes.join(" ")).toContain("low-confidence candidates excluded");
+    for (const item of [...card.top.douyin, ...card.top.xiaohongshu]) {
+      expect(item.confidence).toBeGreaterThanOrEqual(60);
+    }
     for (const item of card.top.douyin) {
       expect(item.tags.topics.length).toBeGreaterThan(0);
     }

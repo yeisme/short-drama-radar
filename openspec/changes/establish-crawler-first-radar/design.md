@@ -20,10 +20,12 @@ flowchart TD
     P --> S[(SQLite Drizzle)]
     S --> T[tags 钩子/题材/情绪]
     T --> SC[score v0 + confidence]
-    SC --> CD[card.v1 payload]
-    CD --> YW[云婉 投递 外部项目]
+    SC --> CD[card.v1 compatibility payload]
+    SC --> PR[personalized-radar-agent-experience-v1]
+    CD --> EC[外部消费者 可选]
 ```
 
 - 编排器为 TS/Bun CLI，子进程调用上游工具，不重写 firecrawl/agent-reach。
 - 所有失败降级必须显式记录；凭据不落库。
 - 评分与卡片结构见 `src/pipeline/scoring.ts` 与 `src/pipeline/card.ts`。
+- 本变更不拥有 Profile、反馈、机会聚类或 Morning Edition；这些 additive 能力由 `openspec/changes/personalized-radar-agent-experience-v1/` 承接，且不得改写 `short-drama-radar.card.v1`。

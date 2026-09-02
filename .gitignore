@@ -1,9 +1,8 @@
+.skill-sync.*/
 node_modules/
 dist/
+.env
+.env.*
+*.pem
+*.key
 temp/
-.radar/
-*.log
-*.db
-*.db-wal
-*.db-shm
-.DS_Store

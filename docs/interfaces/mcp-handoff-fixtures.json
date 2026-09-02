@@ -1,0 +1,64 @@
+{
+  "spec": "radar.mcp.handoff.v1",
+  "generated": "2026-08-30",
+  "owner": "cli/short-drama-radar",
+  "root_consumers": ["openspec/changes/personalized-short-drama-radar-experience-v1"],
+  "capability_digest_note": "Digest over the capability table below (sorted canonical JSON). Workbench/DSH consumers must verify against live 'radar mcp capabilities' output, not trust this snapshot blindly.",
+  "tools": [
+    {
+      "name": "radar.search",
+      "lanes": ["reader", "curator", "operator"],
+      "input_schema_keys": ["view", "query", "date", "platform", "profile_ref", "min_market_score", "min_personal_fit", "limit"],
+      "required": ["view"],
+      "view_enum": ["opportunities", "items", "editions"]
+    },
+    {
+      "name": "radar.execute",
+      "lanes_cumulative": { "curator": ["feedback_add", "opportunity_review"], "operator": ["feedback_add", "opportunity_review", "collect", "score", "cluster_build", "edition_build", "daily_run"] },
+      "reader_actions": [],
+      "external_side_effect_actions": ["collect", "daily_run"],
+      "profile_mutation_actions": []
+    }
+  ],
+  "resources": [
+    "radar://profile/active",
+    "radar://editions/latest",
+    "radar://editions/{ref}",
+    "radar://opportunities/{ref}",
+    "radar://evidence/{ref}",
+    "radar://runs",
+    "radar://sources/status",
+    "radar://capabilities"
+  ],
+  "prompts": ["radar_personal_brief"],
+  "capabilities": [
+    { "capability": "cli", "status": "ready" },
+    { "capability": "collection_layers_0_1", "status": "ready" },
+    { "capability": "layer2_browser_fallback", "status": "blocked" },
+    { "capability": "personal_profile_feedback", "status": "ready" },
+    { "capability": "opportunity_edition", "status": "ready" },
+    { "capability": "mcp_stdio_lanes", "status": "ready" },
+    { "capability": "hermes_local_canary", "status": "planned" },
+    { "capability": "remote_mcp_endpoint", "status": "unavailable" },
+    { "capability": "a2a", "status": "unavailable" },
+    { "capability": "multi_user", "status": "unavailable" }
+  ],
+  "disabled_states": {
+    "remote_mcp_endpoint": "V1 has no --endpoint; capability returns unavailable; requires separate post-canary proposal.",
+    "a2a": "Not approved for V1; capability returns unavailable.",
+    "multi_user": "Rejected for this product scope; capability returns unavailable.",
+    "public_hermes_skill": "Not published until the 14-day single-user canary plus 5.3 isolated-profile validation pass.",
+    "profile_mutation_over_mcp": "Permanently absent; profile create/set/activate are CLI-only."
+  },
+  "excluded_from_handoff": ["sqlite database files", "mcp-audit.jsonl", "credentials/cookies/proxy passwords", "raw provider payloads", "user profile free-form content"],
+  "audit": {
+    "spec": "radar.mcp.audit.v1",
+    "read_surface": "radar audit tail (CLI-only)",
+    "fields": ["spec", "ts", "principal_ref", "lane", "tool", "action", "args_digest", "outcome", "run_ref", "edition_ref"]
+  },
+  "recovery": {
+    "no_auto_replay": ["collect", "daily_run"],
+    "idempotent": ["feedback_add", "opportunity_review"],
+    "reconcile": "clients look up run/edition receipts via radar://runs and radar://editions/{ref}"
+  }
+}
