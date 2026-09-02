@@ -149,6 +149,10 @@ describe("profile commands (process)", () => {
 });
 
 describe("doctor probes", () => {
+  // Both tests below run the real probeRuntime chain (firecrawl HTTP probe +
+  // agent-reach/mcporter subprocesses); a fully provisioned host legitimately
+  // needs ~5s+, past bun's default 5s test timeout. Budget for the 30s
+  // mcporter readiness floor so slow-but-honest probes are not flagged red.
   test("doctor reports blocked/unavailable states honestly, never fake-ready", () => {
     const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
     const { stdout, exitCode } = runCli(home, ["doctor", "--json"]);
@@ -164,7 +168,7 @@ describe("doctor probes", () => {
     }
     expect(checks.playwright.status).toBe("unavailable");
     expect(checks.playwright.nextCommand).toBe("bun add playwright");
-  });
+  }, 45_000);
 
   test("mcp capabilities discloses ready/planned/blocked honestly", () => {
     const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
@@ -178,7 +182,7 @@ describe("doctor probes", () => {
     expect(caps["a2a"]).toBe("unavailable");
     expect(caps["multi_user"]).toBe("unavailable");
     expect(caps["hermes_local_canary"]).toBe("planned");
-  });
+  }, 45_000);
 
   test("unsupported transport fails closed with the proposal gate", () => {
     const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
