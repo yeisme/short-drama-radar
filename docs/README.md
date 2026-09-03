@@ -25,3 +25,7 @@ Workbench Personal Radar Lens 与 DSH Drama Radar Pane 是 optional consumer：�
 `docs/interfaces/mcp-handoff-fixtures.json` 中的稳定表面，客户端实现不是 Radar 的完成条件。
 
 后续文档按实际实施补充：Hermes 本地 canary runbook、评分/排序演进、账号池运维和外部消费者对接。
+
+## CI/CD
+
+- [模块化、分级 CI/CD](delivery/ci-cd.md)：quick、full、integration、release 的触发场景、真实命令和权限边界。
