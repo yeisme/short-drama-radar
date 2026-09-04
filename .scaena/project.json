@@ -1,0 +1,8 @@
+{
+  "root": ".",
+  "title": ".",
+  "episodes": 1,
+  "index": ".scaena/index.sqlite",
+  "workspace_layout": "eager",
+  "workspace_schema_version": "workspace.v2"
+}
