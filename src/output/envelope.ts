@@ -26,8 +26,8 @@ export interface CommandResult<T = unknown> {
   summary: string; // one short English line
   facts?: Record<string, unknown>; // scalar facts (degraded flags live here)
   actions?: CommandAction[];
-  evidence?: Record<string, unknown>; // refs/digests pointing at receipts
-  confidence?: number; // 0-100, optional
+  evidence?: string[]; // refs/digests pointing at receipts
+  confidence?: number; // 0..1, optional
   data?: T; // command payload
   error?: CommandError;
   exitCode: number; // non-zero on failed
@@ -41,7 +41,7 @@ export interface Envelope<T = unknown> {
   summary: string;
   facts?: Record<string, unknown>;
   actions?: CommandAction[];
-  evidence?: Record<string, unknown>;
+  evidence?: string[];
   confidence?: number;
   data?: T;
   error?: CommandError;
@@ -57,7 +57,7 @@ export function renderJsonEnvelope<T>(result: CommandResult<T>): Envelope<T> {
   };
   if (result.facts && Object.keys(result.facts).length > 0) envelope.facts = result.facts;
   if (result.actions && result.actions.length > 0) envelope.actions = result.actions;
-  if (result.evidence && Object.keys(result.evidence).length > 0) envelope.evidence = result.evidence;
+  if (result.evidence && result.evidence.length > 0) envelope.evidence = result.evidence;
   if (typeof result.confidence === "number") envelope.confidence = result.confidence;
   if (result.data !== undefined) envelope.data = result.data;
   if (result.error) envelope.error = result.error;
@@ -81,7 +81,7 @@ export function validateEnvelope(value: unknown): { ok: boolean; problems: strin
   if (typeof env["summary"] !== "string") problems.push("summary must be a string");
   if (env["facts"] !== undefined && (typeof env["facts"] !== "object" || Array.isArray(env["facts"]))) problems.push("facts must be an object");
   if (env["actions"] !== undefined && !Array.isArray(env["actions"])) problems.push("actions must be an array");
-  if (env["confidence"] !== undefined && !(typeof env["confidence"] === "number" && env["confidence"] >= 0 && env["confidence"] <= 100)) problems.push("confidence must be 0-100");
+  if (env["confidence"] !== undefined && !(typeof env["confidence"] === "number" && env["confidence"] >= 0 && env["confidence"] <= 1)) problems.push("confidence must be 0-1");
   if (env["error"] !== undefined) {
     const err = env["error"] as Record<string, unknown>;
     if (typeof err["code"] !== "string" || typeof err["message"] !== "string") problems.push("error must have code and message strings");
@@ -90,30 +90,36 @@ export function validateEnvelope(value: unknown): { ok: boolean; problems: strin
   return { ok: problems.length === 0, problems };
 }
 
-// --agent renderer: one line of key=value pairs. Big payloads become refs so
-// the line stays greppable.
+// --agent renderer: stable key=value, one per line. Big payloads become refs
+// so values stay greppable; values containing spaces are quoted.
 export function renderAgentLine(result: CommandResult): string {
-  const parts = [
+  const lines = [
     `spec_version=${ENVELOPE_SPEC_VERSION}`,
     "mode=agent",
     `command=${result.command}`,
     `status=${result.status}`,
-    `summary=${sanitize(result.summary)}`,
   ];
+  if (result.summary) lines.push(`summary=${agentValue(result.summary)}`);
   if (result.facts) {
     for (const [k, v] of Object.entries(result.facts)) {
-      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") parts.push(`${k}=${sanitize(String(v))}`);
+      if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") lines.push(`fact.${k}=${agentValue(String(v))}`);
     }
   }
-  if (result.error) parts.push(`error_code=${result.error.code}`);
-  if (typeof result.confidence === "number") parts.push(`confidence=${result.confidence}`);
+  if (result.error) lines.push(`error.code=${result.error.code}`);
+  if (typeof result.confidence === "number") lines.push(`confidence=${result.confidence}`);
   if (result.data !== undefined && result.data !== null && typeof result.data === "object") {
     const ref = dataRef(result.data);
-    if (ref) parts.push(`data_ref=${ref}`);
+    if (ref) lines.push(`data_ref=${ref}`);
   }
   const firstAction = result.actions?.[0];
-  if (firstAction) parts.push(`next=${sanitize(firstAction.command)}`);
-  return parts.join(" ");
+  if (firstAction) lines.push(`action.next=${agentValue(firstAction.command)}`);
+  return lines.join("\n");
+}
+
+function agentValue(v: string): string {
+  const sanitized = sanitize(v);
+  if (/\s/.test(sanitized)) return JSON.stringify(sanitized);
+  return sanitized;
 }
 
 function sanitize(v: string): string {

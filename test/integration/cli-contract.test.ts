@@ -62,7 +62,7 @@ describe("CLI output contract (--json)", () => {
     const env = JSON.parse(stdout);
     expect(["success", "partial"]).toContain(env.status);
     expect(env.facts.degraded_layers).toContain("playwright-browser");
-    expect(env.evidence.run_id).toMatch(/^collect-/);
+    expect(env.evidence.join(" ")).toMatch(/run_id=collect-/);
   });
 
   test("unknown command fails with a non-zero exit and error envelope", () => {
@@ -76,13 +76,17 @@ describe("CLI output contract (--json)", () => {
 });
 
 describe("CLI --agent renderer", () => {
-  test("single key=value line with the mandatory keys", () => {
+  test("key=value lines with the mandatory keys", () => {
     const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
     runCli(home, ["profile", "create", "--name", "p1"]);
     const { stdout, exitCode } = runCli(home, ["profile", "show", "--agent"]);
     expect(exitCode).toBe(0);
-    expect(stdout.trim().split("\n")).toHaveLength(1);
-    const kv = Object.fromEntries(stdout.trim().split(" ").map((p) => p.split("=")));
+    const lines = stdout.trim().split("\n");
+    expect(lines.length).toBeGreaterThan(4);
+    const kv = Object.fromEntries(lines.map((line) => {
+      const eq = line.indexOf("=");
+      return [line.slice(0, eq), line.slice(eq + 1)];
+    }));
     expect(kv.spec_version).toBe("1.0");
     expect(kv.mode).toBe("agent");
     expect(kv.command).toBe("radar.profile.show");

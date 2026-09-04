@@ -118,7 +118,7 @@ export async function collectAction(deps: AppDeps, events?: EventWriter): Promis
     status,
     summary: `Collected ${summary.items} items (${summary.snapshots} snapshots); ${summary.degradedLayers.length} layer(s) degraded.`,
     facts: { date: summary.date, items: summary.items, snapshots: summary.snapshots, degraded_layers: summary.degradedLayers.join(",") || "none" },
-    evidence: { run_id: summary.runId },
+    evidence: [`run_id=${summary.runId}`],
     data: summary as unknown as Record<string, unknown>,
     exitCode: 0,
     runId: summary.runId,
@@ -135,7 +135,7 @@ export async function scoreAction(deps: AppDeps, date?: string): Promise<Command
     status: summary.scored === 0 ? "partial" : "success",
     summary: `Scored ${summary.scored} items for ${day}${summary.lowConfidence > 0 ? `; ${summary.lowConfidence} below confidence gate` : ""}.`,
     facts: { date: day, scored: summary.scored, low_confidence: summary.lowConfidence },
-    evidence: { run_id: id },
+    evidence: [`run_id=${id}`],
     exitCode: 0,
   };
 }
@@ -150,7 +150,7 @@ export function clusterBuildAction(deps: AppDeps, date?: string): CommandResult 
     status: "success",
     summary: `Built ${outcome.clusters} opportunity clusters (${outcome.items} member items) for ${day}.`,
     facts: { date: day, clusters: outcome.clusters, items: outcome.items },
-    evidence: { run_id: id },
+    evidence: [`run_id=${id}`],
     exitCode: 0,
   };
 }
@@ -241,7 +241,7 @@ export async function dailyRunAction(deps: AppDeps, events?: EventWriter): Promi
       edition_status: edition?.status ?? "skipped",
       degraded: collectSummary.degradedLayers.length > 0,
     },
-    evidence: { run_id: dailyId, contract: card.contract, edition_ref: edition?.editionRef },
+    evidence: [`run_id=${dailyId}`, `contract=${card.contract}`, `edition_ref=${edition?.editionRef ?? ""}`],
     data: { card, edition } as unknown as Record<string, unknown>,
     exitCode: 0,
     runId: dailyId,

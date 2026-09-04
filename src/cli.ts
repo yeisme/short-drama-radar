@@ -325,7 +325,7 @@ function cardCommand(date: string | undefined, db: RadarDb): CommandResult {
     status: card.sourceStatus.degraded ? "partial" : "success",
     summary: `Card ${card.contract} for ${day}: ${card.top.douyin.length} douyin + ${card.top.xiaohongshu.length} xiaohongshu.`,
     facts: { date: day, contract: card.contract, degraded: card.sourceStatus.degraded },
-    evidence: { run_id: id },
+    evidence: [`run_id=${id}`],
     data: card as unknown as Record<string, unknown>,
     exitCode: 0,
   };
@@ -486,7 +486,7 @@ function auditCommand(sub: string | undefined, args: Args): CommandResult {
 
 // --- helpers ----------------------------------------------------------------
 
-function ok(command: string, summary: string, facts: Record<string, unknown>, opts: { actions?: { name: string; command: string }[]; data?: unknown; evidence?: Record<string, unknown> } = {}): CommandResult {
+function ok(command: string, summary: string, facts: Record<string, unknown>, opts: { actions?: { name: string; command: string }[]; data?: unknown; evidence?: string[] } = {}): CommandResult {
   return {
     command,
     status: "success",
