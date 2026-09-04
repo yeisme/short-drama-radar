@@ -1,6 +1,6 @@
 # Personal Drama Radar CLI / MCP / Hermes 接口
 
-状态：M1–M4 已实现（代码真源 `src/cli.ts`、`src/app/actions.ts`、`src/mcp/`；canary 4.2/5.2–5.4 为外部时间门）。实施真源为 [`personalized-radar-agent-experience-v1`](../../openspec/changes/personalized-radar-agent-experience-v1/)；四层采集与 `short-drama-radar.card.v1` 仍由 [`establish-crawler-first-radar`](../../openspec/changes/establish-crawler-first-radar/) 跟踪。
+状态：M1–M4 已实现（代码真源 `src/cli.ts`、`src/app/actions.ts`、`src/mcp/`；canary 4.2/5.2–5.4 为外部时间门）。实施真源为 [`personalized-radar-agent-experience-v1`](../../openspec/changes/archive/2026-09-03-personalized-radar-agent-experience-v1/)；四层采集与 `short-drama-radar.card.v1` 仍由 [`establish-crawler-first-radar`](../../openspec/changes/archive/2026-09-03-establish-crawler-first-radar/) 跟踪。
 
 ## 1. 接口原则
 

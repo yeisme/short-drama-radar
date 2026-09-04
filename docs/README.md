@@ -9,8 +9,8 @@
 - [hermes/radar-personal-brief-skill.md](hermes/radar-personal-brief-skill.md)：Hermes 用户级本地 Skill 草案（reader lane 只读简报；4.2 canary 前不发布公共 Skill）。
 - [hermes/canary-runbook.md](hermes/canary-runbook.md)：单人 14 天 canary 与 5.3 隔离 Profile 验证操作手册（含通过门与脱敏记录表）。
 - [hermes/transcript-sample.md](hermes/transcript-sample.md)：脱敏 dry-run transcript 样例（ready/absent/empty 三态与边界核查）。
-- [OpenSpec: personalized-radar-agent-experience-v1](../openspec/changes/personalized-radar-agent-experience-v1/)：Profile、反馈、机会、Edition、CLI/MCP 和 canary 的实施真源。
-- [OpenSpec: establish-crawler-first-radar](../openspec/changes/establish-crawler-first-radar/)：四层采集、快照、标准化、基础评分与 `short-drama-radar.card.v1` 兼容输出。
+- [OpenSpec: personalized-radar-agent-experience-v1](../openspec/changes/archive/2026-09-03-personalized-radar-agent-experience-v1/)：Profile、反馈、机会、Edition、CLI/MCP 和 canary 的实施真源。
+- [OpenSpec: establish-crawler-first-radar](../openspec/changes/archive/2026-09-03-establish-crawler-first-radar/)：四层采集、快照、标准化、基础评分与 `short-drama-radar.card.v1` 兼容输出。
 
 ## 合同
 
@@ -21,7 +21,7 @@
 ## Optional consumers（不由本子项目背书实现）
 
 Workbench Personal Radar Lens 与 DSH Drama Radar Pane 是 optional consumer：各自实现归
-[change `personalized-radar-agent-experience-v1`](../openspec/changes/personalized-radar-agent-experience-v1/) 跟踪；Radar 只承诺
+[change `personalized-radar-agent-experience-v1`](../openspec/changes/archive/2026-09-03-personalized-radar-agent-experience-v1/) 跟踪；Radar 只承诺
 `docs/interfaces/mcp-handoff-fixtures.json` 中的稳定表面，客户端实现不是 Radar 的完成条件。
 
 后续文档按实际实施补充：Hermes 本地 canary runbook、评分/排序演进、账号池运维和外部消费者对接。
