@@ -1,13 +1,16 @@
 import { emptyResult, type Adapter, type AdapterContext, type FetchResult, type RawItem } from "./types.ts";
 import { AccountPool, type AccountPlatform, type PoolAccount } from "../accounts/pool.ts";
+import { openSecretStore, type SecretStore } from "./secrets.ts";
 
 // Layer 2: Playwright browser fallback with fixed account↔proxy pairing,
 // least-recently-used rotation, a daily quota, and a 24h circuit breaker on
-// captcha/risk control. The playwright module is optional at runtime (no hard
-// dependency): when it is missing, or the pool has no usable account, the
-// adapter degrades loudly instead of guessing. Credentials never enter this
-// file — the browser context reads them from the user secret store via the
-// account's credentialRef at flow time.
+// captcha/risk control. Login material (storageState) and proxy descriptors
+// resolve from the user secret store (adapters/secrets.ts) BEFORE any
+// browser launch — a missing credential or proxy is a loud degradation with
+// the exact fix, never an anonymous context or a silent direct connection.
+// Capability ceiling, by design: Layer 2 extraction yields no engagement
+// metrics (metrics: {}) and caps confidence at 50 — it is a degraded
+// fallback, never first-class evidence, and never invents numbers.
 
 export const PLAYWRIGHT_INSTALL_HINT = "bun add playwright (or playwright-core with PLAYWRIGHT_BROWSERS_PATH set)";
 
@@ -26,7 +29,28 @@ export interface BrowserSession {
 
 // Real session: dynamic import so a missing playwright module is a degraded
 // result, not a startup crash (and typecheck needs no hard dep).
-async function launchPlaywright(account: PoolAccount): Promise<BrowserSession> {
+async function launchPlaywright(account: PoolAccount, store: SecretStore = openSecretStore()): Promise<BrowserSession> {
+  // Resolve secret-store material FIRST so a misconfigured account fails
+  // before any browser launch (cheap fs checks, no wasted startup).
+  const credential = store.credential(account.credentialRef);
+  if (!credential) {
+    throw new BrowserUnavailableError(
+      `credential '${account.credentialRef}' not found in ${store.root} — export a Playwright storageState to ${account.credentialRef}.json (chmod 600)`,
+    );
+  }
+  const launchOpts: Record<string, unknown> = { headless: true };
+  // The account↔proxy pairing is fixed: an unresolvable proxyRef is an error,
+  // never a silent direct connection (the old code passed the opaque ref
+  // itself as the proxy server URL, which could only fail at launch).
+  if (account.proxyRef) {
+    const proxy = store.proxy(account.proxyRef);
+    if (!proxy) {
+      throw new BrowserUnavailableError(
+        `proxy descriptor '${account.proxyRef}' not found in ${store.root} — add ${account.proxyRef}.json { server: "http://host:port", ... } (credentials never enter the repo)`,
+      );
+    }
+    launchOpts["proxy"] = proxy;
+  }
   const mod = "playwright";
   let chromium: { launch(opts: Record<string, unknown>): Promise<unknown> };
   try {
@@ -35,12 +59,10 @@ async function launchPlaywright(account: PoolAccount): Promise<BrowserSession> {
   } catch {
     throw new BrowserUnavailableError(PLAYWRIGHT_INSTALL_HINT);
   }
-  const launchOpts: Record<string, unknown> = { headless: true };
-  if (account.proxyRef) launchOpts["proxy"] = { server: account.proxyRef }; // opaque ref resolved by secret store in production flows
   const browser = (await chromium.launch(launchOpts)) as Browser;
   return {
     async collect(platform: AccountPlatform, timeoutMs: number) {
-      const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: credential.storageState });
       const page = await context.newPage();
       try {
         await page.goto(platform === "douyin" ? "https://www.douyin.com/hot" : "https://www.xiaohongshu.com/explore", {
@@ -122,7 +144,7 @@ export function makeBrowserAdapter(platform: AccountPlatform, deps: BrowserFlowD
         return emptyResult(`playwright-browser-${platform}`, 2, ["layer 2 skipped in fixture mode (offline run)"]);
       }
       const now = deps.now ?? (() => new Date());
-      const quota = deps.dailyQuota ?? 200;
+      const quota = deps.dailyQuota ?? ctx.dailyQuotaPerAccount ?? 200;
       let pool = deps.pool;
       if (!pool) {
         const path = ctx.accountsPath ?? defaultPoolPath();

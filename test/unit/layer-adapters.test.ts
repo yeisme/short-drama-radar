@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { backendCommand, normalizeXhsItems, probeXhsBackend, probeXhsReadiness, XHS_MCP_START_COMMAND } from "../../src/adapters/agentreach-xhs.ts";
 import { normalizeSearch, searchQuery } from "../../src/adapters/douyin-signed.ts";
-import { extractFromHtml, detectRiskControl } from "../../src/adapters/browser.ts";
+import { extractFromHtml, detectRiskControl, makeBrowserAdapter } from "../../src/adapters/browser.ts";
 import { AccountPool } from "../../src/accounts/pool.ts";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -270,5 +270,45 @@ describe("risk-control detection is visible-challenge based (B7)", () => {
     expect(detectRiskControl({ url: "https://www.douyin.com/verify?...", title: "抖音", visibleMarkers: [] })).toBe(true);
     expect(detectRiskControl({ url: "https://www.xiaohongshu.com/explore", title: "安全验证", visibleMarkers: [] })).toBe(true);
     expect(detectRiskControl({ url: "https://www.douyin.com/hot", title: "抖音热榜", visibleMarkers: ["#captcha-verification"] })).toBe(true);
+  });
+});
+
+describe("Layer 2 secret-store gating (unlock)", () => {
+  const ctx = { firecrawlBaseUrl: "unused", agentReachBin: "unused", timeoutMs: 1000 };
+
+  test("missing credential file degrades with the exact hint, no anonymous context", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "radar-l2-gate-"));
+    writeFileSync(join(dir, "accounts.json"), JSON.stringify({
+      version: 1,
+      accounts: [{ id: "xhs-01", platform: "xiaohongshu", handleMasked: "x***1", credentialRef: "xhs-01", status: "active", dailyUsed: 0 }],
+    }));
+    const secretsRoot = join(dir, "secrets");
+    mkdirSync(secretsRoot, { recursive: true });
+    process.env.RADAR_SECRETS_DIR = secretsRoot;
+    const adapter = makeBrowserAdapter("xiaohongshu");
+    const result = await adapter.fetch({ ...ctx, accountsPath: join(dir, "accounts.json") });
+    expect(result.degraded).toBe(true);
+    expect(result.items).toEqual([]);
+    expect(result.errors[0]).toContain("credential 'xhs-01' not found");
+    expect(result.errors[0]).toContain("storageState");
+    delete process.env.RADAR_SECRETS_DIR;
+  });
+
+  test("unresolvable proxyRef is an error, never a silent direct connection", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "radar-l2-proxy-"));
+    writeFileSync(join(dir, "accounts.json"), JSON.stringify({
+      version: 1,
+      accounts: [{ id: "dy-01", platform: "douyin", handleMasked: "d***1", credentialRef: "dy-01", proxyRef: "proxy-a", status: "active", dailyUsed: 0 }],
+    }));
+    const secretsRoot = join(dir, "secrets");
+    mkdirSync(secretsRoot, { recursive: true });
+    // credential exists, proxy descriptor does not
+    writeFileSync(join(secretsRoot, "dy-01.json"), JSON.stringify({ cookies: [] }), { mode: 0o600 });
+    process.env.RADAR_SECRETS_DIR = secretsRoot;
+    const adapter = makeBrowserAdapter("douyin");
+    const result = await adapter.fetch({ ...ctx, accountsPath: join(dir, "accounts.json") });
+    expect(result.degraded).toBe(true);
+    expect(result.errors[0]).toContain("proxy descriptor 'proxy-a' not found");
+    delete process.env.RADAR_SECRETS_DIR;
   });
 });

@@ -5,7 +5,7 @@
   "root_consumers": [
     "openspec/changes/personalized-short-drama-radar-experience-v1"
   ],
-  "capability_digest_note": "Digest over the capability table below (sorted canonical JSON). Workbench/DSH consumers must verify against live 'radar mcp capabilities' output, not trust this snapshot blindly.",
+  "capability_digest_note": "Digest over the capability table below (sorted canonical JSON). Workbench/DSH consumers must verify against live 'radar mcp capabilities' output, not trust this snapshot blindly. layer2_browser_fallback is DERIVED from the live environment (playwright module + chromium executable + account pool + secret store) — this snapshot records the reference (unprovisioned) floor 'blocked'; a provisioned machine may report ready with no reasons.",
   "tools": [
     {
       "name": "radar.search",

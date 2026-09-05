@@ -14,7 +14,7 @@ import { buildEdition, DEFAULT_LIMIT, editionByRef, latestEdition } from "./pipe
 import { opportunityReviews } from "./db/schema.ts";
 import { ProfileService, ProfileError, type ProfileRecord } from "./profile/service.ts";
 import { buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir } from "./schedule.ts";
-import { probeRuntime } from "./diagnostics.ts";
+import { probeRuntime, probeLayer2 } from "./diagnostics.ts";
 import { auditPath, tailAudit } from "./mcp/audit.ts";
 import { capabilities } from "./mcp/server.ts";
 import { RADAR_HOME } from "./config.ts";
@@ -472,7 +472,7 @@ async function mcpCommand(sub: string | undefined, args: Args, cfg: RadarConfig,
     };
   }
   if (sub === "capabilities") {
-    const caps = capabilities({ cfg, db, profiles: new ProfileService(db) });
+    const caps = capabilities({ cfg, db, profiles: new ProfileService(db) }, await probeLayer2(cfg));
     return ok("radar.mcp.capabilities", `${caps.filter((c) => c.status === "ready").length}/${caps.length} capabilities ready; planned/blocked/unavailable are never advertised as ready.`, {
       total: caps.length,
       ready: caps.filter((c) => c.status === "ready").length,

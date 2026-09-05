@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "drizzle-orm": "^0.44.2"
+    "drizzle-orm": "^0.44.2",
+    "playwright": "^1.63.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

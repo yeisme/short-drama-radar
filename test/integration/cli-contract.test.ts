@@ -170,8 +170,12 @@ describe("doctor probes", () => {
     if (checks["xhs-backend"].status === "blocked") {
       expect(checks["xhs-backend"].nextCommand).toMatch(/agent-reach|xiaohongshu-mcp|get_login_qrcode/);
     }
-    expect(checks.playwright.status).toBe("unavailable");
-    expect(checks.playwright.nextCommand).toBe("bun add playwright");
+    // playwright is a hard dependency now; the honest gap is the chromium
+    // executable (degraded) on machines without `playwright install chromium`.
+    expect(["ok", "degraded"]).toContain(checks.playwright.status);
+    if (checks.playwright.status === "degraded") {
+      expect(checks.playwright.nextCommand).toBe("bunx playwright install chromium");
+    }
   }, 45_000);
 
   test("mcp capabilities discloses ready/planned/blocked honestly", () => {
@@ -183,6 +187,13 @@ describe("doctor probes", () => {
     const caps = Object.fromEntries(env.data.map((c: { capability: string; status: string }) => [c.capability, c.status]));
     expect(caps["mcp_stdio_lanes"]).toBe("ready");
     expect(caps["remote_mcp_endpoint"]).toBe("unavailable");
+    // layer2 is derived from the live environment: honestly blocked with
+    // named reasons until every prerequisite is provisioned.
+    expect(["blocked", "ready"]).toContain(caps["layer2_browser_fallback"]);
+    if (caps["layer2_browser_fallback"] === "blocked") {
+      const entry = env.data.find((c: { capability: string }) => c.capability === "layer2_browser_fallback");
+      expect((entry?.reasons ?? []).length).toBeGreaterThan(0);
+    }
     expect(caps["a2a"]).toBe("unavailable");
     expect(caps["multi_user"]).toBe("unavailable");
     expect(caps["hermes_local_canary"]).toBe("planned");

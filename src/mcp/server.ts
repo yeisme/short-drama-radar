@@ -26,7 +26,7 @@ import {
 import { latestEdition, editionByRef } from "../pipeline/edition.ts";
 import { opportunityByRef } from "../pipeline/opportunity.ts";
 import { rankOpportunities } from "../pipeline/ranker.ts";
-import { localSourceStatus } from "../diagnostics.ts";
+import { localSourceStatus, probeLayer2 } from "../diagnostics.ts";
 
 // radar mcp --transport stdio --lane reader|curator|operator
 // stdout carries only JSON-RPC frames; diagnostics go to stderr. Lane
@@ -353,17 +353,23 @@ async function readResource(deps: AppDeps, uri: string): Promise<string> {
     return JSON.stringify(status, null, 2);
   }
   if (uri === "radar://capabilities") {
-    return JSON.stringify(capabilities(deps), null, 2);
+    return JSON.stringify(capabilities(deps, await probeLayer2(deps.cfg)), null, 2);
   }
   return JSON.stringify({ error: "resource_not_found", uri });
 }
 
-export function capabilities(deps: AppDeps): Array<{ capability: string; status: "ready" | "planned" | "blocked" | "unavailable"; next_action?: string }> {
+export function capabilities(deps: AppDeps, layer2?: { ok: boolean; reasons: string[]; nextCommand?: string }): Array<{ capability: string; status: "ready" | "planned" | "blocked" | "unavailable"; next_action?: string; reasons?: string[] }> {
   void deps;
+  // Derived from the live environment (module + chromium + pool + secret
+  // store) instead of a hardcoded "blocked" — the published handoff fixture
+  // keeps "blocked" as the reference-environment floor.
+  const layer2Entry = layer2
+    ? { capability: "layer2_browser_fallback", status: (layer2.ok ? "ready" : "blocked") as "ready" | "blocked", ...(layer2.ok ? {} : { next_action: layer2.nextCommand ?? "radar doctor --json", reasons: layer2.reasons }) }
+    : { capability: "layer2_browser_fallback", status: "blocked" as const, next_action: "provision playwright + accounts + secret store (radar doctor --json)" };
   return [
     { capability: "cli", status: "ready" },
     { capability: "collection_layers_0_1", status: "ready" },
-    { capability: "layer2_browser_fallback", status: "blocked", next_action: "bun add playwright + add account descriptors (login state: user secret store)" },
+    layer2Entry,
     { capability: "personal_profile_feedback", status: "ready" },
     { capability: "opportunity_edition", status: "ready" },
     { capability: "mcp_stdio_lanes", status: "ready" },

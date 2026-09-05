@@ -43,6 +43,7 @@ export function adapterContext(deps: AppDeps): AdapterContext {
     timeoutMs: 60_000,
     fixtureDir: process.env.RADAR_FIXTURE_DIR,
     accountsPath: deps.cfg.accountsPath,
+    dailyQuotaPerAccount: deps.cfg.accountPool.dailyQuotaPerAccount,
   };
 }
 

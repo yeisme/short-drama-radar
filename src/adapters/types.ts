@@ -33,6 +33,7 @@ export interface AdapterContext {
   timeoutMs: number;
   fixtureDir?: string; // tests inject fixtures here; live runs leave it empty
   accountsPath?: string; // Layer 2 account pool descriptor file (user-level, no credentials)
+  dailyQuotaPerAccount?: number; // Layer 2 quota policy from config (browser adapter)
 }
 
 export function emptyResult(name: string, layer: number, errors: string[]): FetchResult {

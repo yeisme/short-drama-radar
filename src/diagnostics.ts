@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { probeXhsBackend, probeXhsReadiness } from "./adapters/agentreach-xhs.ts";
+import { openSecretStore, SecretsError } from "./adapters/secrets.ts";
 import type { RadarConfig } from "./config.ts";
 import { SCHEDULE_NEXT_STEPS } from "./schedule.ts";
 
@@ -53,7 +54,7 @@ export async function probeRuntime(cfg: RadarConfig, opts: { fetchImpl?: typeof 
   checks["account-pool"] = checkAccountPool(cfg.accountsPath);
 
   // Scheduler wiring.
-  const timerPath = join(process.env.HOME ?? "~", ".config/systemd/user/short-drama-radar-collect.timer");
+  const timerPath = join(process.env.HOME ?? "/tmp", ".config/systemd/user/short-drama-radar-collect.timer");
   if (!existsSync(timerPath)) {
     checks["schedule"] = { status: "unavailable", detail: "systemd timer not installed", nextCommand: "radar schedule install" };
   } else {
@@ -82,14 +83,19 @@ function checkDouyinCookie(): CheckResult {
 }
 
 async function checkPlaywright(): Promise<CheckResult> {
-  // Module availability only (probe by import, no browser launch).
+  // Module + chromium executable (no browser launch).
   const mod = "playwright";
+  let chromium: { executablePath?: () => string } | undefined;
   try {
-    await import(/* webpackIgnore: true */ mod);
-    return { status: "ok", detail: "playwright module importable" };
+    chromium = ((await import(/* webpackIgnore: true */ mod)) as { chromium?: { executablePath?: () => string } }).chromium;
   } catch {
     return { status: "unavailable", detail: "playwright module not installed", nextCommand: "bun add playwright" };
   }
+  const executable = chromium?.executablePath?.();
+  if (!executable || !existsSync(executable)) {
+    return { status: "degraded", detail: "playwright module importable but the chromium executable is not installed", nextCommand: "bunx playwright install chromium" };
+  }
+  return { status: "ok", detail: `playwright module + chromium (${executable})` };
 }
 
 function checkAccountPool(poolPath: string): CheckResult {
@@ -137,5 +143,69 @@ export async function localSourceStatus(
   return {
     checks,
     note: "local state only; live probes (firecrawl reachability, xiaohongshu backend/login) are CLI-only via `radar doctor`",
+  };
+}
+
+// Layer 2 readiness: every prerequisite is checked explicitly and every gap
+// produces a named reason. Contents of secret files are never read here —
+// only their presence (and mode) for the accounts the pool would rotate to.
+export interface Layer2Readiness {
+  ok: boolean;
+  reasons: string[];
+  nextCommand?: string;
+}
+
+export async function probeLayer2(cfg: RadarConfig): Promise<Layer2Readiness> {
+  const reasons: string[] = [];
+  let executablePath: (() => string) | null = null;
+  try {
+    const mod = (await import(/* webpackIgnore: true */ "playwright")) as { chromium?: { executablePath?: () => string } };
+    executablePath = mod.chromium?.executablePath ?? null;
+    if (!executablePath) reasons.push("playwright module has no chromium export");
+  } catch {
+    reasons.push("playwright module not installed");
+  }
+  if (executablePath) {
+    // executablePath() throws when no browser was ever downloaded; a missing
+    // path means the same thing — either way chromium is not usable.
+    let installed = false;
+    try {
+      installed = existsSync(executablePath());
+    } catch {
+      installed = false;
+    }
+    if (!installed) reasons.push("chromium executable not installed (run: bunx playwright install chromium)");
+  }
+  if (!existsSync(cfg.accountsPath)) {
+    reasons.push(`no account pool descriptor at ${cfg.accountsPath}`);
+  } else {
+    let accounts: Array<{ platform?: string; status?: string; credentialRef?: string; proxyRef?: string }> = [];
+    try {
+      accounts = (JSON.parse(readFileSync(cfg.accountsPath, "utf8")) as { accounts?: typeof accounts }).accounts ?? [];
+    } catch {
+      reasons.push(`account pool descriptor is not valid JSON: ${cfg.accountsPath}`);
+    }
+    const active = accounts.filter((a) => a.status === "active");
+    if (active.length === 0) reasons.push("no active accounts in pool descriptors");
+    try {
+      const store = openSecretStore();
+      for (const account of active) {
+        const ref = account.credentialRef;
+        if (!ref || !existsSync(join(store.root, `${ref}.json`))) {
+          reasons.push(`credential '${ref ?? "?"}' missing in ${store.root}`);
+        }
+        if (account.proxyRef && !existsSync(join(store.root, `${account.proxyRef}.json`))) {
+          reasons.push(`proxy descriptor '${account.proxyRef}' missing in ${store.root}`);
+        }
+      }
+    } catch (err) {
+      if (err instanceof SecretsError) reasons.push(err.message);
+      else reasons.push(`secret store unavailable: ${(err as Error).message}`);
+    }
+  }
+  return {
+    ok: reasons.length === 0,
+    reasons,
+    nextCommand: reasons.length === 0 ? undefined : "radar doctor --json",
   };
 }

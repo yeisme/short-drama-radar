@@ -16,8 +16,8 @@ export interface RadarConfig {
     douyinKeyword: string;
   };
   accountPool: {
-    xiaohongshu: number;
-    douyin: number;
+    // Pool membership per platform comes from the account descriptors; the
+    // only pool policy here is the per-account daily quota.
     dailyQuotaPerAccount: number;
   };
   schedule: {
@@ -43,8 +43,6 @@ export const defaultConfig: RadarConfig = {
     douyinKeyword: "短剧",
   },
   accountPool: {
-    xiaohongshu: 3,
-    douyin: 3,
     dailyQuotaPerAccount: 200,
   },
   schedule: {
