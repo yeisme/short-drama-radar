@@ -11,12 +11,23 @@ export interface StreamEvent {
 }
 
 export class EventWriter {
+  // The most recently constructed writer for this process, so a command
+  // failure after the stream started can still terminate the stream with a
+  // final error event (seq continuity preserved).
+  private static last: EventWriter | undefined;
+
   private seq = 0;
 
   constructor(
     private readonly runId: string,
     private readonly write: (line: string) => void = (l) => console.log(l),
-  ) {}
+  ) {
+    EventWriter.last = this;
+  }
+
+  static active(): EventWriter | undefined {
+    return EventWriter.last;
+  }
 
   emit(event: Omit<StreamEvent, "seq" | "run_id" | "ts">): void {
     this.seq++;

@@ -97,7 +97,15 @@ async function main(): Promise<void> {
     process.exit(result.exitCode);
   } catch (err) {
     const result = errorResult(commandId(args.command), err);
-    emit(result, args);
+    if (args.mode === "events") {
+      // Contract: once the stream has started (or the command intended to
+      // start one), the LAST line must be the error event — never a bare
+      // envelope and never a silent empty stream.
+      const writer = EventWriter.active() ?? new EventWriter(commandId(args.command));
+      writer.error(result.error?.code ?? "command_failed", result.error?.message ?? String(err));
+    } else {
+      emit(result, args);
+    }
     process.exit(result.exitCode);
   }
 }

@@ -5,8 +5,8 @@
 - [x] 1.3 B5 `radar run` 补记 collect 回执 + CLI 级测试
 - [x] 1.4 B2 spread 读 `comment_count`（黄金测试 1540→1628）+ B3 增量生产/消费 + 量纲统一 + 测试
 - [x] 1.5 金样 digest 重录（结构断言不变）
-- [ ] 2.1 B4 `radar import --csv` 最小导入（RFC4180 子集、坏行显式、merge 复用、kind="import" 回执）+ 测试
-- [ ] 2.2 F4 --events 失败末行 error 事件 + 集成测试；同步 mcp-cli-interaction.md §3.3/3.4 事件字段文档
+- [x] 2.1 B4 `radar import --csv` 最小导入（RFC4180 子集、坏行显式、merge 复用、kind="import" 回执）+ 测试
+- [x] 2.2 F4 --events 失败末行 error 事件 + 集成测试；同步 mcp-cli-interaction.md §3.3/3.4 事件字段文档
 - [ ] 3.1 F5 edition sourceRunRefs 有序当日过滤 + cli runs 列表排序
 - [ ] 3.2 F6 频率分母排除当日 + 多 topic + untagged=0 + 同日双跑确定性测试
 - [ ] 3.3 F8 persistOpportunities 事务 + 回滚测试

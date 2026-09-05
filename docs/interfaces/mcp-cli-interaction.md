@@ -142,23 +142,25 @@ command=radar.edition.show
 status=success
 fact.edition_ref=edition-2026-08-29-personal-r3
 fact.profile_revision=3
-metric.entries=5
+fact.entries=5
 fact.degraded=true
-action.detail="radar edition show edition-2026-08-29-personal-r3 --json"
+action.next="radar edition show edition-2026-08-29-personal-r3 --json"
 ```
 
-必填键只有 `spec_version/mode/command/status`；其余使用 `fact.*`、`metric.*`、`action.*`、`evidence.*`、`error.*`。不内嵌完整 Edition 或原始指标。
+必填键只有 `spec_version/mode/command/status`；其余使用 `fact.*`（含计数类值）、`action.next`、`evidence.*`、`error.*`（失败时）。可重复 flag（如 `--topic revenge:80`）逐个传递，不支持逗号合并语法。不内嵌完整 Edition 或原始指标。
 
 ### 3.4 `--events`
 
-`collect` 与 `run` 支持 NDJSON：
+`collect` 与 `run` 支持 NDJSON，每行含递增 `seq`、`run_id`、`ts` 与 `event` 类型（`start|layer|item|stage|end|error`）：
 
 ```json
-{"type":"start","spec_version":"1.0","command":"radar.run","seq":1,"run_id":"run-..."}
-{"type":"progress","stage":"collect","seq":2,"run_id":"run-..."}
-{"type":"progress","stage":"edition","seq":6,"run_id":"run-..."}
-{"type":"end","status":"partial","seq":7,"run_id":"run-..."}
+{"seq":1,"run_id":"collect-2026-08-29T08:10:00.000Z","ts":"...","event":"start","command":"radar.run"}
+{"seq":2,"run_id":"collect-...","ts":"...","event":"layer","source":"firecrawl-douyin","degraded":false,"items":5}
+{"seq":6,"run_id":"collect-...","ts":"...","event":"stage","stage":"edition","status":"ready","entries":5}
+{"seq":7,"run_id":"collect-...","ts":"...","event":"end","status":"partial"}
 ```
+
+stream 开始后的失败以最终 `error` 事件（含 `code` 与 `message`）收尾并返回非零退出码；seq 在同一进程内保持连续（包括 main catch 兜底输出的终态 error 事件）。
 
 stream 开始后失败，最后一行必须是 `error`，进程保留非零退出码。stdout 不混入诊断文本。
 
