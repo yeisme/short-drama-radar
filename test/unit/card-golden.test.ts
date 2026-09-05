@@ -48,11 +48,13 @@ describe("short-drama-radar.card.v1 golden", () => {
     const digest = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
     // Re-recorded during pre-release acceptance after enforcing the specified
     // confidence>=60 automatic-entry gate, and again in
-    // radar-pipeline-correctness-v1 when the spread signal started reading the
-    // normalized comment_count key (comment engagement was previously dropped
-    // by a key misspelling) and engagement deltas became preferred. Field/schema
-    // compatibility is unchanged.
-    expect(digest).toBe("ce332d4d25149eda113368887b79c40daa955e8d0e06f760fe3683862effac31");
+    // radar-pipeline-correctness-v1 when (1) the spread signal started reading
+    // the normalized comment_count key (comment engagement was previously
+    // dropped by a key misspelling) with engagement deltas preferred, and (2)
+    // topic-frequency stopped awarding unseen/untagged topics the maximum
+    // topic signal (`?? 1` with an empty history). Field/schema compatibility
+    // is unchanged.
+    expect(digest).toBe("38e0644f3797d7bd83a958f4f09d68e1491303d8eca0ea78b3ea547b5e02f4dc");
   });
 
   test("legacy 0.0.x envelope draft is preserved as evidence, not contract", async () => {

@@ -59,7 +59,11 @@ export async function scoreDay(db: RadarDb, date: string): Promise<ScoreSummary>
       const tags = tagContent(row.title);
       const spreadNorm = (spreads[i] / maxSpread) * 100;
       const topics = tags.topics.length > 0 ? tags.topics : ["untagged"];
-      const topicNorm = Math.min(100, ((topicCounts.get(topics[0]) ?? 1) / Math.max(1, ...topicCounts.values())) * 100);
+      // Multi-topic content is represented by its strongest topic count; an
+      // unseen (or untagged) topic has frequency 0 — the old `?? 1` default
+      // handed brand-new topics the maximum topic signal for free.
+      const topicCount = Math.max(...topics.map((t) => topicCounts.get(t) ?? 0));
+      const topicNorm = Math.min(100, (topicCount / Math.max(1, ...topicCounts.values())) * 100);
       const hookNorm = (tags.hookDensity / 5) * 100;
       const emotionNorm = ((tags.emotionIntensity - 1) / 4) * 100;
       const score = Math.round(
@@ -76,15 +80,17 @@ export async function scoreDay(db: RadarDb, date: string): Promise<ScoreSummary>
   return summary;
 }
 
-// Topic frequency: occurrences in the last 7 days including today.
-// v0 falls back to same-day counts until 7 days of history exist.
+// Topic frequency: occurrences in the last 7 days STRICTLY BEFORE the scoring
+// day. Excluding today keeps the denominator independent of whether today's
+// rows were already tagged by a previous score run, so re-running score on
+// the same day is deterministic.
 function countTopicFrequencies(db: RadarDb, platform: string, date: string): Map<string, number> {
   const counts = new Map<string, number>();
   const recent = db.select().from(dailyItems)
     .where(and(eq(dailyItems.platform, platform), ne(dailyItems.date, "")))
     .orderBy(desc(dailyItems.date))
     .all()
-    .filter((r) => r.date <= date && r.date >= shiftDate(date, -7));
+    .filter((r) => r.date < date && r.date >= shiftDate(date, -7));
   for (const row of recent) {
     try {
       const tags = JSON.parse(row.tagsJson) as { topics?: string[] };

@@ -1,7 +1,7 @@
 import type { RadarConfig } from "../config.ts";
 import type { RadarDb } from "../db/client.ts";
 import { dailyItems, morningEditions, opportunityReviews, runs } from "../db/schema.ts";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import { collect, defaultAdapters, type CollectHooks } from "../pipeline/collect.ts";
 import { scoreDay } from "../pipeline/scoring.ts";
 import { buildCard } from "../pipeline/card.ts";
@@ -333,14 +333,16 @@ export function searchAction(deps: AppDeps, input: SearchInput): CommandResult {
   }
 
   if (input.view === "items") {
+    // Filter in SQL BEFORE the limit — applying a title filter after
+    // `.limit()` silently truncated matches beyond the first N rows.
     const where = [eq(dailyItems.date, date)];
     if (input.platform) where.push(eq(dailyItems.platform, input.platform));
+    if (input.query) where.push(like(dailyItems.title, `%${input.query}%`));
     const rows = deps.db.select().from(dailyItems)
-      .where(input.platform ? and(...where) : where[0]!)
+      .where(and(...where))
       .orderBy(desc(dailyItems.score))
       .limit(limit)
       .all()
-      .filter((r) => (input.query ? r.title.includes(input.query!) : true))
       .map((r) => ({ platform: r.platform, content_id: r.contentId, title: r.title.slice(0, 60), score: r.score, confidence: r.confidence, degraded: r.degraded === 1 }));
     return {
       command: "radar.search",

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { loadConfig, ensureRadarHome, type RadarConfig } from "./config.ts";
 import { openDb, type RadarDb } from "./db/client.ts";
+import { desc } from "drizzle-orm";
 import { runs } from "./db/schema.ts";
 import { collect, defaultAdapters } from "./pipeline/collect.ts";
 import { scoreDay } from "./pipeline/scoring.ts";
@@ -349,7 +350,8 @@ function cardCommand(date: string | undefined, db: RadarDb): CommandResult {
 }
 
 function runsCommand(db: RadarDb): CommandResult {
-  const rows = db.select().from(runs).all().slice(-20);
+  // Deterministic recency order, matching the radar://runs resource.
+  const rows = db.select().from(runs).orderBy(desc(runs.finishedAt)).limit(20).all();
   return ok("radar.runs", `${rows.length} recent run receipts.`, { runs: rows.length }, { data: rows });
 }
 

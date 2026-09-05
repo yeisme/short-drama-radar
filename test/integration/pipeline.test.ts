@@ -172,6 +172,25 @@ describe("cross-layer dedupe and re-observation (authority order)", () => {
   });
 });
 
+describe("same-day score determinism (F6)", () => {
+  test("re-running scoreDay on the same day does not drift stored scores", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "radar-det-"));
+    const db = openDb(join(dir, "t.db"));
+    const fixtureDir = new URL("../fixtures", import.meta.url).pathname;
+    const ctx = { firecrawlBaseUrl: "http://unused", agentReachBin: "unused", timeoutMs: 5_000, fixtureDir };
+    await collect(db, defaultAdapters(), ctx, new Date("2026-08-29T08:30:00Z"));
+    await scoreDay(db, "2026-08-29");
+    const first = db.select().from(dailyItems).all().map((r) => ({ id: r.id, score: r.score, isNew: r.isNew }))
+      .sort((a, b) => a.id - b.id);
+    // Tag some rows' topics into a PRIOR day so the frequency denominator has
+    // real history — then re-score today.
+    await scoreDay(db, "2026-08-29");
+    const second = db.select().from(dailyItems).all().map((r) => ({ id: r.id, score: r.score, isNew: r.isNew }))
+      .sort((a, b) => a.id - b.id);
+    expect(second).toEqual(first);
+  });
+});
+
 describe("daily run writes collect-kind receipts (B5)", () => {
   test("radar run leaves a collect receipt visible to card/health readers", () => {
     const home = mkdtempSync(join(tmpdir(), "radar-run-receipt-"));

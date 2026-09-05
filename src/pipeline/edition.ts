@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, like } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { morningEditions, morningEditionEntries, runs } from "../db/schema.ts";
 import type { PersonalProfileV1 } from "../profile/domain.ts";
@@ -97,7 +97,14 @@ export function buildEdition(
     degraded: r.opportunity.degraded,
   }));
 
-  const sourceRunRefs = db.select().from(runs).all().slice(-5).map((r) => r.id);
+  // Deterministic lineage: the day's most recent runs by start time, not an
+  // unordered slice of whatever SQLite returned last.
+  const sourceRunRefs = db.select().from(runs)
+    .where(like(runs.startedAt, `${date}%`))
+    .orderBy(desc(runs.startedAt))
+    .limit(5)
+    .all()
+    .map((r) => r.id);
   const evidenceDigest = `sha256:${createHash("sha256").update(opps.map((o) => o.evidenceDigest).sort().join(",")).digest("hex").slice(0, 16)}`;
   const editionRef = `edition-${date}-${createHash("sha256").update(`${profile.ref}|${profile.headRevision}|${generatedAt}`).digest("hex").slice(0, 8)}`;
   const digest = `sha256:${createHash("sha256").update(JSON.stringify({ editionRef, entries, status, evidenceDigest })).digest("hex").slice(0, 16)}`;
