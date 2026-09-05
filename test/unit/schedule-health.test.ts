@@ -27,7 +27,7 @@ describe("schedule units (task: systemd wiring)", () => {
   test("services are hardened oneshots with json envelopes to the journal", () => {
     const svc = units["short-drama-radar-collect.service"];
     expect(svc).toContain("Type=oneshot");
-    expect(svc).toContain("ExecStart=/usr/local/bin/bun /opt/radar/src/cli.ts collect --json");
+    expect(svc).toContain("ExecStart=/usr/bin/flock -w 600 %h/.short-drama-radar/radar.lock /usr/local/bin/bun /opt/radar/src/cli.ts collect --json");
     expect(svc).toContain("NoNewPrivileges=yes");
     expect(svc).toContain("PrivateTmp=yes");
     expect(svc).toContain('Environment="PATH=');

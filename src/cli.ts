@@ -201,7 +201,15 @@ function profileCommand(sub: string, args: Args, profiles: ProfileService): Comm
       }, { data: record.profile });
     }
     case "set": {
-      const patches = profilePatches(args);
+      // Supply the current range so a one-sided --episode-min/--episode-max
+      // keeps the other bound instead of resetting it to the default.
+      let currentRange: { min: number; max: number } | undefined;
+      try {
+        currentRange = profiles.show(first(args, "profile")).profile.episode_length_seconds;
+      } catch {
+        currentRange = undefined; // profile set requires an existing profile; show() failure surfaces in set()
+      }
+      const patches = profilePatches(args, currentRange);
       if (Object.keys(patches).length === 0) throw new CliError("fields_required", "profile set needs at least one field flag (e.g. --genre revenge:80)");
       const record = profiles.set(first(args, "profile"), patches);
       return ok("radar.profile.set", `Profile '${record.ref}' updated to revision ${record.headRevision} (immutable history preserved).`, {
@@ -222,7 +230,7 @@ function profileCommand(sub: string, args: Args, profiles: ProfileService): Comm
 }
 
 // Map repeatable CLI flags onto profile patches.
-function profilePatches(args: Args): Partial<import("./profile/domain.ts").PersonalProfileV1> {
+function profilePatches(args: Args, currentRange?: { min: number; max: number }): Partial<import("./profile/domain.ts").PersonalProfileV1> {
   const patches: Partial<import("./profile/domain.ts").PersonalProfileV1> = {};
   const weighted: [keyof import("./profile/domain.ts").PersonalProfileV1, string][] = [
     ["genres", "genre"],
@@ -253,11 +261,15 @@ function profilePatches(args: Args): Partial<import("./profile/domain.ts").Perso
   if (minFit !== undefined) patches.minimum_fit = Number(minFit);
   const minConf = first(args, "minimum-confidence");
   if (minConf !== undefined) patches.minimum_confidence = Number(minConf);
-  const range = patches.episode_length_seconds ?? undefined;
   const minLen = first(args, "episode-min");
   const maxLen = first(args, "episode-max");
   if (minLen !== undefined || maxLen !== undefined) {
-    patches.episode_length_seconds = { min: Number(minLen ?? range?.min ?? 60), max: Number(maxLen ?? range?.max ?? 180) };
+    // Unspecified bounds inherit the CURRENT profile's value when the caller
+    // supplies it (profile set); profile create falls back to the defaults.
+    // The old code reset the missing bound to a hardcoded 60/180, silently
+    // discarding the user's existing range.
+    const base = currentRange ?? { min: 60, max: 180 };
+    patches.episode_length_seconds = { min: Number(minLen ?? base.min), max: Number(maxLen ?? base.max) };
   }
   return patches;
 }

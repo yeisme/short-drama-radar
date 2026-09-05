@@ -204,3 +204,19 @@ describe("daily run writes collect-kind receipts (B5)", () => {
     expect(kinds).toContain("daily");
   });
 });
+
+describe("profile set episode bounds merge (F10)", () => {
+  const CLI = join(import.meta.dir, "../../src/cli.ts");
+  test("one-sided --episode-min/--episode-max keeps the other bound", () => {
+    const home = mkdtempSync(join(tmpdir(), "radar-ep-"));
+    const env = { ...process.env, RADAR_HOME: home, RADAR_DB_PATH: join(home, "radar.db") };
+    const run = (args: string[]) => Bun.spawnSync([process.execPath, CLI, ...args], { env });
+    expect(run(["profile", "create", "--name", "ep", "--episode-min", "60", "--episode-max", "300"]).exitCode).toBe(0);
+    expect(run(["profile", "set", "--episode-min", "90"]).exitCode).toBe(0);
+    const show = JSON.parse(run(["profile", "show", "--json"]).stdout.toString());
+    expect(show.data.episode_length_seconds).toEqual({ min: 90, max: 300 }); // max kept, not reset to 180
+    expect(run(["profile", "set", "--episode-max", "420"]).exitCode).toBe(0);
+    const show2 = JSON.parse(run(["profile", "show", "--json"]).stdout.toString());
+    expect(show2.data.episode_length_seconds).toEqual({ min: 90, max: 420 }); // min kept, not reset to 60
+  });
+});

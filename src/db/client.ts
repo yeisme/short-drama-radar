@@ -10,6 +10,10 @@ export function openDb(dbPath: string): RadarDb {
   mkdirSync(dirname(dbPath), { recursive: true });
   const sqlite = new Database(dbPath);
   sqlite.exec("PRAGMA journal_mode = WAL;");
+  // systemd timers (collect/score/card) and MCP server processes write the
+  // same file; without a busy timeout concurrent writers fail instantly with
+  // SQLITE_BUSY instead of waiting for the WAL lock.
+  sqlite.exec("PRAGMA busy_timeout = 5000;");
   migrate(sqlite);
   return drizzle(sqlite, { schema });
 }

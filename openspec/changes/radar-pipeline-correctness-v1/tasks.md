@@ -9,9 +9,9 @@
 - [x] 2.2 F4 --events 失败末行 error 事件 + 集成测试；同步 mcp-cli-interaction.md §3.3/3.4 事件字段文档
 - [x] 3.1 F5 edition sourceRunRefs 有序当日过滤 + cli runs 列表排序
 - [x] 3.2 F6 频率分母排除当日 + 多 topic + untagged=0 + 同日双跑确定性测试
-- [ ] 3.3 F8 persistOpportunities 事务 + 回滚测试
-- [ ] 3.4 F10 episode min/max 合并当前值 + 测试
-- [ ] 3.5 F7 busy_timeout + timer After/Wants + flock
+- [x] 3.3 F8 persistOpportunities 事务 + 回滚测试
+- [x] 3.4 F10 episode min/max 合并当前值 + 测试
+- [x] 3.5 F7 busy_timeout + timer After/Wants + flock
 - [ ] 3.6 B7 L2 风控检测收窄 + fixture 单测
 - [ ] 4.1 P3：runs.id opaque + recordRun 合并 + --limit 校验 + publishedAt ISO + isStableId 锚定
 - [ ] 4.2 P3：审计 failed≠denied + audit() 移出 try + loadConfig/openDb 入 try + schedule 转义 + config 校验

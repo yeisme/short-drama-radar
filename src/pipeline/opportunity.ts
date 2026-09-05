@@ -98,14 +98,17 @@ export function buildOpportunities(db: RadarDb, date: string, now = new Date()):
 // replaced so a rebuild after more data is deterministic).
 export function persistOpportunities(db: RadarDb, date: string, now = new Date()): { clusters: number; items: number } {
   const built = buildOpportunities(db, date, now);
-  const existing = db.select().from(opportunities).where(eq(opportunities.date, date)).all();
+  // Delete+rebuild inside one transaction: a crash (or a concurrent edition
+  // build reading mid-rebuild) must never observe a half-replaced day.
+  const outcome = db.transaction((tx) => {
+  const existing = tx.select().from(opportunities).where(eq(opportunities.date, date)).all();
   for (const row of existing) {
-    db.delete(opportunityItems).where(eq(opportunityItems.opportunityRef, row.ref)).run();
-    db.delete(opportunities).where(eq(opportunities.ref, row.ref)).run();
+    tx.delete(opportunityItems).where(eq(opportunityItems.opportunityRef, row.ref)).run();
+    tx.delete(opportunities).where(eq(opportunities.ref, row.ref)).run();
   }
   let itemCount = 0;
   for (const opp of built) {
-    db.insert(opportunities).values({
+    tx.insert(opportunities).values({
       ref: opp.ref,
       date,
       clusterKey: opp.clusterKey,
@@ -122,11 +125,13 @@ export function persistOpportunities(db: RadarDb, date: string, now = new Date()
       createdAt: now.toISOString(),
     }).run();
     for (const item of opp.items) {
-      db.insert(opportunityItems).values({ opportunityRef: opp.ref, dailyItemId: item.dailyItemId, platform: item.platform, contentId: item.contentId }).run();
+      tx.insert(opportunityItems).values({ opportunityRef: opp.ref, dailyItemId: item.dailyItemId, platform: item.platform, contentId: item.contentId }).run();
       itemCount++;
     }
   }
   return { clusters: built.length, items: itemCount };
+  });
+  return outcome;
 }
 
 export function loadOpportunities(db: RadarDb, date: string): BuiltOpportunity[] {
