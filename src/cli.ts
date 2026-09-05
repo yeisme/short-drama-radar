@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.command.length === 0) {
     process.stdout.write(usage());
-    process.exit(args.mode === "json" ? 0 : 0);
+    process.exit(0);
   }
   const cfg = loadConfig();
   ensureRadarHome();
@@ -503,7 +503,7 @@ function fail(command: string, code: string, message: string, opts: { actions?: 
   return { command, status: "failed", summary: message, error: { code, message }, ...(opts.actions ? { actions: opts.actions } : {}), exitCode: 1 };
 }
 
-export class CliError extends Error {
+class CliError extends Error {
   constructor(
     public readonly code: string,
     message: string,

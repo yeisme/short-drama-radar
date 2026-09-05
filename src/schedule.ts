@@ -87,11 +87,6 @@ export function systemdUserDir(home: string): string {
   return join(home, ".config", "systemd", "user");
 }
 
-// Resolve the ExecStart string for the current process (bun path + CLI path).
-export function currentExecStart(cliPath: string): string {
-  return `${process.execPath} ${cliPath}`;
-}
-
 function systemdEnvironment(name: string, value: string): string {
   const escaped = value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%");
   return `Environment="${name}=${escaped}"`;
