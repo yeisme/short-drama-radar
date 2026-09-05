@@ -18,7 +18,7 @@ import { auditPath, tailAudit } from "./mcp/audit.ts";
 import { capabilities } from "./mcp/server.ts";
 import { RADAR_HOME } from "./config.ts";
 import type { AppDeps } from "./app/actions.ts";
-import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, ActionError } from "./app/actions.ts";
+import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, ActionError } from "./app/actions.ts";
 import { EventWriter } from "./output/events.ts";
 import { renderAgentLine, renderJsonEnvelope, renderSummary, type CommandResult } from "./output/envelope.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -133,6 +133,8 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
       return clusterCommand(sub, positional, db, cfg);
     case "edition":
       return editionCommand(sub, positional, args, db, profiles, cfg);
+    case "import":
+      return importCommand(args, cfg, db);
     case "collect":
       return collectCommand(args, cfg, db);
     case "run":
@@ -261,6 +263,13 @@ function adapterContext(args: Args, cfg: RadarConfig): import("./adapters/types.
     fixtureDir: process.env.RADAR_FIXTURE_DIR,
     accountsPath: cfg.accountsPath,
   };
+}
+
+async function importCommand(args: Args, cfg: RadarConfig, db: RadarDb): Promise<CommandResult> {
+  const deps: AppDeps = { cfg, db, profiles: new ProfileService(db) };
+  const csvPath = first(args, "csv");
+  if (!csvPath) throw new CliError("csv_required", "import requires --csv <path> (columns: platform,title,url[,publishedAt,author,likes,comments,collects,shares,contentId])");
+  return importAction(deps, csvPath, first(args, "date"));
 }
 
 async function collectCommand(args: Args, cfg: RadarConfig, db: RadarDb): Promise<CommandResult> {
@@ -547,7 +556,8 @@ function usage(): string {
 Usage: radar <command> [args] [--json | --agent | --events]
 
 Collection & scoring:
-  collect                          Fetch all layers (0 firecrawl / 1 backends / 2 browser / 3 manual)
+  collect                          Fetch all layers (0 firecrawl / 1 backends / 2 browser)
+  import --csv <path> [--date d]   Layer 3 manual CSV import (platform,title,url required)
   score [date]                     Compute v0 scores for a day
   card [date]                      Build Top5+Top5 card (contract short-drama-radar.card.v1)
   run                              collect -> score -> cluster -> card + edition
