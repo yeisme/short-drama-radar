@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { loadConfig, ensureRadarHome, type RadarConfig } from "./config.ts";
+import { loadConfig, ensureRadarHome, ConfigError, type RadarConfig } from "./config.ts";
 import { openDb, type RadarDb } from "./db/client.ts";
 import { desc } from "drizzle-orm";
 import { runs } from "./db/schema.ts";
@@ -19,7 +19,7 @@ import { auditPath, tailAudit } from "./mcp/audit.ts";
 import { capabilities } from "./mcp/server.ts";
 import { RADAR_HOME } from "./config.ts";
 import type { AppDeps } from "./app/actions.ts";
-import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, ActionError } from "./app/actions.ts";
+import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, recordRun, ActionError } from "./app/actions.ts";
 import { EventWriter } from "./output/events.ts";
 import { renderAgentLine, renderJsonEnvelope, renderSummary, type CommandResult } from "./output/envelope.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -83,12 +83,13 @@ async function main(): Promise<void> {
     process.stdout.write(usage());
     process.exit(0);
   }
-  const cfg = loadConfig();
-  ensureRadarHome();
-  const db = openDb(cfg.dbPath);
-  const profiles = new ProfileService(db);
-
+  // Config/DB failures go through the same output contract (envelope,
+  // agent line, or terminal events error) instead of a raw stack trace.
   try {
+    const cfg = loadConfig();
+    ensureRadarHome();
+    const db = openDb(cfg.dbPath);
+    const profiles = new ProfileService(db);
     const result = await dispatch(args, cfg, db, profiles);
     if (mcpStdioSessionDone) {
       process.exitCode = result.exitCode;
@@ -276,16 +277,6 @@ function profilePatches(args: Args, currentRange?: { min: number; max: number })
 
 // --- pipeline ---------------------------------------------------------------
 
-function adapterContext(args: Args, cfg: RadarConfig): import("./adapters/types.ts").AdapterContext {
-  return {
-    firecrawlBaseUrl: cfg.firecrawlBaseUrl,
-    agentReachBin: cfg.agentReachBin,
-    timeoutMs: 60_000,
-    fixtureDir: process.env.RADAR_FIXTURE_DIR,
-    accountsPath: cfg.accountsPath,
-  };
-}
-
 async function importCommand(args: Args, cfg: RadarConfig, db: RadarDb): Promise<CommandResult> {
   const deps: AppDeps = { cfg, db, profiles: new ProfileService(db) };
   const csvPath = first(args, "csv");
@@ -334,7 +325,7 @@ function editionCommand(sub: string, positional: string | undefined, args: Args,
     return editionBuildAction({ cfg, db, profiles }, {
       date: positional,
       profileRef: first(args, "profile"),
-      limit: first(args, "limit") !== undefined ? Number(first(args, "limit")) : undefined,
+      limit: numericFlag(args, "limit", 1, 50),
     });
   }
   if (sub === "show") {
@@ -507,7 +498,7 @@ async function mcpCommand(sub: string | undefined, args: Args, cfg: RadarConfig,
 
 function auditCommand(sub: string | undefined, args: Args): CommandResult {
   if (sub !== "tail") throw new CliError("unknown_command", "usage: radar audit tail [--action <action>] [--limit <n>]");
-  const limit = Number(first(args, "limit") ?? 20);
+  const limit = numericFlag(args, "limit", 1, 100) ?? 20;
   const entries = tailAudit(RADAR_HOME, { action: first(args, "action"), limit: Number.isFinite(limit) ? limit : 20 });
   return ok("radar.audit.tail", `${entries.length} audit entries (the only read surface for radar.mcp.audit.v1).`, {
     count: entries.length,
@@ -548,6 +539,9 @@ function errorResult(command: string, err: unknown): CommandResult {
   if (err instanceof ProfileError || err instanceof FeedbackError) {
     return fail(command, err.code, err.message);
   }
+  if (err instanceof ConfigError) {
+    return fail(command, "config_invalid", err.message);
+  }
   if (err instanceof CliError) {
     return fail(command, err.code, err.message);
   }
@@ -558,18 +552,17 @@ function commandId(command: string[]): string {
   return `radar.${command.filter((c) => c !== undefined).join(".") || "help"}`;
 }
 
-function recordRun(db: RadarDb, id: string, kind: string, status: string, summary: unknown): void {
-  const startedAt = id.startsWith(`${kind}-`) && !Number.isNaN(Date.parse(id.slice(kind.length + 1)))
-    ? id.slice(kind.length + 1)
-    : new Date().toISOString();
-  db.insert(runs).values({
-    id,
-    kind,
-    startedAt,
-    finishedAt: new Date().toISOString(),
-    status,
-    summaryJson: JSON.stringify(summary),
-  }).run();
+
+// Numeric flag validation: `--limit abc` used to silently become NaN and
+// produce an empty edition; invalid values are contract errors now.
+function numericFlag(args: Args, name: string, min: number, max: number): number | undefined {
+  const raw = first(args, name);
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new CliError(`${name}_invalid`, `--${name} must be an integer between ${min} and ${max}, got '${raw}'`);
+  }
+  return value;
 }
 
 function usage(): string {

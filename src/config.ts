@@ -29,7 +29,8 @@ export interface RadarConfig {
   };
 }
 
-const HOME = process.env.HOME ?? "~";
+// A literal "~" would create a directory named ~ in cwd; prefer the OS tmp root as the lesser evil and let doctor flag it.
+const HOME = process.env.HOME ?? "/tmp";
 export const RADAR_HOME = process.env.RADAR_HOME ?? join(HOME, ".short-drama-radar");
 
 export const defaultConfig: RadarConfig = {
@@ -55,17 +56,40 @@ export const defaultConfig: RadarConfig = {
   },
 };
 
+export class ConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConfigError";
+  }
+}
+
 export function loadConfig(): RadarConfig {
   const path = process.env.RADAR_CONFIG_PATH ?? join(RADAR_HOME, "config.json");
   if (!existsSync(path)) return defaultConfig;
-  const raw = JSON.parse(readFileSync(path, "utf8")) as Partial<RadarConfig>;
-  return {
+  let raw: Partial<RadarConfig>;
+  try {
+    raw = JSON.parse(readFileSync(path, "utf8")) as Partial<RadarConfig>;
+  } catch (err) {
+    throw new ConfigError(`config file is not valid JSON (${path}): ${(err as Error).message}`);
+  }
+  const merged: RadarConfig = {
     ...defaultConfig,
     ...raw,
     layer1: { ...defaultConfig.layer1, ...(raw.layer1 ?? {}) },
     accountPool: { ...defaultConfig.accountPool, ...(raw.accountPool ?? {}) },
     schedule: { ...defaultConfig.schedule, ...(raw.schedule ?? {}) },
   };
+  // Minimal type validation: wrong-typed values used to surface much later
+  // as cryptic crashes (e.g. schedule.collect1 breaking time.match()).
+  for (const key of ["collect1", "collect2", "score", "freeze", "send"] as const) {
+    if (!/^\d{1,2}:\d{2}$/.test(merged.schedule[key])) {
+      throw new ConfigError(`config schedule.${key} must be HH:MM, got '${merged.schedule[key]}'`);
+    }
+  }
+  for (const key of ["firecrawlBaseUrl", "agentReachBin", "dbPath", "accountsPath"] as const) {
+    if (typeof merged[key] !== "string") throw new ConfigError(`config ${key} must be a string`);
+  }
+  return merged;
 }
 
 export function ensureRadarHome(): void {

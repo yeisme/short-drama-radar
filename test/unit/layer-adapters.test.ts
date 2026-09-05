@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { backendCommand, normalizeXhsItems, probeXhsBackend, probeXhsReadiness, XHS_MCP_START_COMMAND } from "../../src/adapters/agentreach-xhs.ts";
-import { normalizeSearch, searchQuery, detailQuery } from "../../src/adapters/douyin-signed.ts";
+import { normalizeSearch, searchQuery } from "../../src/adapters/douyin-signed.ts";
 import { extractFromHtml, detectRiskControl } from "../../src/adapters/browser.ts";
 import { AccountPool } from "../../src/accounts/pool.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -169,7 +169,6 @@ describe("douyin signed layer", () => {
 
   test("queries stay stable and signed via X-Bogus elsewhere", () => {
     expect(searchQuery("短剧")).toContain("keyword=%E7%9F%AD%E5%89%A7");
-    expect(detailQuery("7401")).toContain("aweme_id=7401");
   });
 });
 

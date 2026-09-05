@@ -45,11 +45,19 @@ export function adapterContext(deps: AppDeps): AdapterContext {
   };
 }
 
-function recordRun(db: RadarDb, id: string, kind: string, status: string, summary: unknown): void {
+export function recordRun(db: RadarDb, id: string, kind: string, status: string, summary: unknown): void {
   const startedAt = id.startsWith(`${kind}-`) && !Number.isNaN(Date.parse(id.slice(kind.length + 1)))
     ? id.slice(kind.length + 1)
     : new Date().toISOString();
-  db.insert(runs).values({ id, kind, startedAt, finishedAt: new Date().toISOString(), status, summaryJson: JSON.stringify(summary) }).run();
+  try {
+    db.insert(runs).values({ id, kind, startedAt, finishedAt: new Date().toISOString(), status, summaryJson: JSON.stringify(summary) }).run();
+  } catch {
+    // Millisecond ids collide when two runs land in the same tick (e.g.
+    // daily writing its collect receipt); disambiguate with a short random
+    // suffix instead of crashing the whole command.
+    const suffix = Math.random().toString(36).slice(2, 6);
+    db.insert(runs).values({ id: `${id}-${suffix}`, kind, startedAt, finishedAt: new Date().toISOString(), status, summaryJson: JSON.stringify(summary) }).run();
+  }
 }
 
 // --- curator actions ---------------------------------------------------------

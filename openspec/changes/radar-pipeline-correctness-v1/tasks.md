@@ -13,7 +13,7 @@
 - [x] 3.4 F10 episode min/max 合并当前值 + 测试
 - [x] 3.5 F7 busy_timeout + timer After/Wants + flock
 - [x] 3.6 B7 L2 风控检测收窄 + fixture 单测
-- [ ] 4.1 P3：runs.id opaque + recordRun 合并 + --limit 校验 + publishedAt ISO + isStableId 锚定
-- [ ] 4.2 P3：审计 failed≠denied + audit() 移出 try + loadConfig/openDb 入 try + schedule 转义 + config 校验
-- [ ] 4.3 P3：死代码清理（fetchDetail/signUrl/adapterContext）
+- [x] 4.1 P3：runs.id opaque + recordRun 合并 + --limit 校验 + publishedAt ISO + isStableId 锚定
+- [x] 4.2 P3：审计 failed≠denied + audit() 移出 try + loadConfig/openDb 入 try + schedule 转义 + config 校验
+- [x] 4.3 P3：死代码清理（fetchDetail/signUrl/adapterContext）
 - [ ] 5.1 specs delta（radar-pipeline + radar-cli-agent-contract）+ strict validate + 全量验证

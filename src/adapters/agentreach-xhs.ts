@@ -216,7 +216,7 @@ export function normalizeXhsItems(payload: unknown): RawItem[] {
       url,
       authorId: str(user["user_id"] ?? user["id"]),
       authorName: str(user["nickname"] ?? user["name"]),
-      publishedAt: str(o["time"] ?? o["publish_time"] ?? o["create_time"]),
+      publishedAt: isoDate(str(o["time"] ?? o["publish_time"] ?? o["create_time"])),
       metrics,
       // Structured backend rows carry stable IDs and real engagement counts,
       // unlike Layer 0 public pages (confidence 40).
@@ -259,6 +259,17 @@ function collectText(payload: unknown): string {
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
+}
+
+// XHS times arrive either as ISO strings or epoch milliseconds; normalize to
+// ISO so downstream date handling sees one shape (douyin already emits ISO).
+function isoDate(raw: string): string {
+  if (!raw) return "";
+  if (/^\d{12,}$/.test(raw)) {
+    const ms = Number(raw);
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : raw;
+  }
+  return raw;
 }
 
 function num(v: unknown): number | null {

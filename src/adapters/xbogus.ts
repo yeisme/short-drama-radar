@@ -153,6 +153,3 @@ export function generateXBogus(query: string, userAgent: string = DOUYIN_WEB_UA,
   return xb;
 }
 
-export function signUrl(query: string, userAgent: string = DOUYIN_WEB_UA, nowSec?: number): string {
-  return `${query}&X-Bogus=${generateXBogus(query, userAgent, nowSec)}`;
-}

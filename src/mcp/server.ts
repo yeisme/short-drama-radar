@@ -104,8 +104,12 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
     const args = request.params.arguments ?? {};
 
     if (tool === "radar.search") {
+      // Audit runs OUTSIDE the try: if the audit append itself fails, the
+      // original action outcome must not be swallowed by a second throw from
+      // the catch path's audit call.
+      let decision: { outcome: "success" | "error"; result?: Awaited<ReturnType<typeof searchAction>>; err?: unknown };
       try {
-        const result = searchAction(deps, {
+        decision = { outcome: "success", result: searchAction(deps, {
           view: ((args["view"] as string) ?? "opportunities") as "opportunities" | "items" | "editions",
           query: args["query"] as string | undefined,
           date: args["date"] as string | undefined,
@@ -114,17 +118,18 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
           minMarketScore: args["min_market_score"] as number | undefined,
           minPersonalFit: args["min_personal_fit"] as number | undefined,
           limit: args["limit"] as number | undefined,
-        });
-        audit(tool, "search", args, "success");
-        return {
-          content: [{ type: "text", text: JSON.stringify(result.data ?? {}, null, 2) }],
-          structuredContent: { status: result.status, summary: result.summary, facts: result.facts ?? {} },
-          isError: false,
-        };
+        }) };
       } catch (err) {
-        audit(tool, "search", args, "error");
-        return { content: [{ type: "text", text: `search failed: ${(err as Error).message}` }], isError: true };
+        decision = { outcome: "error", err };
       }
+      audit(tool, "search", args, decision.outcome);
+      if (decision.err) return { content: [{ type: "text", text: `search failed: ${(decision.err as Error).message}` }], isError: true };
+      const result = decision.result!;
+      return {
+        content: [{ type: "text", text: JSON.stringify(result.data ?? {}, null, 2) }],
+        structuredContent: { status: result.status, summary: result.summary, facts: result.facts ?? {} },
+        isError: false,
+      };
     }
 
     if (tool === "radar.execute") {
@@ -138,19 +143,29 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
           isError: true,
         };
       }
+      // Audit runs OUTSIDE the try (see radar.search). A tool call that RAN
+      // but failed is outcome=error, not denied — "denied" is reserved for
+      // lane/permission rejections so the audit ledger distinguishes gate
+      // decisions from action failures.
+      let decision: { outcome: "success" | "error"; refs: { run?: string; edition?: string }; result?: { status: string; summary: string; facts?: Record<string, unknown>; error?: { code: string; message: string } }; err?: unknown };
       try {
         // MCP arguments follow snake_case; actions speak camelCase.
         const result = await EXECUTE_ACTIONS[action]!.run(deps, camelizeKeys(input));
-        const outcome: "success" | "denied" = result.status === "failed" ? "denied" : "success";
-        audit(tool, action, args, outcome, { run: (result as { runId?: string }).runId, edition: (result as { editionRef?: string }).editionRef ?? extractEditionRef(result) });
-        return {
-          content: [{ type: "text", text: JSON.stringify({ status: result.status, summary: result.summary, facts: result.facts ?? {}, error: result.error }, null, 2) }],
-          isError: result.status === "failed",
+        decision = {
+          outcome: result.status === "failed" ? "error" : "success",
+          refs: { run: (result as { runId?: string }).runId, edition: (result as { editionRef?: string }).editionRef ?? extractEditionRef(result) },
+          result,
         };
       } catch (err) {
-        audit(tool, action, args, "error");
-        return { content: [{ type: "text", text: `execute failed: ${(err as Error).message}` }], isError: true };
+        decision = { outcome: "error", refs: {}, err };
       }
+      audit(tool, action, args, decision.outcome, decision.refs);
+      if (decision.err) return { content: [{ type: "text", text: `execute failed: ${(decision.err as Error).message}` }], isError: true };
+      const result = decision.result!;
+      return {
+        content: [{ type: "text", text: JSON.stringify({ status: result.status, summary: result.summary, facts: result.facts ?? {}, error: result.error }, null, 2) }],
+        isError: result.status === "failed",
+      };
     }
 
     audit(tool, "unknown", args, "denied");

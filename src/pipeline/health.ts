@@ -140,7 +140,10 @@ function readAccountSurvival(path?: string): AccountSurvival {
 // Anything else (e.g. hash fallbacks) counts as a violation to review.
 export function isStableId(platform: string, contentId: string): boolean {
   if (platform === "douyin") return /^\d{6,10}$/.test(contentId) || /^\d{15,20}$/.test(contentId);
-  return /^[0-9a-f]{16,32}$/.test(contentId) || /^\d{15,25}$/.test(contentId);
+  // Hex ids must be 17-32 chars: the firecrawl URL-hash fallback is exactly
+  // 16 hex chars and is NOT stable across runs, so that exact shape is a
+  // reviewable violation, not a pass.
+  return /^[0-9a-f]{17,32}$/.test(contentId) || /^\d{15,25}$/.test(contentId);
 }
 
 function round2(n: number): number {

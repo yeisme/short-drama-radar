@@ -51,9 +51,6 @@ export function searchQuery(keyword: string): string {
   return `${baseParams()}&keyword=${encodeURIComponent(keyword)}&search_id=`;
 }
 
-export function detailQuery(awemeId: string): string {
-  return `${baseParams()}&aweme_id=${encodeURIComponent(awemeId)}&detail_list=aweme_info`;
-}
 
 export function makeDouyinSignedAdapter(keyword = "短剧"): Adapter {
   return {
@@ -166,35 +163,6 @@ export function normalizeAweme(info: Record<string, unknown>): RawItem | null {
   };
 }
 
-// Detail endpoint lookup for a single aweme id (used for metric refreshes).
-export async function fetchDetail(
-  awemeId: string,
-  ctx: AdapterContext,
-  deps: DouyinFetchDeps = {},
-): Promise<{ item: RawItem | null; error?: string }> {
-  const fetchJson = deps.fetchJson ?? ((url: string, init: RequestInit) => fetch(url, init).then((r) => r.json()));
-  const headers: Record<string, string> = {
-    "User-Agent": DOUYIN_WEB_UA,
-    Referer: "https://www.douyin.com/",
-    Accept: "application/json",
-  };
-  const cookie = process.env["DOUYIN_COOKIE"];
-  if (cookie) headers["Cookie"] = cookie;
-  try {
-    const query = detailQuery(awemeId);
-    const nowSec = Math.floor((deps.now?.() ?? Date.now()) / 1000);
-    const url = `${DOUYIN_ENDPOINTS.detail}?${query}&X-Bogus=${generateXBogus(query, DOUYIN_WEB_UA, nowSec)}`;
-    const payload = (await fetchJson(url, {
-      headers,
-      signal: AbortSignal.timeout(ctx.timeoutMs),
-    })) as Record<string, unknown>;
-    const detail = payload["aweme_detail"];
-    if (typeof detail !== "object" || detail === null) return { item: null, error: `no aweme_detail for ${awemeId} (risk control or removed)` };
-    return { item: normalizeAweme(detail as Record<string, unknown>) };
-  } catch (err) {
-    return { item: null, error: `detail endpoint failed: ${(err as Error).message}` };
-  }
-}
 
 function str(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
