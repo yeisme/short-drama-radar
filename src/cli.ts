@@ -326,6 +326,7 @@ function editionCommand(sub: string, positional: string | undefined, args: Args,
       date: positional,
       profileRef: first(args, "profile"),
       limit: numericFlag(args, "limit", 1, 50),
+      minimumFit: numericFlag(args, "minimum-fit", 0, 100),
     });
   }
   if (sub === "show") {

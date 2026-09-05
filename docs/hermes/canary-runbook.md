@@ -4,15 +4,16 @@
 
 ## 开始前：软件门与真实来源门
 
-先在子项目目录完成软件验收：
+先在子项目目录完成软件验收（实现真源见 `openspec/changes/archive/` 下已归档的 establish-crawler-first-radar / personalized-radar-agent-experience-v1 / radar-pipeline-correctness-v1 及后续 change；spec 一致性由归档时 strict validate 保证）：
 
 ```bash
-openspec validate personalized-radar-agent-experience-v1 --strict --no-interactive
-openspec validate establish-crawler-first-radar --strict --no-interactive
-bun test
 bun run typecheck
+bun test
 bun run test:integration
+openspec list   # 应无 active change（或仅剩已知在途项）
 ```
+
+> 前提注记：定时器链路（D1-2 的 `radar schedule install` 与三个 systemd timer）依赖 systemd user manager。devcontainer/无 systemd 环境中 doctor 的 `schedule` 检查为 unavailable 属预期——此类环境按手动节奏逐日运行 collect/score/cluster/card/edition 命令即可，14 天验证以 Edition 与反馈真源为准。三服务已通过共享 flock + After/Wants 串行化，恢复后的并发触发不会损坏 SQLite。
 
 随后确认真实来源。`establish-crawler-first-radar` 的任务 6 以“后端已 provision、Agent Reach 可发现、适配器对离线/未登录显式降级”为完成标准；14 天 canary 的运行前置更严格：`agent-reach doctor --json` 中 `xiaohongshu.active_backend` 必须非空，且 `bun run src/cli.ts doctor --json` 中 `xhs-backend.status` 必须为 `ok`。未登录可以验证降级合同，但不能开始高质量 canary 窗口。
 

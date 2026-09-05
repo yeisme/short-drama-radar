@@ -206,10 +206,10 @@ export function clusterBuildAction(deps: AppDeps, date?: string): CommandResult 
   };
 }
 
-export function editionBuildAction(deps: AppDeps, input: { date?: string; profileRef?: string; limit?: number }): CommandResult {
+export function editionBuildAction(deps: AppDeps, input: { date?: string; profileRef?: string; limit?: number; minimumFit?: number }): CommandResult {
   const date = input.date ?? new Date().toISOString().slice(0, 10);
   const profile = deps.profiles.show(input.profileRef);
-  const { edition, excluded, reused } = buildEdition(deps.db, profile, date, input.limit ?? DEFAULT_LIMIT);
+  const { edition, excluded, reused } = buildEdition(deps.db, profile, date, input.limit ?? DEFAULT_LIMIT, new Date(), input.minimumFit !== undefined ? { minimumFit: input.minimumFit } : {});
   return {
     command: "radar.edition.build",
     status: edition.status === "ready" ? "success" : "partial",
@@ -223,6 +223,7 @@ export function editionBuildAction(deps: AppDeps, input: { date?: string; profil
       idempotent_reuse: reused,
       profile_ref: edition.profileRef,
       profile_revision: edition.profileRevision,
+      minimum_fit_override: input.minimumFit ?? null,
       excluded_below_threshold: excluded.belowThreshold,
       excluded_blocked: excluded.blocked,
       excluded_suppressed: excluded.suppressed,

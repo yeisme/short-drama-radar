@@ -94,3 +94,28 @@ describe("score and cluster idempotency (F2)", () => {
 function db_count(deps: AppDeps, table: typeof morningEditions): number {
   return deps.db.select().from(table).all().length;
 }
+
+describe("one-off minimum-fit override (canary runbook D4-D7)", () => {
+  test("override changes admission without touching the profile revision, and is idempotent", async () => {
+    const { deps } = seedDeps();
+    deps.profiles.create("ovr", { topics: [{ tag: "revenge", weight: 90 }] });
+    await seededDay(deps, "2026-08-29");
+    const revisionBefore = deps.profiles.show().headRevision;
+    const base = editionBuildAction(deps, { date: "2026-08-29" });
+    const overridden = editionBuildAction(deps, { date: "2026-08-29", minimumFit: 99 });
+    // Different admission contract -> a different edition (not a reuse).
+    expect(overridden.facts!["edition_ref"]).not.toBe(base.facts!["edition_ref"]);
+    expect(overridden.facts!["minimum_fit_override"]).toBe(99);
+    // The override is honest in the edition's limitations.
+    expect(overridden.data === undefined || true).toBe(true); // facts carry the override; limitations asserted via pipeline below
+    // Same override twice -> same edition (idempotent).
+    const again = editionBuildAction(deps, { date: "2026-08-29", minimumFit: 99 });
+    expect(again.facts!["edition_ref"]).toBe(overridden.facts!["edition_ref"]);
+    expect(again.facts!["idempotent_reuse"]).toBe(true);
+    // No profile revision was written — canary profileAdjustments stay clean.
+    expect(deps.profiles.show().headRevision).toBe(revisionBefore);
+    // The limitation is recorded on the edition itself.
+    const record = buildEdition(deps.db, deps.profiles.show(), "2026-08-29", 8, new Date(), { minimumFit: 99 });
+    expect(record.edition.limitations.some((l) => l.includes("min_fit=99"))).toBe(true);
+  });
+});

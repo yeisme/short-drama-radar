@@ -59,12 +59,16 @@ export function buildEdition(
   date: string,
   limit = DEFAULT_LIMIT,
   now = new Date(),
+  override: { minimumFit?: number } = {},
 ): BuildEditionOutcome {
   const opps = loadOpportunities(db, date);
   const ranked = rankOpportunities(db, profile.profile, profile.ref, opps);
 
-  // Admission thresholds from the profile (defaults 65/60).
-  const minFit = profile.profile.minimum_fit;
+  // Admission thresholds from the profile (defaults 65/60). A one-off
+  // --minimum-fit override changes THIS build only — no profile revision is
+  // written, so canary profileAdjustment metrics stay clean (the override is
+  // recorded in the edition's limitations instead).
+  const minFit = override.minimumFit ?? profile.profile.minimum_fit;
   const minConf = profile.profile.minimum_confidence;
 
   // Exclusion counts for the honest-empty explanation.
@@ -85,6 +89,7 @@ export function buildEdition(
     if (suppressedCount > 0) limitations.push(`${suppressedCount} candidates suppressed as already_seen`);
   }
   if (dataDegraded && admitted.length > 0) limitations.push("some evidence collected in degraded mode; treat metrics as lower bounds");
+  if (override.minimumFit !== undefined) limitations.push(`admission threshold overridden for this build only: min_fit=${override.minimumFit} (profile unchanged)`);
 
   const generatedAt = now.toISOString();
   const entries: EditionEntry[] = admitted.map((r, i) => ({
@@ -118,6 +123,7 @@ export function buildEdition(
   const fingerprint = createHash("sha256").update(JSON.stringify({
     ranked: ranked.map((r) => [r.opportunity.ref, r.opportunity.marketScore, r.opportunity.evidenceConfidence, r.opportunity.degraded, r.personalFit]),
     limit,
+    override,
   })).digest("hex").slice(0, 12);
   const editionRef = `edition-${date}-${createHash("sha256").update(`${profile.ref}|${profile.headRevision}|${fingerprint}`).digest("hex").slice(0, 8)}`;
   const existing = db.select().from(morningEditions).where(eq(morningEditions.editionRef, editionRef)).all()[0];
