@@ -210,6 +210,10 @@ export async function dailyRunAction(deps: AppDeps, events?: EventWriter): Promi
     new Date(),
     { onLayer: (result) => events?.layer(result.source, result.degraded, result.items.length, result.errors) },
   );
+  // Record the collect receipt too: card degradation notes and health
+  // reports read kind="collect" receipts, and `radar run` must not leave
+  // those days invisible to them.
+  recordRun(deps.db, collectSummary.runId, "collect", collectSummary.degradedLayers.length > 0 ? "degraded" : "ok", collectSummary);
   const scoreSummary = await scoreDay(deps.db, collectSummary.date);
   const clusters = persistOpportunities(deps.db, collectSummary.date);
   events?.emit({ event: "stage", stage: "cluster", clusters: clusters.clusters });

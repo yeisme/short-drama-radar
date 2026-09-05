@@ -47,8 +47,12 @@ describe("short-drama-radar.card.v1 golden", () => {
     const payload = { ...card, generatedAt: "frozen" };
     const digest = createHash("sha256").update(JSON.stringify(payload)).digest("hex");
     // Re-recorded during pre-release acceptance after enforcing the specified
-    // confidence>=60 automatic-entry gate. Field/schema compatibility is unchanged.
-    expect(digest).toBe("61daf9e41d477629e1e23784ffa3370771336ac6bde029e85964c22b5ba2feb3");
+    // confidence>=60 automatic-entry gate, and again in
+    // radar-pipeline-correctness-v1 when the spread signal started reading the
+    // normalized comment_count key (comment engagement was previously dropped
+    // by a key misspelling) and engagement deltas became preferred. Field/schema
+    // compatibility is unchanged.
+    expect(digest).toBe("ce332d4d25149eda113368887b79c40daa955e8d0e06f760fe3683862effac31");
   });
 
   test("legacy 0.0.x envelope draft is preserved as evidence, not contract", async () => {

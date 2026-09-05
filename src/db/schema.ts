@@ -36,6 +36,7 @@ export const dailyItems = sqliteTable("daily_items", {
   confidence: integer("confidence").notNull().default(0), // 0-100
   isNew: integer("is_new").notNull().default(0), // first seen yesterday->today window
   degraded: integer("degraded").notNull().default(0),
+  sourceLayer: integer("source_layer").notNull().default(-1), // layer owning the current metrics
   updatedAt: text("updated_at").notNull(),
 });
 

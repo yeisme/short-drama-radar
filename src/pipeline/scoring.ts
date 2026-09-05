@@ -23,13 +23,20 @@ export interface ScoreSummary {
 }
 
 export function spreadValue(platform: string, metrics: Record<string, number>): number {
+  // Engagement deltas between passes when this observation produced any
+  // (per-item basis: mixing delta and absolute terms would add inconsistent
+  // scales); a single-pass observation falls back to absolute totals. The
+  // normalizer writes comment_count (not comments_count) — the previous
+  // misspelling silently dropped all comment engagement from the spread.
+  // Play counts are never fabricated.
   if (platform === "douyin") {
-    return metrics.digg_count ?? metrics.like_count ?? metrics.play_delta ?? 0;
+    return metrics.digg_delta ?? metrics.digg_count ?? metrics.like_count ?? 0;
   }
-  return (
-    metrics.like_delta ?? metrics.liked_count ?? 0) +
-    (metrics.collect_delta ?? metrics.collected_count ?? 0) +
-    (metrics.comment_delta ?? metrics.comments_count ?? 0);
+  const hasDelta = metrics.like_delta !== undefined || metrics.collect_delta !== undefined || metrics.comment_delta !== undefined;
+  if (hasDelta) {
+    return (metrics.like_delta ?? 0) + (metrics.collect_delta ?? 0) + (metrics.comment_delta ?? 0);
+  }
+  return (metrics.liked_count ?? 0) + (metrics.collected_count ?? 0) + (metrics.comment_count ?? 0);
 }
 
 export async function scoreDay(db: RadarDb, date: string): Promise<ScoreSummary> {

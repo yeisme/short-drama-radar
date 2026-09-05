@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS daily_items (
   confidence INTEGER NOT NULL DEFAULT 0,
   is_new INTEGER NOT NULL DEFAULT 0,
   degraded INTEGER NOT NULL DEFAULT 0,
+  source_layer INTEGER NOT NULL DEFAULT -1,
   updated_at TEXT NOT NULL,
   UNIQUE (date, platform, content_id)
 );
@@ -172,6 +173,15 @@ CREATE TABLE IF NOT EXISTS opportunity_reviews (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_idempotency ON opportunity_reviews (idempotency_key);
 `);
 	ensureMorningEditionEntryColumns(sqlite);
+	ensureDailyItemColumns(sqlite);
+}
+
+function ensureDailyItemColumns(sqlite: Database): void {
+	const columns = new Set(
+		(sqlite.query("PRAGMA table_info(daily_items)").all() as Array<{ name: string }>).map((column) => column.name),
+	);
+	// -1 marks rows written before layer tracking existed.
+	if (!columns.has("source_layer")) sqlite.exec("ALTER TABLE daily_items ADD COLUMN source_layer INTEGER NOT NULL DEFAULT -1");
 }
 
 function ensureMorningEditionEntryColumns(sqlite: Database): void {
