@@ -98,6 +98,22 @@ describe("MCP stdio e2e", () => {
     }
   });
 
+  test("operator cannot discover or invoke external collection actions", async () => {
+    const home = seededHome();
+    const { responses } = await session("operator", home, [
+      { id: 1, method: "tools/list" },
+      { id: 2, method: "tools/call", params: { name: "radar.execute", arguments: { action: "collect", input: {} } } },
+      { id: 3, method: "tools/call", params: { name: "radar.execute", arguments: { action: "daily_run", input: {} } } },
+    ]);
+    const execute = byId(responses, 1)?.result?.tools?.find((tool) => tool.name === "radar.execute") as unknown as { description: string; inputSchema: { properties: { action: { enum: string[] } } } };
+    expect(execute.description).toContain("never available over MCP");
+    expect(execute.inputSchema.properties.action.enum).not.toContain("collect");
+    expect(execute.inputSchema.properties.action.enum).not.toContain("daily_run");
+    for (const id of [2, 3]) {
+      expect(byId(responses, id)?.result?.isError).toBe(true);
+    }
+  });
+
   test("curator can append feedback; audit records success before return", async () => {
     const home = seededHome();
     const search = await session("curator", home, [
@@ -131,8 +147,9 @@ describe("MCP stdio e2e", () => {
       { id: 3, method: "resources/read", params: { uri: "radar://profile/active" } },
       { id: 4, method: "resources/read", params: { uri: "radar://editions/latest" } },
       { id: 5, method: "resources/read", params: { uri: "radar://runs" } },
-      { id: 6, method: "prompts/list" },
-      { id: 7, method: "prompts/get", params: { name: "radar_personal_brief" } },
+      { id: 6, method: "resources/read", params: { uri: "radar://sources/status" } },
+      { id: 8, method: "prompts/list" },
+      { id: 9, method: "prompts/get", params: { name: "radar_personal_brief" } },
     ]);
     const uris = byId(responses, 1)?.result?.resources!.map((r) => r.uri);
     expect(uris).toContain("radar://capabilities");
@@ -150,9 +167,21 @@ describe("MCP stdio e2e", () => {
     const runList = JSON.parse(byId(responses, 5)!.result!.contents![0]!.text as string);
     expect(runList.runs.length).toBeGreaterThan(0);
 
-    const prompts = byId(responses, 6)?.result?.prompts!;
+    // sources/status is reader-safe: local checks + latest collection receipt
+    // only — live network/backend probing (firecrawl, xiaohongshu login) is
+    // CLI-only via `radar doctor` and must not appear as live probe keys.
+    const sources = JSON.parse(byId(responses, 6)!.result!.contents![0]!.text as string) as {
+      checks: Record<string, { status: string }>;
+      note: string;
+    };
+    expect(sources.note).toContain("radar doctor");
+    expect(sources.checks["last-collection"]).toBeDefined();
+    expect(sources.checks["firecrawl"]).toBeUndefined();
+    expect(sources.checks["xhs-backend"]).toBeUndefined();
+
+    const prompts = byId(responses, 8)?.result?.prompts!;
     expect(prompts.map((p) => p.name)).toEqual(["radar_personal_brief"]);
-    const brief = (byId(responses, 7)?.result?.messages ?? []) as Array<{ role: string; content?: { type: string; text?: string } }>;
+    const brief = (byId(responses, 9)?.result?.messages ?? []) as Array<{ role: string; content?: { type: string; text?: string } }>;
     expect(brief[0]!.content).toMatchObject({ type: "text" });
     expect(String(brief[0]!.content!.text)).toContain("never trigger collection");
   });

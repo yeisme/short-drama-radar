@@ -29,7 +29,7 @@ hermes mcp test radar
 ## Briefing 流程（严格只读）
 
 1. 读 `radar://capabilities` —— 确认 `mcp_stdio_lanes=ready`；remote/A2A/公共 Skill 必须 `unavailable|planned`，不要尝试。
-2. 读 `radar://sources/status` —— 任一采集层 degraded 时在简报中明示"指标是下界"。
+2. 读 `radar://sources/status`（本地状态 + 最近采集回执，零网络副作用）—— 最近采集 degraded 或 login material 缺失时在简报中明示"指标是下界"。
 3. 读 `radar://editions/latest`，按状态分支：
    - `ready`：输出机会（topic/hook、market score、personal fit、evidence confidence）、每个机会的 reason codes、风险（degraded/low_confidence 项）与建议下一步命令。
    - `empty`：把 limitations 原样转述（阈值 / blocked topics / 数据缺失 / already_seen），并给出对应命令：

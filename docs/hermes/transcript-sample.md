@@ -9,7 +9,7 @@ transcript 记录方法见 canary-runbook.md。
 ```text
 user: 今天的短剧机会简报
 skill: (reads radar://capabilities) mcp_stdio_lanes=ready; remote/a2a=unavailable — 按边界只读本地。
-skill: (reads radar://sources/status) xhs-backend=blocked, douyin-cookie=blocked → 今日指标偏下界，简报中已标注。
+skill: (reads radar://sources/status) last-collection=degraded, douyin-cookie=blocked → 今日指标偏下界，简报中已标注。
 skill: (reads radar://editions/latest)
 skill: Edition edition-2026-08-30-ab12cd34 (ready), profile profile-main rev 2:
        1. revenge|identity_reversal  market 66 / fit 78 / conf 53 — reasons: topic_match, hook_match, asset_reuse, cross_platform_signal

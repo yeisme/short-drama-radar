@@ -14,7 +14,7 @@ import { loadConfig, RADAR_HOME } from "../config.ts";
 import { openDb } from "../db/client.ts";
 import { ProfileService } from "../profile/service.ts";
 import { runs } from "../db/schema.ts";
-import { desc } from "drizzle-orm";
+import { desc, inArray } from "drizzle-orm";
 import { appendAudit, argsDigest, maskPrincipal } from "./audit.ts";
 import {
   EXECUTE_ACTIONS,
@@ -26,7 +26,7 @@ import {
 import { latestEdition, editionByRef } from "../pipeline/edition.ts";
 import { opportunityByRef } from "../pipeline/opportunity.ts";
 import { rankOpportunities } from "../pipeline/ranker.ts";
-import { probeRuntime } from "../diagnostics.ts";
+import { localSourceStatus } from "../diagnostics.ts";
 
 // radar mcp --transport stdio --lane reader|curator|operator
 // stdout carries only JSON-RPC frames; diagnostics go to stderr. Lane
@@ -43,7 +43,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
     { name: "short-drama-radar", version: "0.1.0" },
     {
       capabilities: { tools: {}, resources: {}, prompts: {} },
-      instructions: `Short-drama radar MCP surface. Lane '${lane}' is fixed for this connection. Profile mutations are CLI-only by design; suggest 'radar profile set ...' instead. collect/daily_run touch external platforms — confirm before executing.`,
+      instructions: `Short-drama radar MCP surface. Lane '${lane}' is fixed for this connection. Profile mutations and external collection actions are CLI-only by design; suggest the exact radar CLI command instead.`,
     },
   );
 
@@ -62,8 +62,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
   };
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    const allowed = Object.entries(EXECUTE_ACTIONS).filter(([name]) => laneAllows(lane, name));
-    const sideEffects = allowed.filter(([, def]) => def.sideEffect === "external").map(([name]) => name);
+    const allowed = Object.entries(EXECUTE_ACTIONS).filter(([name]) => mcpActionAllowed(lane, name));
     return {
       tools: [
         {
@@ -86,7 +85,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
         },
         {
           name: "radar.execute",
-          description: `Execute a lane-gated action. Allowed for lane '${lane}': ${allowed.map(([n]) => n).join(", ") || "none"}.${sideEffects.length > 0 ? ` External side effects: ${sideEffects.join(", ")} — host must confirm.` : ""} Profile mutations are never available over MCP.`,
+          description: `Execute a lane-gated local action. Allowed for lane '${lane}': ${allowed.map(([n]) => n).join(", ") || "none"}. Profile mutations, collect and daily_run are never available over MCP.`,
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -132,7 +131,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
       const action = String(args["action"] ?? "");
       const input = (args["input"] ?? {}) as Record<string, unknown>;
       // Unknown action and lane-denied action share one rejection shape.
-      if (!EXECUTE_ACTIONS[action] || !laneAllows(lane, action)) {
+      if (!mcpActionAllowed(lane, action)) {
         audit(tool, action || "unknown", args, "denied");
         return {
           content: [{ type: "text", text: `action '${action}' is not allowed for lane '${lane}' (unknown actions are rejected identically)` }],
@@ -212,6 +211,14 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write(`[radar-mcp] stdio server running (lane=${lane})\n`);
+}
+
+// External-side-effect collection actions are never available over MCP —
+// they stay CLI/systemd-only (radar-mcp-external-action-gate-v1).
+export const mcpDisabledActions: ReadonlySet<string> = new Set(["collect", "daily_run"]);
+
+export function mcpActionAllowed(lane: Lane, action: string): boolean {
+  return !mcpDisabledActions.has(action) && laneAllows(lane, action);
 }
 
 function extractEditionRef(result: { data?: unknown }): string | undefined {
@@ -310,8 +317,19 @@ async function readResource(deps: AppDeps, uri: string): Promise<string> {
     return JSON.stringify({ runs: rows, note: "collect/daily_run are never auto-replayed; reconcile by run receipt lookup" }, null, 2);
   }
   if (uri === "radar://sources/status") {
-    const runtime = await probeRuntime(deps.cfg);
-    return JSON.stringify(runtime.checks, null, 2);
+    // Reader-safe: local state + latest persisted collection receipt only.
+    // Live network/backend probing is CLI-only (`radar doctor`).
+    const last = deps.db.select().from(runs)
+      .where(inArray(runs.kind, ["collect", "daily"]))
+      .orderBy(desc(runs.finishedAt))
+      .limit(1)
+      .all()[0] ?? null;
+    const summary = last ? (JSON.parse(last.summaryJson || "{}") as { degradedLayers?: string[] }) : {};
+    const status = await localSourceStatus(
+      deps.cfg,
+      last ? { runId: last.id, finishedAt: last.finishedAt, status: last.status, degradedLayers: summary.degradedLayers ?? [] } : null,
+    );
+    return JSON.stringify(status, null, 2);
   }
   if (uri === "radar://capabilities") {
     return JSON.stringify(capabilities(deps), null, 2);

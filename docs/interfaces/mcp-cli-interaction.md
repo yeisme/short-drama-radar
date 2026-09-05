@@ -170,9 +170,9 @@ stream 开始后失败，最后一行必须是 `error`，进程保留非零退�
 | --- | --- | --- |
 | `reader` | Hermes 晨报、只读 Agent | search + resources + prompt |
 | `curator` | 用户确认后的偏好反馈 | reader + feedback/review |
-| `operator` | 本地流水线操作 | curator + build/collect actions |
+| `operator` | 本地流水线操作 | curator + score/cluster_build/edition_build（本地构建） |
 
-权限累积，但 consumer 还必须执行自己的更窄 allowlist。例如 Workbench 即使连接 operator，也只允许 `edition_build`，不允许浏览器调用 `collect`。
+权限累积，但 consumer 还必须执行自己的更窄 allowlist。例如 Workbench 即使连接 operator，也只允许 `edition_build`。`collect`/`daily_run` 有外部采集副作用，任何 lane 都不暴露（CLI/systemd-only）。
 
 ### 4.2 `radar.search`
 
@@ -199,13 +199,11 @@ limit?: number
 | --- | --- | --- |
 | `feedback_add` | curator | append 个人反馈，要求 idempotency key |
 | `opportunity_review` | curator | 接受/拒绝/需补证据的 review receipt |
-| `collect` | operator | 请求外部平台/采集层，必须声明外部副作用 |
 | `score` | operator | 写基础 market score |
 | `cluster_build` | operator | 构建机会簇 |
 | `edition_build` | operator | 构建个人 Edition |
-| `daily_run` | operator | collect → score → cluster → card + edition |
 
-`profile_create/profile_set/profile_activate` 不存在于 MCP。Agent 只能返回用户可审查的 CLI suggestion。
+`profile_create/profile_set/profile_activate` 不存在于 MCP。Agent 只能返回用户可审查的 CLI suggestion。`collect` 与 `daily_run` 因外部采集副作用同样不存在于 MCP；执行入口是 CLI（`radar collect` / `radar run`）或 systemd timer。
 
 ## 5. Resources 与 prompt
 
@@ -217,7 +215,7 @@ limit?: number
 | `radar://opportunities/<ref>` | 机会、个人解释与 evidence refs |
 | `radar://evidence/<ref>` | 脱敏来源摘要 |
 | `radar://runs` | 最近运行回执 |
-| `radar://sources/status` | layer health、freshness、degraded |
+| `radar://sources/status` | 本地状态检查 + 最近采集回执（实时探测仅 `radar doctor`，资源零网络副作用） |
 | `radar://capabilities` | ready/planned/blocked/unavailable + next action |
 
 唯一 prompt：`radar_personal_brief`。

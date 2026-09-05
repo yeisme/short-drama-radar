@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { capabilities } from "../../src/mcp/server.ts";
-import { EXECUTE_ACTIONS } from "../../src/app/actions.ts";
+import { capabilities, mcpActionAllowed } from "../../src/mcp/server.ts";
+import { EXECUTE_ACTIONS, type Lane } from "../../src/app/actions.ts";
 
 // Task 4.3 contract fixture validator: the root handoff snapshot must stay in
 // sync with the live tool/resource/capability surface and must never carry
@@ -9,7 +9,7 @@ import { EXECUTE_ACTIONS } from "../../src/app/actions.ts";
 
 describe("mcp handoff fixture (task 4.3)", () => {
   let fixture: {
-    tools: Array<{ name: string; lanes_cumulative?: Record<string, string[]>; external_side_effect_actions?: string[]; input_schema_keys?: string[] }>;
+    tools: Array<{ name: string; lanes_cumulative?: Record<string, string[]>; external_side_effect_actions?: string[]; cli_only_actions?: string[]; input_schema_keys?: string[] }>;
     resources: string[];
     prompts: string[];
     capabilities: Array<{ capability: string; status: string }>;
@@ -30,7 +30,7 @@ describe("mcp handoff fixture (task 4.3)", () => {
     expect(Object.keys(liveMap).length).toBe(fixture.capabilities.length);
   });
 
-  test("execute action lanes match the live registry", () => {
+  test("execute action lanes match the live registry and the live MCP dispatch surface", () => {
     const exec = fixture.tools.find((t) => t.name === "radar.execute")!;
     for (const [lane, actions] of Object.entries(exec.lanes_cumulative!)) {
       for (const action of actions) {
@@ -38,16 +38,30 @@ describe("mcp handoff fixture (task 4.3)", () => {
         expect(EXECUTE_ACTIONS[action]!.lane === lane || (lane === "operator" && EXECUTE_ACTIONS[action]!.lane !== "reader")).toBe(true);
       }
     }
-    const liveActions = Object.keys(EXECUTE_ACTIONS).sort();
+    // Drift check against the actual MCP gate: the fixture operator lane must
+    // equal exactly what mcpActionAllowed permits for operator — not merely
+    // what the EXECUTE_ACTIONS registry contains (collect/daily_run stay in
+    // the registry for CLI use but are never callable over MCP).
+    const liveMcpOperator = Object.keys(EXECUTE_ACTIONS).filter((a) => mcpActionAllowed("operator", a)).sort();
+    const fixtureOperator = exec.lanes_cumulative!.operator!.slice().sort();
+    expect(fixtureOperator).toEqual(liveMcpOperator);
     const fixtureActions = [...new Set([...exec.lanes_cumulative!.curator!, ...exec.lanes_cumulative!.operator!])].sort();
-    expect(fixtureActions).toEqual(liveActions);
+    expect(fixtureActions).toEqual(liveMcpOperator);
   });
 
-  test("external side effects are exactly collect/daily_run", () => {
+  test("external side-effect actions are CLI-only and never dispatchable on any lane", () => {
     const exec = fixture.tools.find((t) => t.name === "radar.execute")!;
-    expect(exec.external_side_effect_actions!.sort()).toEqual(
-      Object.entries(EXECUTE_ACTIONS).filter(([, d]) => d.sideEffect === "external").map(([n]) => n).sort(),
-    );
+    const liveExternal = Object.entries(EXECUTE_ACTIONS).filter(([, d]) => d.sideEffect === "external").map(([n]) => n).sort();
+    // No external-side-effect action remains in the MCP-visible lanes...
+    expect(exec.external_side_effect_actions).toEqual([]);
+    // ...and the CLI-only list is exactly those registry actions, each of
+    // which the MCP gate rejects for every lane.
+    expect((exec.cli_only_actions ?? []).slice().sort()).toEqual(liveExternal);
+    for (const name of liveExternal) {
+      for (const lane of ["reader", "curator", "operator"] as Lane[]) {
+        expect(mcpActionAllowed(lane, name)).toBe(false);
+      }
+    }
   });
 
   test("no credentials, raw payloads, audit content or DB material in the fixture", () => {

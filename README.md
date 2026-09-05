@@ -60,7 +60,7 @@ Profile 更新只创建不可变 revision；反馈 append-only、幂等、每特
 ```bash
 radar mcp --transport stdio --lane reader     # 只读（Hermes 默认）
 radar mcp --transport stdio --lane curator    # + feedback/review 写入
-radar mcp --transport stdio --lane operator   # + collect/score/cluster/edition/daily_run
+radar mcp --transport stdio --lane operator   # + score/cluster/edition（collect/daily_run 为 CLI-only）
 radar mcp doctor                              # backing 真实探测
 radar mcp capabilities                        # ready|planned|blocked|unavailable
 radar audit tail                              # radar.mcp.audit.v1 唯一读口
