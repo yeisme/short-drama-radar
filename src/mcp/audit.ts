@@ -19,6 +19,9 @@ export interface AuditEntry {
   outcome: "success" | "denied" | "error";
   run_ref?: string;
   edition_ref?: string;
+  // Present (true) when the mutation hit its natural key and returned the
+  // existing receipt instead of creating a new one.
+  idempotent_reuse?: boolean;
 }
 
 export function auditPath(home: string): string {

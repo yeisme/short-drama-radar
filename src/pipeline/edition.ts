@@ -48,6 +48,9 @@ export interface EditionRecord {
 export interface BuildEditionOutcome {
   edition: EditionRecord;
   excluded: { belowThreshold: number; blocked: number; suppressed: number; noData: boolean };
+  // True when an identical build already existed and was returned as-is
+  // (idempotent rebuild — no new edition row).
+  reused: boolean;
 }
 
 export function buildEdition(
@@ -106,7 +109,21 @@ export function buildEdition(
     .all()
     .map((r) => r.id);
   const evidenceDigest = `sha256:${createHash("sha256").update(opps.map((o) => o.evidenceDigest).sort().join(",")).digest("hex").slice(0, 16)}`;
-  const editionRef = `edition-${date}-${createHash("sha256").update(`${profile.ref}|${profile.headRevision}|${generatedAt}`).digest("hex").slice(0, 8)}`;
+  // Input fingerprint over everything that determines the admission outcome:
+  // the ranked input tuples (feedback adjustments live in personalFit, so
+  // new feedback changes the fingerprint without a profile revision bump)
+  // and the limit. Identical inputs => identical editionRef => the existing
+  // immutable edition is returned as-is. The ref used to hash generatedAt,
+  // which made every rebuild a fresh row.
+  const fingerprint = createHash("sha256").update(JSON.stringify({
+    ranked: ranked.map((r) => [r.opportunity.ref, r.opportunity.marketScore, r.opportunity.evidenceConfidence, r.opportunity.degraded, r.personalFit]),
+    limit,
+  })).digest("hex").slice(0, 12);
+  const editionRef = `edition-${date}-${createHash("sha256").update(`${profile.ref}|${profile.headRevision}|${fingerprint}`).digest("hex").slice(0, 8)}`;
+  const existing = db.select().from(morningEditions).where(eq(morningEditions.editionRef, editionRef)).all()[0];
+  if (existing) {
+    return { edition: hydrate(db, existing), excluded: { belowThreshold, blocked: blockedCount, suppressed: suppressedCount, noData: opps.length === 0 }, reused: true };
+  }
   const digest = `sha256:${createHash("sha256").update(JSON.stringify({ editionRef, entries, status, evidenceDigest })).digest("hex").slice(0, 16)}`;
 
   const edition: EditionRecord = {
@@ -156,7 +173,7 @@ export function buildEdition(
     }).run();
   }
 
-  return { edition, excluded: { belowThreshold, blocked: blockedCount, suppressed: suppressedCount, noData: opps.length === 0 } };
+  return { edition, excluded: { belowThreshold, blocked: blockedCount, suppressed: suppressedCount, noData: opps.length === 0 }, reused: false };
 }
 
 export function latestEdition(db: RadarDb, profileRef: string): EditionRecord | null {

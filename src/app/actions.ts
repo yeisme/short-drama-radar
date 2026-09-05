@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { RadarConfig } from "../config.ts";
 import type { RadarDb } from "../db/client.ts";
 import { dailyItems, morningEditions, opportunityReviews, runs } from "../db/schema.ts";
@@ -164,8 +165,18 @@ export async function importAction(deps: AppDeps, csvPath: string, dateArg?: str
 export async function scoreAction(deps: AppDeps, date?: string): Promise<CommandResult> {
   const day = date ?? new Date().toISOString().slice(0, 10);
   const summary = await scoreDay(deps.db, day);
-  const id = `score-${new Date().toISOString()}`;
-  recordRun(deps.db, id, "score", summary.lowConfidence > 0 ? "degraded" : "ok", summary);
+  // Deterministic run id over the resulting rows: same-day re-scoring of
+  // unchanged data (scoreDay is deterministic) reuses one receipt instead of
+  // appending a row per call.
+  const fingerprint = createHash("sha256").update(JSON.stringify(
+    deps.db.select({ cid: dailyItems.contentId, score: dailyItems.score, conf: dailyItems.confidence, isNew: dailyItems.isNew, tags: dailyItems.tagsJson })
+      .from(dailyItems).where(eq(dailyItems.date, day)).all()
+      .sort((x, y) => x.cid.localeCompare(y.cid)),
+  )).digest("hex").slice(0, 8);
+  const id = `score-${day}-${fingerprint}`;
+  if (deps.db.select().from(runs).where(eq(runs.id, id)).all().length === 0) {
+    recordRun(deps.db, id, "score", summary.lowConfidence > 0 ? "degraded" : "ok", summary);
+  }
   return {
     command: "radar.score",
     status: summary.scored === 0 ? "partial" : "success",
@@ -179,8 +190,11 @@ export async function scoreAction(deps: AppDeps, date?: string): Promise<Command
 export function clusterBuildAction(deps: AppDeps, date?: string): CommandResult {
   const day = date ?? new Date().toISOString().slice(0, 10);
   const outcome = persistOpportunities(deps.db, day);
-  const id = `cluster-${new Date().toISOString()}`;
-  recordRun(deps.db, id, "cluster", "ok", outcome);
+  // Deterministic per-day outcome: identical rebuilds reuse one receipt.
+  const id = `cluster-${day}-${createHash("sha256").update(JSON.stringify(outcome)).digest("hex").slice(0, 8)}`;
+  if (deps.db.select().from(runs).where(eq(runs.id, id)).all().length === 0) {
+    recordRun(deps.db, id, "cluster", "ok", outcome);
+  }
   return {
     command: "radar.cluster.build",
     status: "success",
@@ -194,7 +208,7 @@ export function clusterBuildAction(deps: AppDeps, date?: string): CommandResult 
 export function editionBuildAction(deps: AppDeps, input: { date?: string; profileRef?: string; limit?: number }): CommandResult {
   const date = input.date ?? new Date().toISOString().slice(0, 10);
   const profile = deps.profiles.show(input.profileRef);
-  const { edition, excluded } = buildEdition(deps.db, profile, date, input.limit ?? DEFAULT_LIMIT);
+  const { edition, excluded, reused } = buildEdition(deps.db, profile, date, input.limit ?? DEFAULT_LIMIT);
   return {
     command: "radar.edition.build",
     status: edition.status === "ready" ? "success" : "partial",
@@ -205,6 +219,7 @@ export function editionBuildAction(deps: AppDeps, input: { date?: string; profil
       edition_ref: edition.editionRef,
       status: edition.status,
       entries: edition.entries.length,
+      idempotent_reuse: reused,
       profile_ref: edition.profileRef,
       profile_revision: edition.profileRevision,
       excluded_below_threshold: excluded.belowThreshold,

@@ -47,7 +47,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
     },
   );
 
-  const audit = (tool: string, action: string, args: unknown, outcome: "success" | "denied" | "error", refs: { run?: string; edition?: string } = {}) => {
+  const audit = (tool: string, action: string, args: unknown, outcome: "success" | "denied" | "error", refs: { run?: string; edition?: string; idempotent_reuse?: boolean } = {}) => {
     // Audit-before-return: the ledger row lands before the caller sees anything.
     appendAudit(RADAR_HOME, {
       principal_ref: principal,
@@ -58,6 +58,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
       outcome,
       run_ref: refs.run,
       edition_ref: refs.edition,
+      ...(refs.idempotent_reuse === true ? { idempotent_reuse: true } : {}),
     });
   };
 
@@ -151,9 +152,14 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
       try {
         // MCP arguments follow snake_case; actions speak camelCase.
         const result = await EXECUTE_ACTIONS[action]!.run(deps, camelizeKeys(input));
+        const facts = (result as { facts?: Record<string, unknown> }).facts;
         decision = {
           outcome: result.status === "failed" ? "error" : "success",
-          refs: { run: (result as { runId?: string }).runId, edition: (result as { editionRef?: string }).editionRef ?? extractEditionRef(result) },
+          refs: {
+            run: (result as { runId?: string }).runId,
+            edition: (result as { editionRef?: string }).editionRef ?? extractEditionRef(result),
+            ...(facts?.["idempotent_reuse"] === true ? { idempotent_reuse: true } : {}),
+          },
           result,
         };
       } catch (err) {

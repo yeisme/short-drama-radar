@@ -214,3 +214,22 @@ describe("MCP stdio e2e", () => {
     expect(existsSync(join(home, "mcp-audit.jsonl"))).toBe(false); // empty ledger, no phantom rows
   });
 });
+
+  test("repeated edition_build is idempotent and audited as reuse", async () => {
+    const home = seededHome();
+    for (let i = 1; i <= 2; i++) {
+      const { responses } = await session("operator", home, [
+        { id: i, method: "tools/call", params: { name: "radar.execute", arguments: { action: "edition_build", input: { date: "2026-08-29" } } } },
+      ]);
+      expect(byId(responses, i)?.result?.isError).toBe(false);
+    }
+    const audit = readFileSync(join(home, "mcp-audit.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const builds = audit.filter((e) => e.action === "edition_build");
+    expect(builds).toHaveLength(2);
+    // First MCP build for the date is fresh (radar run built TODAY's edition,
+    // not this fixture date); the second is a natural-key hit audited as
+    // reuse with the same immutable ref.
+    expect(builds[0]!.idempotent_reuse).toBeUndefined();
+    expect(builds[1]!.idempotent_reuse).toBe(true);
+    expect(builds[0]!.edition_ref).toBe(builds[1]!.edition_ref);
+  });
