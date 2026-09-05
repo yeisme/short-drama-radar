@@ -48,7 +48,15 @@ async function launchPlaywright(account: PoolAccount): Promise<BrowserSession> {
           waitUntil: "domcontentloaded",
         });
         const html = await page.content();
-        const riskControl = RISK_MARKERS.some((m) => html.includes(m));
+        // Challenge detection uses visible challenge elements, the URL and
+        // the title — NEVER raw substring matching over the whole page:
+        // normal douyin/xhs pages embed captcha/sec-sdk script resources,
+        // and a false positive costs the account a 24h cooldown.
+        const riskControl = detectRiskControl({
+          url: page.url(),
+          title: await page.title(),
+          visibleMarkers: await page.evaluate(visibleChallengeSelectors, CHALLENGE_SELECTORS),
+        });
         return { html, riskControl };
       } finally {
         await context.close();
@@ -71,9 +79,36 @@ interface BrowserContext {
 interface BrowserPage {
   goto(url: string, opts?: Record<string, unknown>): Promise<unknown>;
   content(): Promise<string>;
+  url(): string;
+  title(): Promise<string>;
+  evaluate<T>(script: string, arg: string[]): Promise<T>;
 }
 
-const RISK_MARKERS = ["验证码", "滑块", "请完成验证", "captcha", "verify_url", "sec-sdk"];
+// Selectors for actually-rendered challenge UI. The probe runs IN the page
+// (serialized script string — playwright's evaluate accepts string
+// expressions) and keeps only elements that are visible.
+const CHALLENGE_SELECTORS = [
+  "#captcha-verification",
+  ".captcha-container",
+  ".secsdk-captcha",
+  ".verify-bar",
+  "#verify-bar",
+  'iframe[src*="captcha"]',
+  'iframe[src*="verify"]',
+];
+
+const visibleChallengeSelectors = `(selectors) => selectors.filter((selector) => {
+  const el = document.querySelector(selector);
+  return el !== null && el.offsetParent !== null;
+})`;
+
+// Pure decision: a risk-control event is a challenge URL, a challenge title,
+// or a visible challenge element. HTML substrings are deliberately ignored.
+export function detectRiskControl(signal: { url: string; title: string; visibleMarkers: string[] }): boolean {
+  if (/captcha|verify|\/sec\b/i.test(signal.url)) return true;
+  if (/验证码|滑块|安全验证|请完成验证/.test(signal.title)) return true;
+  return signal.visibleMarkers.length > 0;
+}
 
 export function makeBrowserAdapter(platform: AccountPlatform, deps: BrowserFlowDeps = {}): Adapter {
   return {

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { backendCommand, normalizeXhsItems, probeXhsBackend, probeXhsReadiness, XHS_MCP_START_COMMAND } from "../../src/adapters/agentreach-xhs.ts";
 import { normalizeSearch, searchQuery, detailQuery } from "../../src/adapters/douyin-signed.ts";
-import { extractFromHtml } from "../../src/adapters/browser.ts";
+import { extractFromHtml, detectRiskControl } from "../../src/adapters/browser.ts";
 import { AccountPool } from "../../src/accounts/pool.ts";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -252,5 +252,24 @@ describe("AccountPool rotation and circuit breaker", () => {
     const blob = JSON.stringify(pool.list());
     expect(blob).not.toMatch(/password|cookie|bearer/i);
     expect(blob).toContain("credentialRef"); // opaque refs only
+  });
+});
+
+describe("risk-control detection is visible-challenge based (B7)", () => {
+  test("a normal page whose HTML merely mentions captcha/sec-sdk does not trip", () => {
+    // The old implementation substring-matched the whole page: normal
+    // douyin/xhs pages embed sec-sdk/captcha script resources and a false
+    // positive cost the account a 24h cooldown.
+    expect(detectRiskControl({
+      url: "https://www.douyin.com/hot",
+      title: "抖音热榜",
+      visibleMarkers: [],
+    })).toBe(false);
+  });
+
+  test("challenge URL, challenge title, or visible challenge element trips", () => {
+    expect(detectRiskControl({ url: "https://www.douyin.com/verify?...", title: "抖音", visibleMarkers: [] })).toBe(true);
+    expect(detectRiskControl({ url: "https://www.xiaohongshu.com/explore", title: "安全验证", visibleMarkers: [] })).toBe(true);
+    expect(detectRiskControl({ url: "https://www.douyin.com/hot", title: "抖音热榜", visibleMarkers: ["#captcha-verification"] })).toBe(true);
   });
 });
