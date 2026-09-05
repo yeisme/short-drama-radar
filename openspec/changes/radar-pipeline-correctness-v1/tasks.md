@@ -16,4 +16,4 @@
 - [x] 4.1 P3：runs.id opaque + recordRun 合并 + --limit 校验 + publishedAt ISO + isStableId 锚定
 - [x] 4.2 P3：审计 failed≠denied + audit() 移出 try + loadConfig/openDb 入 try + schedule 转义 + config 校验
 - [x] 4.3 P3：死代码清理（fetchDetail/signUrl/adapterContext）
-- [ ] 5.1 specs delta（radar-pipeline + radar-cli-agent-contract）+ strict validate + 全量验证
+- [x] 5.1 specs delta（radar-pipeline + radar-cli-agent-contract）+ strict validate + 全量验证
