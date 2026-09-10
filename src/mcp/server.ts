@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import { join } from "node:path";
+import { InputIntake, INPUT_ACTIONS, type InputOptions } from "../input-intake/service.ts";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
@@ -33,11 +35,15 @@ import { localSourceStatus, probeLayer2 } from "../diagnostics.ts";
 // permissions are cumulative (operator > curator > reader); profile mutations
 // are permanently absent from the tool surface.
 
-export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
+export async function runMcpServer(lane: Lane = "reader", inputOptions?: InputOptions): Promise<void> {
   const cfg = loadConfig();
   const db = openDb(cfg.dbPath);
   const deps: AppDeps = { cfg, db, profiles: new ProfileService(db) };
   const principal = maskPrincipal("stdio-host");
+  if (inputOptions && lane !== "operator") throw new Error("Input intake requires an explicitly enabled operator connection");
+  const input = inputOptions ? new InputIntake(deps, join(RADAR_HOME,"input-files"), inputOptions) : undefined;
+  const address = inputOptions ? new URL("http://"+inputOptions.listen) : undefined;
+  const listener = input && address ? Bun.serve({hostname:address.hostname,port:Number(address.port),maxRequestBodySize: (2<<20)+1024,idleTimeout:30,fetch:request=>input.http(request)}) : undefined;
 
   const server = new Server(
     { name: "short-drama-radar", version: "0.1.0" },
@@ -90,7 +96,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
           inputSchema: {
             type: "object" as const,
             properties: {
-              action: { type: "string", enum: allowed.map(([n]) => n) },
+              action: { type: "string", enum: [...allowed.map(([n]) => n),...(input ? INPUT_ACTIONS : [])] },
               input: { type: "object", description: "action payload (date/opportunity_ref/kind/...)" },
             },
             required: ["action"],
@@ -135,7 +141,14 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
 
     if (tool === "radar.execute") {
       const action = String(args["action"] ?? "");
-      const input = (args["input"] ?? {}) as Record<string, unknown>;
+      const payload = (args["input"] ?? {}) as Record<string, unknown>;
+      if (action.startsWith("input.")) {
+        if (!input || lane!=="operator") {audit(tool,action,args,"denied");return {content:[{type:"text",text:"input intake is not enabled for this connection"}],isError:true};}
+        let value;
+        try {value=await input.control(action,inputArgs(args));} catch {audit(tool,action,args,"error");return {content:[{type:"text",text:"Input rejected; query the original request before retrying"}],isError:true};}
+        audit(tool,action,args,"success");
+        return {content:[{type:"text" as const,text:JSON.stringify(value.request)},...value.links],structuredContent:value.request,isError:false};
+      }
       // Unknown action and lane-denied action share one rejection shape.
       if (!mcpActionAllowed(lane, action)) {
         audit(tool, action || "unknown", args, "denied");
@@ -151,7 +164,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
       let decision: { outcome: "success" | "error"; refs: { run?: string; edition?: string }; result?: { status: string; summary: string; facts?: Record<string, unknown>; error?: { code: string; message: string } }; err?: unknown };
       try {
         // MCP arguments follow snake_case; actions speak camelCase.
-        const result = await EXECUTE_ACTIONS[action]!.run(deps, camelizeKeys(input));
+        const result = await EXECUTE_ACTIONS[action]!.run(deps, camelizeKeys(payload));
         const facts = (result as { facts?: Record<string, unknown> }).facts;
         decision = {
           outcome: result.status === "failed" ? "error" : "success",
@@ -184,6 +197,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
     "radar://runs",
     "radar://sources/status",
     "radar://capabilities",
+    "radar://input/capabilities",
   ];
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
@@ -204,7 +218,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
-    const text = await readResource(deps, uri);
+    const text = uri === "radar://input/capabilities" ? JSON.stringify(input?.capabilities() ?? {schema_version:"yeisme.input_intake.v1",owner:"radar",enabled:false,reason:"input_not_configured"}) : await readResource(deps, uri);
     return { contents: [{ uri, mimeType: "application/json", text }] };
   });
 
@@ -230,6 +244,7 @@ export async function runMcpServer(lane: Lane = "reader"): Promise<void> {
   // Stdio has no client identity; the principal ref stays a stable masked
   // default (per radar.mcp.audit.v1: redacted principal only).
   const transport = new StdioServerTransport();
+  server.onclose = () => { if (listener) listener.stop(true); };
   await server.connect(transport);
   process.stderr.write(`[radar-mcp] stdio server running (lane=${lane})\n`);
 }
@@ -379,3 +394,5 @@ export function capabilities(deps: AppDeps, layer2?: { ok: boolean; reasons: str
     { capability: "multi_user", status: "unavailable", next_action: "rejected for this product scope" },
   ];
 }
+
+function inputArgs(args:Record<string,unknown>):Record<string,unknown>{const value=args.input;if(!value||typeof value!=="object"||Array.isArray(value))throw new Error("invalid input arguments");return value as Record<string,unknown>;}

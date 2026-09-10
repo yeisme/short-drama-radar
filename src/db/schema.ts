@@ -156,3 +156,8 @@ export const opportunityReviews = sqliteTable("opportunity_reviews", {
   idempotencyKey: text("idempotency_key").notNull(),
   createdAt: text("created_at").notNull(),
 });
+
+// Owner-scoped intake control state. Only credential digests are persisted.
+export const inputRequests = sqliteTable("input_requests", {
+ id: text("id").primaryKey(), revision: integer("revision").notNull(), project: text("project").notNull(), payload: text("payload").notNull(),
+});

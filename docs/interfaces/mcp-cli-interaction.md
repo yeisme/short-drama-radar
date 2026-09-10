@@ -2,6 +2,19 @@
 
 状态：M1–M4 已实现（代码真源 `src/cli.ts`、`src/app/actions.ts`、`src/mcp/`；canary 4.2/5.2–5.4 为外部时间门）。实施真源为 [`personalized-radar-agent-experience-v1`](../../openspec/changes/archive/2026-09-03-personalized-radar-agent-experience-v1/)；四层采集与 `short-drama-radar.card.v1` 仍由 [`establish-crawler-first-radar`](../../openspec/changes/archive/2026-09-03-establish-crawler-first-radar/) 跟踪。
 
+## 已连接 MCP 的客户端，无需本机 Radar CLI
+
+当前 stdio server 由拥有 Radar 数据的 host 启动；调用方已连接时，不要求再安装 `radar`。先通过 `resources/read` 读取 `{"uri":"radar://capabilities"}`，再读 `radar://sources/status` 与 `radar://editions/latest`。动作名和参数类型从当前 `tools/list` 的 inputSchema 取得，不能用 capability/command 卡片或 CLI flag 猜 execute 参数。
+
+| 客户端意图 | 当前入口 |
+| --- | --- |
+| 读取机会、证据、Edition | MCP search/resources；无需 CLI |
+| 写反馈或本地构建 | 仅当 tools/list 与当前 lane 明确暴露动作时调用；按 schema 提供幂等键并按原 ref 恢复 |
+| 修改 Profile、执行 collect/daily_run | 当前 MCP 不暴露；交由具备授权的 owner CLI/systemd 操作，不能要求无 CLI 客户端执行本机不存在的命令 |
+| 导入本机 CSV、截图或其他文件 | 当前 MCP 没有通用文件上传动作；客户端路径、base64 不能充当 source/evidence ref，需要 owner 已实现的导入入口 |
+
+本页 shell 命令属于已安装 CLI 的调用方或 owner。MCP 输出的 CLI suggestion 是供有能力的操作者采用的下一步，不表示当前 agent 已执行。返回服务端路径也不表示客户端已有文件。缺动作、缺 schema、缺文件访问和 source 数据过期应分别报告；不存在的 remote endpoint、上传工具或宽权限不作为自动恢复路径。正文示例是本地实现合同，真实部署及 canary 状态另行验证。
+
 ## 1. 接口原则
 
 1. CLI 是主操作面；MCP 是同一 application service 的 Agent 投影，不执行 CLI shell fallback。
@@ -287,3 +300,7 @@ Hermes 用户级本地 Skill 默认连接 reader lane，读取已完成 Edition�
 - MCP：initialize/list/call/resource/prompt、lane、audit、断线 reconcile、不重放 collect。
 - Hermes：ready/empty/degraded/stale/absent、reader 默认、curator 明确确认。
 - Evidence：integration/component/e2e 写入 `temp/integration-test-runs/<run-id>/`。
+
+## 可选文件输入候选实现
+
+新增入口、无产品 CLI 自动上传、一次性页面和原任务恢复见 [MCP 文件输入](../mcp-input-intake.md)。新入口默认关闭；旧只读或未部署连接继续按实时 capabilities 处理。

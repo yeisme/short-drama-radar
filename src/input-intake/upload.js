@@ -1,0 +1,15 @@
+'use strict';
+(async()=>{
+ const base=location.pathname.replace(/\/$/,''), fragment=new URLSearchParams(location.hash.slice(1));history.replaceState(null,'',base);
+ const $=id=>document.getElementById(id), status=$('status'); let upload, transmission;
+ const show=text=>{status.textContent=text};
+ async function call(op,method='GET',data){const r=await fetch(base+'/'+op,{method,credentials:'same-origin',redirect:'error',headers:data?{'Content-Type':'application/json'}:{},body:data?JSON.stringify(data):undefined});const j=await r.json();if(!r.ok)throw Error(r.status===410?'链接已过期，请回到原任务查询或续期。':r.status===403?'链接不可用，请回到原任务查询原请求。':j.error||'操作失败，请回到原任务查询或续期');return j}
+ const purposes={reference:'参考图',production_input:'制作素材',audio_input:'音频素材',video_source:'视频来源',material:'文本素材',manuscript_reference:'文稿参考',markdown:'笔记导入',attachment:'笔记附件',manual_evidence:'人工证据'};const size=n=>n>=1048576?(n/1048576).toFixed(1)+' MiB':n>=1024?(n/1024).toFixed(1)+' KiB':n+' bytes';const render=r=>{$('target').textContent='项目：'+r.project+'；用途：'+(purposes[r.purpose]||r.purpose)+'；大小上限：'+size(r.max_bytes)+'；有效期：'+new Date(r.expires_at).toLocaleString('zh-CN');$('file').accept=(r.mime_types||[]).join(',');if(r.state==='ready'){show('上传已校验。请回到原任务继续。');$('send').disabled=true;$('file').disabled=true;$('cancel').disabled=true;return true}if(r.state==='cancelled'||r.state==='expired'){show('该输入请求已取消或过期。请回到原任务。');return true}return false};
+ try{if(fragment.has('page'))await call('exchange','POST',{token:fragment.get('page')});const r=await call('status');if(render(r))return;$('file').disabled=false;$('send').disabled=false;$('cancel').disabled=false;show('请选择原任务需要的文件。');}catch(e){show(e.message);return}
+ $('send').onclick=async()=>{const f=$('file').files[0];if(!f){show('请先选择文件。');return}$('send').disabled=true;try{
+  const accepted=$('file').accept.split(','), fallback={md:'text/markdown',txt:'text/plain',csv:'text/csv',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',wav:'audio/wav',mp3:'audio/mpeg',mp4:'video/mp4',webm:'video/webm',pdf:'application/pdf'}[f.name.split('.').pop().toLowerCase()];const mime=accepted.includes(f.type)?f.type:accepted.includes(fallback)?fallback:f.type;let r=await call('file','POST',{name:f.name,mime,size:f.size});if(render(r))return;
+  if((r.resume_state||r.state)!=='transferred'&&(r.resume_state||r.state)!=='verifying'){show('正在上传…');upload=new AbortController();$('progress').removeAttribute('value');transmission=fetch(base+'/content',{method:'PUT',credentials:'same-origin',redirect:'error',headers:{'Content-Type':f.type},body:f,signal:upload.signal});const sent=await transmission;if(!sent.ok)throw Error('上传未完成，请查询原请求后重试');$('progress').value=100;}
+  show('正在校验文件…');render(await call('complete','POST',{}));
+ }catch(e){show(e.message);$('send').disabled=false}};
+ $('cancel').onclick=async()=>{if(upload)upload.abort();if(transmission)await transmission.catch(()=>{});try{await call('abort','POST',{});show('输入请求已取消。');$('send').disabled=true;$('file').disabled=true;$('cancel').disabled=true}catch(e){show(e.message)}};
+})();

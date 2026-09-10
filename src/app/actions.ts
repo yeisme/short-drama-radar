@@ -139,25 +139,25 @@ export async function collectAction(deps: AppDeps, events?: EventWriter): Promis
 // Layer 3 manual CSV import. Runs the file through the shared collect()
 // pipeline so dedupe (authority order), raw receipts and metric deltas behave
 // exactly like every other layer; records its own kind="import" run receipt.
-export async function importAction(deps: AppDeps, csvPath: string, dateArg?: string): Promise<CommandResult> {
+export async function importAction(deps: AppDeps, csvPath: string, dateArg?: string, inputRunRef?: string): Promise<CommandResult> {
   const now = dateArg ? new Date(`${dateArg}T12:00:00Z`) : new Date();
   if (dateArg && Number.isNaN(now.getTime())) {
     throw new ActionError("invalid_date", `--date must be YYYY-MM-DD, got '${dateArg}'`);
   }
-  const summary = await collect(deps.db, [makeManualImportAdapter(csvPath)], adapterContext(deps), now);
+  const summary = await collect(deps.db, [makeManualImportAdapter(csvPath)], adapterContext(deps), now, inputRunRef ? {runId:inputRunRef} : {});
   const badRows = summary.errors.filter((e) => e.startsWith("manual-import: row "));
   // Whole-file failures (unreadable path, missing required column) surface as
   // layer degradation — a silently "successful" import of zero rows would
   // violate the loud-degradation contract.
   const degraded = badRows.length > 0 || summary.degradedLayers.length > 0;
-  recordRun(deps.db, `import-${now.toISOString()}`, "import", degraded ? "degraded" : "ok", { ...summary, csvPath });
+  recordRun(deps.db, inputRunRef ?? `import-${now.toISOString()}`, "import", degraded ? "degraded" : "ok", { ...summary, csvPath });
   const status = degraded ? "partial" : "success";
   return {
     command: "radar.import",
     status,
     summary: `Imported ${summary.items} item(s) from ${csvPath}; ${badRows.length} bad row(s)${summary.errors.length > badRows.length ? `; ${summary.errors[0]}` : ""}.`,
     facts: { date: summary.date, imported: summary.items, bad_rows: badRows.length, errors: summary.errors.slice(0, 3) },
-    evidence: [`run_id=import-${now.toISOString()}`],
+    evidence: [`run_id=${inputRunRef ?? `import-${now.toISOString()}`}`],
     data: { items: summary.items, bad_rows: badRows } as unknown as Record<string, unknown>,
     exitCode: 0,
   };

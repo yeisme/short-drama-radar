@@ -55,6 +55,7 @@ export interface CollectSummary {
 }
 
 export interface CollectHooks {
+  runId?: string;
   onLayer?: (result: FetchResult) => void;
 }
 
@@ -67,7 +68,7 @@ export async function collect(
 ): Promise<CollectSummary> {
   const date = now.toISOString().slice(0, 10);
   const fetchedAt = now.toISOString();
-  const runId = `collect-${fetchedAt}`;
+  const runId = hooks.runId ?? `collect-${fetchedAt}`;
   const summary: CollectSummary = { runId, items: 0, snapshots: 0, degradedLayers: [], errors: [], date };
   const best = new Map<string, { item: RawItem; layer: number; source: string }>();
 

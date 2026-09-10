@@ -489,7 +489,9 @@ async function mcpCommand(sub: string | undefined, args: Args, cfg: RadarConfig,
     return fail("radar.mcp", "lane_invalid", "lane must be reader|curator|operator");
   }
   const { runMcpServer } = await import("./mcp/server.ts");
-  await runMcpServer(lane);
+  const inputListen=first(args,"input-listen"),inputBase=first(args,"input-base-url"),inputProject=first(args,"input-project");
+  if ((inputListen||inputBase||inputProject)&&(!inputListen||!inputBase||!inputProject||lane!=="operator")) return fail("radar.mcp","input_configuration_invalid","Input requires --lane operator --input-listen --input-base-url --input-project together");
+  await runMcpServer(lane,inputListen&&inputBase&&inputProject?{listen:inputListen,baseURL:inputBase,project:inputProject}:undefined);
   // The stdio stream is over; return a silent marker so main() exits without
   // printing — and without process.exit(), which races pending stdout writes
   // on fast-EOF clients and truncates the JSON-RPC responses.

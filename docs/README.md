@@ -29,3 +29,5 @@ Workbench Personal Radar Lens 与 DSH Drama Radar Pane 是 optional consumer：�
 ## CI/CD
 
 - [模块化、分级 CI/CD](delivery/ci-cd.md)：quick、full、integration、release 的触发场景、真实命令和权限边界。
+
+- [MCP 文件输入与一次性上传页](mcp-input-intake.md)

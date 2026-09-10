@@ -47,3 +47,7 @@ RADAR_FIXTURE_DIR=test/fixtures bun run src/cli.ts run --json   # 离线端到�
 ## 14 天验证
 
 首轮只做单人 canary：D1–3 完成 Profile 与采集/证据基线；D4–7 验证机会聚类、个人排序、空榜和降级；D8–14 连续生成 Morning Edition 并记录 `saved|dismissed|used|not_relevant|too_risky|already_seen`。通过门：至少 10 天有可审查 Edition，非空 Edition 中 ≥60% 至少一个 `saved|used`，明显误报/不可解释项 ≤25%，反馈只改变未来 Edition，且无秘密泄露、跨 Profile 污染或断线自动重复采集。通过后再用 5–8 个隔离 Profile/用户样本验证差异，不把收费或团队化作为首轮完成条件。
+
+## 单次输入页面例外
+
+用户批准的 `mcp-input-intake-experience-v1` 允许显式启用、仅绑定一个输入请求的同源上传页；不扩展为首页、资产库或后台。文件和权限仍由本项目服务持有，上传不自动批准生成、覆盖、分析或付费。新增入口默认关闭。

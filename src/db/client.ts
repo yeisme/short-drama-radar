@@ -21,6 +21,7 @@ export function openDb(dbPath: string): RadarDb {
 // DDL lives here (allowed exception); all business reads/writes go through Drizzle.
 function migrate(sqlite: Database): void {
   sqlite.exec(`
+CREATE TABLE IF NOT EXISTS input_requests (id TEXT PRIMARY KEY, revision INTEGER NOT NULL, project TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS raw_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   run_id TEXT NOT NULL,
