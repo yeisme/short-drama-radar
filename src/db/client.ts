@@ -6,7 +6,7 @@ import * as schema from "./schema.ts";
 
 export type RadarDb = BunSQLiteDatabase<typeof schema>;
 
-export function openDb(dbPath: string): RadarDb {
+export function openDb(dbPath: string): RadarDb & { $client: Database } {
   mkdirSync(dirname(dbPath), { recursive: true });
   const sqlite = new Database(dbPath);
   sqlite.exec("PRAGMA journal_mode = WAL;");
@@ -21,6 +21,75 @@ export function openDb(dbPath: string): RadarDb {
 // DDL lives here (allowed exception); all business reads/writes go through Drizzle.
 function migrate(sqlite: Database): void {
   sqlite.exec(`
+CREATE TABLE IF NOT EXISTS market_reviews (
+  ref TEXT PRIMARY KEY NOT NULL, window_end TEXT NOT NULL, cutoff TEXT NOT NULL, payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_sampling_checks (batch_ref TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS market_source_reviews (key TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS market_qualification_records (ref TEXT PRIMARY KEY NOT NULL, source_ref TEXT NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS market_sampling_plans (source_ref TEXT NOT NULL, source_revision INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(source_ref, source_revision));
+CREATE INDEX IF NOT EXISTS idx_market_review_window ON market_reviews (window_end, cutoff);
+CREATE TABLE IF NOT EXISTS market_watches (ref TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS market_watch_receipts (key TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS market_readers (ref TEXT PRIMARY KEY NOT NULL, revision INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS market_read_marks (
+  reader_ref TEXT NOT NULL, signal_ref TEXT NOT NULL, signal_revision INTEGER NOT NULL,
+  PRIMARY KEY(reader_ref, signal_ref, signal_revision)
+);
+CREATE TABLE IF NOT EXISTS market_reader_receipts (key TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS market_briefs (
+  ref TEXT PRIMARY KEY NOT NULL, window_end TEXT NOT NULL, generated_at TEXT NOT NULL, payload TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_market_brief_window ON market_briefs (window_end, generated_at);
+CREATE TABLE IF NOT EXISTS market_signals (
+  ref TEXT NOT NULL, revision INTEGER NOT NULL, source_ref TEXT NOT NULL,
+  observed_at TEXT NOT NULL, fingerprint TEXT NOT NULL, payload TEXT NOT NULL,
+  PRIMARY KEY (ref, revision)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_market_signal_fingerprint ON market_signals (ref, fingerprint);
+CREATE INDEX IF NOT EXISTS idx_market_signal_time ON market_signals (observed_at);
+CREATE TABLE IF NOT EXISTS market_work_mappings (
+  ref TEXT NOT NULL, revision INTEGER NOT NULL, canonical_ref TEXT, status TEXT NOT NULL,
+  payload TEXT NOT NULL, PRIMARY KEY (ref, revision)
+);
+CREATE INDEX IF NOT EXISTS idx_market_mapping_canonical ON market_work_mappings (canonical_ref);
+CREATE TABLE IF NOT EXISTS market_settings (
+  ref TEXT PRIMARY KEY NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_evidence (
+  ref TEXT PRIMARY KEY NOT NULL, source_ref TEXT NOT NULL, observed_at TEXT NOT NULL, payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_sources (
+  ref TEXT NOT NULL,
+  revision INTEGER NOT NULL,
+  payload TEXT NOT NULL,
+  PRIMARY KEY (ref, revision)
+);
+CREATE TABLE IF NOT EXISTS market_batches (
+  ref TEXT PRIMARY KEY NOT NULL,
+  source_ref TEXT NOT NULL,
+  source_revision INTEGER NOT NULL,
+  observed_at TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  digest TEXT NOT NULL,
+  observation_refs TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_market_batches_source_time ON market_batches (source_ref, observed_at);
+CREATE TABLE IF NOT EXISTS market_observations (
+  ref TEXT PRIMARY KEY NOT NULL,
+  batch_ref TEXT NOT NULL,
+  source_ref TEXT NOT NULL,
+  source_revision INTEGER NOT NULL,
+  item_id TEXT NOT NULL,
+  observed_at TEXT NOT NULL,
+  market TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  payload TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_market_observation_identity
+  ON market_observations (source_ref, source_revision, item_id, observed_at, market, origin);
+CREATE INDEX IF NOT EXISTS idx_market_observation_source_time ON market_observations (source_ref, observed_at);
+CREATE INDEX IF NOT EXISTS idx_market_observation_market_time ON market_observations (market, observed_at);
 CREATE TABLE IF NOT EXISTS input_requests (id TEXT PRIMARY KEY, revision INTEGER NOT NULL, project TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS raw_snapshots (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

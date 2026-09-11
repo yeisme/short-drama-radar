@@ -1,5 +1,7 @@
 # short-drama-radar
 
+[国内外市场变化 Radar](docs/product/global-market-radar.md)正在按独立 OpenSpec 推进，当前已有市场类型校验、来源/观测基础存储与 market init/source/config CLI；变化简报、补看、关注、跨市场对照、回顾和证据问答仍在实现任务中。来源初始为 planned，不代表已接通真实平台。
+
 短剧爆款雷达：爬虫主路的每日短剧选题情报 + 个人化机会 Edition CLI。每天从抖音/小红书四层采集候选内容，快照入库、去重、打标签、评分，输出 Top5+Top5 卡片合同 payload 与只属于当前创作者的 Morning Edition。
 
 ## 快速开始

@@ -1,4 +1,105 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { MarketObservation, MarketSource, WorkMapping } from "../market/domain.ts";
+import type { MarketSignal } from "../market/signals.ts";
+import type { MarketBrief } from "../market/brief.ts";
+import type { ReaderReceipt } from "../market/reader.ts";
+import type { MarketWatch, WatchReceipt } from "../market/watch.ts";
+import type { MarketReview } from "../market/review.ts";
+
+export const marketReviews = sqliteTable("market_reviews", {
+  ref: text("ref").primaryKey(), windowEnd: text("window_end").notNull(), cutoff: text("cutoff").notNull(),
+  payload: text("payload", { mode: "json" }).$type<MarketReview>().notNull(),
+}, t => [index("idx_market_review_window").on(t.windowEnd, t.cutoff)]);
+
+export const marketWatches = sqliteTable("market_watches", {
+  ref: text("ref").primaryKey(), payload: text("payload", { mode: "json" }).$type<MarketWatch>().notNull(),
+});
+export const marketWatchReceipts = sqliteTable("market_watch_receipts", {
+  key: text("key").primaryKey(), payload: text("payload", { mode: "json" }).$type<WatchReceipt>().notNull(),
+});
+
+export const marketReaders = sqliteTable("market_readers", {
+  ref: text("ref").primaryKey(), revision: integer("revision").notNull(),
+});
+export const marketReadMarks = sqliteTable("market_read_marks", {
+  readerRef: text("reader_ref").notNull(), signalRef: text("signal_ref").notNull(),
+  signalRevision: integer("signal_revision").notNull(),
+}, t => [primaryKey({ columns: [t.readerRef, t.signalRef, t.signalRevision] })]);
+export const marketReaderReceipts = sqliteTable("market_reader_receipts", {
+  key: text("key").primaryKey(), payload: text("payload", { mode: "json" }).$type<ReaderReceipt>().notNull(),
+});
+
+export const marketBriefs = sqliteTable("market_briefs", {
+  ref: text("ref").primaryKey(), windowEnd: text("window_end").notNull(),
+  generatedAt: text("generated_at").notNull(),
+  payload: text("payload", { mode: "json" }).$type<MarketBrief>().notNull(),
+}, t => [index("idx_market_brief_window").on(t.windowEnd, t.generatedAt)]);
+
+export const marketSignals = sqliteTable("market_signals", {
+  ref: text("ref").notNull(), revision: integer("revision").notNull(),
+  sourceRef: text("source_ref").notNull(), observedAt: text("observed_at").notNull(),
+  fingerprint: text("fingerprint").notNull(),
+  payload: text("payload", { mode: "json" }).$type<MarketSignal>().notNull(),
+}, t => [
+  primaryKey({ columns: [t.ref, t.revision] }),
+  uniqueIndex("idx_market_signal_fingerprint").on(t.ref, t.fingerprint),
+  index("idx_market_signal_time").on(t.observedAt),
+]);
+
+export const marketWorkMappings = sqliteTable("market_work_mappings", {
+  ref: text("ref").notNull(), revision: integer("revision").notNull(),
+  canonicalRef: text("canonical_ref"), status: text("status").notNull(),
+  payload: text("payload", { mode: "json" }).$type<WorkMapping>().notNull(),
+}, t => [primaryKey({ columns: [t.ref, t.revision] }), index("idx_market_mapping_canonical").on(t.canonicalRef)]);
+
+export const marketSettings = sqliteTable("market_settings", {
+  ref: text("ref").primaryKey(),
+  revision: integer("revision").notNull(),
+  payload: text("payload", { mode: "json" }).$type<{ timezone: string; blocked_topics: string[] }>().notNull(),
+});
+
+export const marketEvidence = sqliteTable("market_evidence", {
+  ref: text("ref").primaryKey(),
+  sourceRef: text("source_ref").notNull(),
+  observedAt: text("observed_at").notNull(),
+  payload: text("payload", { mode: "json" }).$type<{
+    title: string; public_url: string; source_item_id: string; origin: string;
+  }>().notNull(),
+});
+
+export const marketSources = sqliteTable("market_sources", {
+  ref: text("ref").notNull(),
+  revision: integer("revision").notNull(),
+  payload: text("payload", { mode: "json" }).$type<MarketSource>().notNull(),
+}, t => [primaryKey({ columns: [t.ref, t.revision] })]);
+
+// Even an empty observation batch has a receipt: it must not disappear
+// into the same state as a source that was never queried.
+export const marketBatches = sqliteTable("market_batches", {
+  ref: text("ref").primaryKey(),
+  sourceRef: text("source_ref").notNull(),
+  sourceRevision: integer("source_revision").notNull(),
+  observedAt: text("observed_at").notNull(),
+  origin: text("origin").$type<"fixture" | "manual" | "live">().notNull(),
+  digest: text("digest").notNull(),
+  observationRefs: text("observation_refs", { mode: "json" }).$type<string[]>().notNull(),
+}, t => [index("idx_market_batches_source_time").on(t.sourceRef, t.observedAt)]);
+
+export const marketObservations = sqliteTable("market_observations", {
+  ref: text("ref").primaryKey(),
+  batchRef: text("batch_ref").notNull(),
+  sourceRef: text("source_ref").notNull(),
+  sourceRevision: integer("source_revision").notNull(),
+  itemId: text("item_id").notNull(),
+  observedAt: text("observed_at").notNull(),
+  market: text("market").notNull(),
+  origin: text("origin").$type<"fixture" | "manual" | "live">().notNull(),
+  payload: text("payload", { mode: "json" }).$type<MarketObservation>().notNull(),
+}, t => [
+  uniqueIndex("idx_market_observation_identity").on(t.sourceRef, t.sourceRevision, t.itemId, t.observedAt, t.market, t.origin),
+  index("idx_market_observation_source_time").on(t.sourceRef, t.observedAt),
+  index("idx_market_observation_market_time").on(t.market, t.observedAt),
+]);
 
 // Raw fetch receipts. One row per adapter item per fetch attempt.
 export const rawSnapshots = sqliteTable("raw_snapshots", {
@@ -160,4 +261,21 @@ export const opportunityReviews = sqliteTable("opportunity_reviews", {
 // Owner-scoped intake control state. Only credential digests are persisted.
 export const inputRequests = sqliteTable("input_requests", {
  id: text("id").primaryKey(), revision: integer("revision").notNull(), project: text("project").notNull(), payload: text("payload").notNull(),
+});
+
+export const marketSamplingChecks = sqliteTable("market_sampling_checks", {
+  batchRef: text("batch_ref").primaryKey(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/sampling.ts").SamplingCheck>().notNull(),
+});
+export const marketSamplingPlans = sqliteTable("market_sampling_plans", {
+  sourceRef: text("source_ref").notNull(), sourceRevision: integer("source_revision").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/sampling.ts").SamplingPlan>().notNull(),
+}, table => [primaryKey({ columns: [table.sourceRef, table.sourceRevision] })]);
+export const marketQualificationRecords = sqliteTable("market_qualification_records", {
+  ref: text("ref").primaryKey(), sourceRef: text("source_ref").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/qualification.ts").QualificationRecord>().notNull(),
+});
+export const marketSourceReviews = sqliteTable("market_source_reviews", {
+  key: text("key").primaryKey(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/source-review.ts").SourceReviewReceipt>().notNull(),
 });

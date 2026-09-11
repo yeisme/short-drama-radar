@@ -180,7 +180,7 @@ describe("MCP stdio e2e", () => {
     expect(sources.checks["xhs-backend"]).toBeUndefined();
 
     const prompts = byId(responses, 8)?.result?.prompts!;
-    expect(prompts.map((p) => p.name)).toEqual(["radar_personal_brief"]);
+    expect(prompts.map((p) => p.name).sort()).toEqual(["radar_market_brief", "radar_personal_brief"]);
     const brief = (byId(responses, 9)?.result?.messages ?? []) as Array<{ role: string; content?: { type: string; text?: string } }>;
     expect(brief[0]!.content).toMatchObject({ type: "text" });
     expect(String(brief[0]!.content!.text)).toContain("never trigger collection");

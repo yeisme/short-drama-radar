@@ -24,6 +24,9 @@ import { EventWriter } from "./output/events.ts";
 import { renderAgentLine, renderJsonEnvelope, renderSummary, type CommandResult } from "./output/envelope.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { marketCommand } from "./market/cli.ts";
+import { MarketStoreError } from "./market/repository.ts";
+import { MarketValidationError } from "./market/domain.ts";
 
 // Command surface per radar-cli-agent-contract. One CommandResult per
 // command; the four renderers (summary/json/agent/events) all derive from it.
@@ -133,6 +136,9 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
   const [group, sub] = args.command;
   const positional = args.command[2]; // group sub <positional> — date or ref
   switch (group) {
+    case "market":
+      if (args.mode === "events") throw new CliError("mode_unsupported", "Market configuration commands support summary, --json and --agent.");
+      return marketCommand(args.command, args.flags, db);
     case "profile":
       return profileCommand(sub, args, profiles);
     case "feedback":
@@ -539,6 +545,9 @@ class CliError extends Error {
 }
 
 function errorResult(command: string, err: unknown): CommandResult {
+  if (err instanceof MarketStoreError || err instanceof MarketValidationError) {
+    return fail(command, err.code, err.message);
+  }
   if (err instanceof ProfileError || err instanceof FeedbackError) {
     return fail(command, err.code, err.message);
   }
@@ -589,6 +598,49 @@ Profiles:
   profile show [--profile <ref>]
   profile set [--profile <ref>] --risk-tolerance 60 ...
   profile activate <profile-ref>
+
+Market foundation (local only):
+  market init
+  market import-legacy --run <legacy-run-ref>
+  market import-catalog --source <ref> --file <path> --format html --observed-at <UTC-instant>
+  market source list
+  market source qualify --source <ref>  Inspect evidence; never promote from a day count alone
+  market source gaps                   Show source and market coverage gaps
+  market source show --source <ref> [--revision <n>]
+  market source set --source <ref> --revision <n> --sampling-scope <text>
+  market config show
+  market config set --revision <n> --timezone <IANA-zone>
+  market config set --revision <n> --blocked-topic <ref>
+  market config set --revision <n> --clear-blocked-topics
+  market analyze --start <UTC-instant> --end <UTC-instant>
+  market signal show --signal <ref> [--revision <n>]
+  market signal correct --signal <ref> --revision <n> --reason <text> --evidence <ref> --outcome <retracted|inconclusive> --at <UTC-instant>
+  market signal restore --signal <ref> --revision <n> --observation <ref> --reason <text> --at <UTC-instant>
+  market source plan --source <ref> --revision <n> --slot <HH:mm> --slot <HH:mm>
+  market source show-plan --source <ref> --revision <n>
+  market source record-qualification --source <ref> --revision <n>
+  market source qualification --record <ref>
+  market source review --source <ref> --revision <n> --stage <identity|sample|blocked> --reason <text> --key <key> [--evidence <ref>] [--batch <ref>]
+  market source review-receipt --key <key>
+  market source check-sample --batch <ref> --scheduled-at <UTC> --checked-at <UTC> --completeness <complete|partial> --stable-ids <true|false> --metric-contract-valid <true|false> --failure-sample <ref>
+  market brief build --start <UTC-instant> --end <UTC-instant>
+  market brief show [--brief <ref>]
+  market review build --start <UTC-instant> --end <UTC-instant> --as-of <UTC-instant>
+  market review show --review <ref>
+  market brief build / market review build (without windows: previous complete local day/week)
+  market compare --left <signal> --left-revision <n> --right <signal> --right-revision <n>
+  market reader show
+  market reader catchup [--limit <n>] [--cursor <cursor>]
+  market reader mark --signal <ref> --signal-revision <n> --revision <n> --policy-revision <digest> --key <key>
+  market reader unread --signal <ref> --signal-revision <n> --revision <n> --policy-revision <digest> --key <key>
+  market reader receipt --key <key>
+  market watch list
+  market watch add --kind <topic|work|platform|market> --target <ref> --revision <n> --policy-revision <digest> --key <key>
+  market watch pause|resume|remove --watch <ref> --revision <n> --policy-revision <digest> --key <key>
+  market watch receipt --key <key>
+  market question context --signal <ref> --revision <n> --question <text>
+  market evidence show --signal <ref> --revision <n> --evidence <ref>
+  Live observation is not available yet.
 
 Diagnostics:
   doctor                           Probe firecrawl / agent-reach / cookie env / playwright / schedule
