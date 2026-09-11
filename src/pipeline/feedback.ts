@@ -97,7 +97,11 @@ function matchedFeaturesRef(db: RadarDb, opportunityRef: string): string[] {
 // Aggregate per-feature feedback signals for a profile, clamped per feature
 // to [-15, +15] and summed over the target's matched features with the same
 // clamp applied to the total (bounded rerank, never a preference rewrite).
-export function feedbackAdjustment(db: RadarDb, profileRef: string, features: string[]): number {
+// Ranking a batch should build the adjuster once and reuse it per opportunity
+// instead of rescanning the ledger per item.
+export type FeedbackAdjuster = (features: string[]) => number;
+
+export function buildFeedbackAdjuster(db: RadarDb, profileRef: string): FeedbackAdjuster {
   const rows = db.select().from(preferenceFeedback).where(eq(preferenceFeedback.profileRef, profileRef)).all();
   const perFeature = new Map<string, number>();
   for (const row of rows) {
@@ -106,11 +110,17 @@ export function feedbackAdjustment(db: RadarDb, profileRef: string, features: st
       perFeature.set(f, (perFeature.get(f) ?? 0) + KIND_SIGNAL[row.kind as FeedbackKind]);
     }
   }
-  let total = 0;
-  for (const f of features) {
-    total += Math.max(-ADJUSTMENT_CAP, Math.min(ADJUSTMENT_CAP, perFeature.get(f) ?? 0));
-  }
-  return Math.max(-ADJUSTMENT_CAP, Math.min(ADJUSTMENT_CAP, total));
+  return (features: string[]) => {
+    let total = 0;
+    for (const f of features) {
+      total += Math.max(-ADJUSTMENT_CAP, Math.min(ADJUSTMENT_CAP, perFeature.get(f) ?? 0));
+    }
+    return Math.max(-ADJUSTMENT_CAP, Math.min(ADJUSTMENT_CAP, total));
+  };
+}
+
+export function feedbackAdjustment(db: RadarDb, profileRef: string, features: string[]): number {
+  return buildFeedbackAdjuster(db, profileRef)(features);
 }
 
 // Digests suppressed by `already_seen` for this profile.

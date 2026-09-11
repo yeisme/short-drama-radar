@@ -1,3 +1,4 @@
+import { and, eq, gte, lt, lte } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { dailyItems, rawSnapshots, runs } from "../db/schema.ts";
 import { existsSync, readFileSync } from "node:fs";
@@ -46,9 +47,15 @@ export function buildHealthReport(db: RadarDb, windowDays = 14, today = new Date
   const fromDate = new Date(today.getTime() - (windowDays - 1) * 24 * 3600 * 1000);
   const from = fromDate.toISOString().slice(0, 10);
 
-  const items = db.select().from(dailyItems).all().filter((r) => r.date >= from && r.date <= to);
-  const snapshots = db.select().from(rawSnapshots).all().filter((r) => r.fetchedAt.slice(0, 10) >= from && r.fetchedAt.slice(0, 10) <= to);
-  const runRows = db.select().from(runs).all();
+  // Window rows are filtered in SQL against indexed columns; raw_snapshots
+  // timestamps are full ISO strings, so the exclusive upper bound is the day
+  // after `to` (lexicographic compare on TEXT matches the date-part filter).
+  const toExclusive = new Date(today.getTime() + 24 * 3600 * 1000).toISOString().slice(0, 10);
+  const items = db.select().from(dailyItems)
+    .where(and(gte(dailyItems.date, from), lte(dailyItems.date, to))).all();
+  const snapshots = db.select().from(rawSnapshots)
+    .where(and(gte(rawSnapshots.fetchedAt, from), lt(rawSnapshots.fetchedAt, toExclusive))).all();
+  const runRows = db.select().from(runs).where(eq(runs.kind, "collect")).all();
 
   const byDate = new Map<string, DayHealth>();
   for (const item of items) {
@@ -61,13 +68,11 @@ export function buildHealthReport(db: RadarDb, windowDays = 14, today = new Date
   }
   for (const snap of snapshots) {
     const date = snap.fetchedAt.slice(0, 10);
-    if (date < from || date > to) continue;
     const day = byDate.get(date) ?? emptyDay(date);
     day.snapshots++;
     byDate.set(date, day);
   }
   for (const run of runRows) {
-    if (run.kind !== "collect") continue;
     const date = run.startedAt.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? run.id.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
     if (date < from || date > to) continue;
     const day = byDate.get(date) ?? emptyDay(date);

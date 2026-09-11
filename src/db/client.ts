@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS raw_snapshots (
   fetched_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_raw_snapshots_content ON raw_snapshots (platform, content_id, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_raw_snapshots_fetched_at ON raw_snapshots (fetched_at);
 
 CREATE TABLE IF NOT EXISTS daily_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

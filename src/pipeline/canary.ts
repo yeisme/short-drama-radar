@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, lte } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { morningEditionEntries, morningEditions, personalProfileRevisions, preferenceFeedback } from "../db/schema.ts";
 
@@ -44,14 +44,24 @@ export function buildCanaryReport(db: RadarDb, profileRef: string, windowDays = 
   const days = Math.max(1, Math.floor(windowDays));
   const to = today.toISOString().slice(0, 10);
   const from = new Date(today.getTime() - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+  // Window rows are filtered in SQL against indexed columns; createdAt is a
+  // full ISO string, so the exclusive upper bound is the day after `to`.
+  const toExclusive = new Date(today.getTime() + 86_400_000).toISOString().slice(0, 10);
   const latestByDate = new Map<string, typeof morningEditions.$inferSelect>();
-  for (const row of db.select().from(morningEditions).where(eq(morningEditions.profileRef, profileRef)).all()) {
-    if (row.date < from || row.date > to) continue;
+  for (const row of db.select().from(morningEditions)
+    .where(and(eq(morningEditions.profileRef, profileRef), gte(morningEditions.date, from), lte(morningEditions.date, to))).all()) {
     const prior = latestByDate.get(row.date);
     if (!prior || row.generatedAt > prior.generatedAt) latestByDate.set(row.date, row);
   }
 
-  const entryRows = db.select().from(morningEditionEntries).all();
+  const editionRefs = [...latestByDate.values()].map((edition) => edition.editionRef);
+  const entriesByEdition = new Map<string, typeof morningEditionEntries.$inferSelect[]>();
+  for (const entry of editionRefs.length === 0 ? [] : db.select().from(morningEditionEntries)
+    .where(inArray(morningEditionEntries.editionRef, editionRefs)).all()) {
+    const list = entriesByEdition.get(entry.editionRef) ?? [];
+    list.push(entry);
+    entriesByEdition.set(entry.editionRef, list);
+  }
   const feedbackRows = db.select().from(preferenceFeedback).where(eq(preferenceFeedback.profileRef, profileRef)).all();
   const feedbackByOpportunity = new Map<string, Set<string>>();
   for (const row of feedbackRows) {
@@ -61,7 +71,7 @@ export function buildCanaryReport(db: RadarDb, profileRef: string, windowDays = 
   }
 
   const canaryDays = [...latestByDate.values()].sort((a, b) => a.date.localeCompare(b.date)).map((edition): CanaryDay => {
-    const entries = entryRows.filter((entry) => entry.editionRef === edition.editionRef);
+    const entries = entriesByEdition.get(edition.editionRef) ?? [];
     const feedback: Record<string, number> = {};
     let falsePositiveEntries = 0;
     let unexplainedEntries = 0;
@@ -100,8 +110,8 @@ export function buildCanaryReport(db: RadarDb, profileRef: string, windowDays = 
   const usefulnessRate = nonEmpty.length === 0 ? 0 : round2(useful / nonEmpty.length);
   const falseOrUnexplainedRate = entriesShown === 0 ? 0 : round2(falseOrUnexplainedEntries / entriesShown);
   const profileAdjustments = db.select().from(personalProfileRevisions)
-    .where(eq(personalProfileRevisions.profileRef, profileRef)).all()
-    .filter((row) => row.revision > 1 && row.createdAt.slice(0, 10) >= from && row.createdAt.slice(0, 10) <= to).length;
+    .where(and(eq(personalProfileRevisions.profileRef, profileRef), gte(personalProfileRevisions.createdAt, from), lt(personalProfileRevisions.createdAt, toExclusive))).all()
+    .filter((row) => row.revision > 1).length;
   const quantitativePassed = canaryDays.length >= 10 && nonEmpty.length > 0 && usefulnessRate >= 0.6 && falseOrUnexplainedRate <= 0.25;
 
   return {

@@ -1,7 +1,7 @@
 import type { RadarDb } from "../db/client.ts";
 import type { PersonalProfileV1 } from "../profile/domain.ts";
 import type { BuiltOpportunity } from "./opportunity.ts";
-import { feedbackAdjustment, matchedFeaturesOf, suppressedDigests } from "./feedback.ts";
+import { buildFeedbackAdjuster, matchedFeaturesOf, suppressedDigests } from "./feedback.ts";
 
 // personal-ranker.v1 — deterministic personal rerank. Three public scores
 // (market/fit/evidence confidence); internal rank score only orders and is
@@ -35,7 +35,8 @@ export interface RankedOpportunity {
 
 export function rankOpportunities(db: RadarDb, profile: PersonalProfileV1, profileRef: string, opps: BuiltOpportunity[]): RankedOpportunity[] {
   const suppressed = suppressedDigests(db, profileRef);
-  const ranked = opps.map((opp) => rankOne(db, profile, profileRef, opp, suppressed));
+  const adjust = buildFeedbackAdjuster(db, profileRef);
+  const ranked = opps.map((opp) => rankOne(profile, opp, suppressed, adjust));
   // Blocked and suppressed clusters are excluded, never silently re-ranked.
   return ranked
     .filter((r) => !r.blocked && !r.suppressed)
@@ -50,7 +51,7 @@ function tieBreak(a: RankedOpportunity, b: RankedOpportunity): number {
     || a.opportunity.ref.localeCompare(b.opportunity.ref);
 }
 
-function rankOne(db: RadarDb, profile: PersonalProfileV1, profileRef: string, opp: BuiltOpportunity, suppressed: Set<string>): RankedOpportunity {
+function rankOne(profile: PersonalProfileV1, opp: BuiltOpportunity, suppressed: Set<string>, adjust: (features: string[]) => number): RankedOpportunity {
   const blocked = profile.blocked_topics.includes(opp.topic);
   const suppressedHit = suppressed.has(opp.evidenceDigest);
   const reasons: ReasonCode[] = [];
@@ -75,7 +76,7 @@ function rankOne(db: RadarDb, profile: PersonalProfileV1, profileRef: string, op
     0.4 * Math.max(topicWeight, genreWeight) + 0.3 * hookWeight + 0.2 * assetReuse + 0.1 * budgetFit,
   );
 
-  const adjustment = feedbackAdjustment(db, profileRef, matchedFeaturesOf(opp));
+  const adjustment = adjust(matchedFeaturesOf(opp));
   if (adjustment >= 2) reasons.push("feedback_positive");
   if (adjustment <= -2) reasons.push("feedback_negative");
 
