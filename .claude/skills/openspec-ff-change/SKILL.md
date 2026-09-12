@@ -85,7 +85,7 @@ After completing all artifacts, summarize:
 - Change name and location
 - List of artifacts created with brief descriptions
 - What's ready: "All artifacts created! Ready for implementation."
-- Prompt: "Run `/opsx:apply` or ask me to implement to start working on the tasks."
+- Prompt: "Ask me to apply the change with the `openspec-apply-change` skill to start working on the tasks."
 
 **Artifact Creation Guidelines**
 
