@@ -9,6 +9,7 @@ import { initializeMarket } from "../../src/market/sources.ts";
 import { importCatalog } from "../../src/market/catalog.ts";
 import { analyzeMarket, signalByRef, correctSignal } from "../../src/market/signals.ts";
 import { buildMarketBrief } from "../../src/market/brief.ts";
+import { buildMarketReview } from "../../src/market/review.ts";
 import { readReader, isRead } from "../../src/market/reader.ts";
 import { recordQualification } from "../../src/market/qualification.ts";
 
@@ -138,6 +139,66 @@ test("curator mutations reconcile original keys and operator discovery excludes 
     expect((await execute(operator, "market_brief_build", { start: "2026-09-10T00:00:00Z", end: "2026-09-11T00:00:00Z" })).data.reused).toBe(true);
   } finally {
     for (const client of clients) await client.close();
+    db.$client.close();
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 15000);
+
+test("CLI-less clients discover bounded list views; lane separation and old surfaces hold (S18/S19)", async () => {
+  const home = mkdtempSync(join(tmpdir(), "radar-market-lists-"));
+  const db = openDb(join(home, "radar.db"));
+  let client: Client | undefined;
+  try {
+    initializeMarket(db);
+    await importCatalog(db, { source: "dramabox", content: readFileSync("test/fixtures/market/dramabox.md", "utf8"),
+      format: "markdown", observedAt: "2026-09-10T08:00:00Z", origin: "fixture" });
+    const signal = analyzeMarket(db, "2026-09-10T00:00:00Z", "2026-09-11T00:00:00Z").signals[0];
+    buildMarketBrief(db, "2026-09-10T00:00:00Z", "2026-09-11T00:00:00Z", new Date("2026-09-11T09:00:00Z"));
+    buildMarketReview(db, "2026-09-10T00:00:00Z", "2026-09-11T00:00:00Z", "2026-09-12T09:00:00Z", new Date("2026-09-12T10:00:00Z"));
+    client = new Client({ name: "market-list-test", version: "1" });
+    await client.connect(new StdioClientTransport({ command: process.execPath,
+      args: [join(import.meta.dir, "../../src/cli.ts"), "mcp", "--transport", "stdio", "--lane", "reader"],
+      env: { RADAR_HOME: home, RADAR_DB_PATH: join(home, "radar.db") }, stderr: "pipe" }));
+    const search = (await client.listTools()).tools.find(t => t.name === "radar.search")!.inputSchema;
+    const schema = JSON.stringify(search);
+    // New bounded list views are discoverable from tools/list only.
+    for (const view of ["market_briefs", "market_signals", "market_reviews", "market_evidence_list"]) {
+      expect(schema).toContain(view);
+    }
+    // Existing bound views keep their names (no rename, no removal).
+    for (const view of ["market_brief", "market_signal", "market_evidence", "market_capabilities", "market_catchup"]) {
+      expect(schema).toContain('"' + view + '"');
+    }
+    const resources = await client.listResources();
+    for (const uri of ["radar://market/briefs", "radar://market/signals", "radar://market/reviews"]) {
+      expect(resources.resources.some(r => r.uri === uri)).toBe(true);
+    }
+    const read = async (uri: string) => JSON.parse((await client!.readResource({ uri }) as unknown as { contents: Array<{ text: string }> }).contents[0].text);
+    const briefs = await read("radar://market/briefs");
+    expect(briefs.spec).toBe("radar.market_briefs.v1");
+    expect(briefs.briefs[0].window).toEqual({ start: "2026-09-10T00:00:00.000Z", end: "2026-09-11T00:00:00.000Z" });
+    const signals = await read("radar://market/signals");
+    expect(signals.signals.some((s: { signal_ref: string }) => s.signal_ref === signal.ref)).toBe(true);
+    const reviews = await read("radar://market/reviews");
+    expect(reviews.reviews[0].entries).toBeGreaterThan(0);
+    const search2 = async (args: Record<string, unknown>) => {
+      const tool = await client!.callTool({ name: "radar.search", arguments: args });
+      return JSON.parse((tool.content as Array<{ text: string }>)[0].text);
+    };
+    const evidence = await search2({ view: "market_evidence_list", signal: signal.ref, revision: 1 });
+    expect(evidence.evidence.length).toBeGreaterThan(0);
+    // Unknown view stays a named error, not a schema guess.
+    const bad = await client.callTool({ name: "radar.search", arguments: { view: "market_nonexistent" } });
+    expect(bad.isError).toBe(true);
+    expect((bad.content as Array<{ text: string }>)[0].text).toContain("view_invalid");
+    // Lane separation: the reader lane never gains operator mutations.
+    const executeSchema = JSON.stringify((await client.listTools()).tools.find(t => t.name === "radar.execute")!.inputSchema);
+    expect(executeSchema).not.toContain("market_analyze");
+    expect(executeSchema).not.toContain("market_brief_build");
+    const denied = await client.callTool({ name: "radar.execute", arguments: { action: "market_analyze", input: {} } });
+    expect(denied.isError).toBe(true);
+  } finally {
+    if (client) await client.close();
     db.$client.close();
     rmSync(home, { recursive: true, force: true });
   }

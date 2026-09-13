@@ -57,3 +57,48 @@ export function questionContext(db: RadarDb, input: { signal_ref: string; revisi
     };
   });
 }
+
+// Answer-side citation validation (S17): facts must cite evidence refs that
+// the bound question context actually carries; inference and unknown stay
+// separate; nothing upgrades untrusted source text into an executable action.
+export interface QuestionStatement {
+  kind: "fact" | "inference" | "unknown";
+  text: string;
+  evidence_refs?: string[];
+}
+
+export interface QuestionAnswer {
+  conclusion: string;
+  statements: QuestionStatement[];
+}
+
+export function validateQuestionAnswer(
+  context: ReturnType<typeof questionContext>,
+  answer: QuestionAnswer,
+): { valid: boolean; problems: string[]; unsupported_fact_statements: number } {
+  const problems: string[] = [];
+  if (!answer || typeof answer.conclusion !== "string" || !answer.conclusion.trim() ||
+    !Array.isArray(answer.statements) || answer.statements.length < 1 || answer.statements.length > 50) {
+    return { valid: false, problems: ["Provide a conclusion and 1-50 statements."], unsupported_fact_statements: 0 };
+  }
+  // Citable refs: the bounded summaries plus the explicitly listed remainder.
+  const citable = new Set([...context.evidence.map(e => e.evidence_ref), ...context.remaining_evidence_refs]);
+  let unsupported = 0;
+  answer.statements.forEach((statement, index) => {
+    if (!statement || !["fact", "inference", "unknown"].includes(statement.kind) ||
+      typeof statement.text !== "string" || !statement.text.trim() || statement.text.length > 2000) {
+      problems.push(`statements[${index}]: must carry a fact|inference|unknown kind and bounded text.`);
+      return;
+    }
+    if (statement.kind !== "fact") return;
+    const refs = Array.isArray(statement.evidence_refs) ? statement.evidence_refs : [];
+    if (!refs.length || refs.some(ref => typeof ref !== "string" || !citable.has(ref))) {
+      unsupported++;
+      problems.push(`statements[${index}]: fact statements must cite evidence refs carried by this question context.`);
+    }
+  });
+  if (!context.evidence.length && answer.statements.some(s => s?.kind === "fact")) {
+    problems.push("The context has no supporting evidence; state unknown instead of facts.");
+  }
+  return { valid: problems.length === 0, problems, unsupported_fact_statements: unsupported };
+}

@@ -131,6 +131,24 @@ function dataRef(data: unknown): string | null {
   return `radar-data-${hash}`;
 }
 
+// --explain renderer: an English, reviewable reasoning summary derived from
+// the same CommandResult. Conclusions cite evidence refs; without evidence
+// they are explicitly marked as hypotheses. Never chain-of-thought.
+export function renderExplain(result: CommandResult): string {
+  const lines: string[] = [];
+  lines.push(`Conclusion: ${result.summary}`);
+  const evidence = [
+    ...(result.evidence ?? []),
+    ...Object.entries(result.facts ?? {}).map(([k, v]) => typeof v === "object" ? null : `${k}=${v}`).filter(Boolean) as string[],
+  ];
+  lines.push(evidence.length ? `Evidence: ${evidence.join("; ")}` : "Evidence: none recorded; the conclusion above is a hypothesis, not a verified fact.");
+  if (typeof result.confidence === "number") lines.push(`Confidence: ${result.confidence}`);
+  if (result.error) lines.push(`Risks: ${result.error.code} — ${result.error.message}`);
+  const first = result.actions?.[0];
+  lines.push(`Recommended next step: ${first ? first.command : "no further action required"}`);
+  return lines.join("\n");
+}
+
 // Default human summary: short lines, one primary next command.
 export function renderSummary(result: CommandResult): string {
   const lines = [`== ${result.command} ${result.status} ==`, result.summary];

@@ -59,12 +59,22 @@ export async function probeRuntime(cfg: RadarConfig, opts: { fetchImpl?: typeof 
     checks["schedule"] = { status: "unavailable", detail: "systemd timer not installed", nextCommand: "radar schedule install" };
   } else {
     const timers = ["short-drama-radar-collect.timer", "short-drama-radar-score.timer", "short-drama-radar-card.timer"];
-    const systemd = Bun.spawnSync(["systemctl", "--user", "is-enabled", ...timers], { stdout: "pipe", stderr: "pipe" });
-    checks["schedule"] = systemd.exitCode === 0
+    // The timer units exist but this host may have no systemd at all (e.g. a
+    // container): a missing systemctl binary must report blocked, not crash.
+    let enabled = false, systemdAvailable = true;
+    try {
+      const systemd = Bun.spawnSync(["systemctl", "--user", "is-enabled", ...timers], { stdout: "pipe", stderr: "pipe" });
+      enabled = systemd.exitCode === 0;
+    } catch {
+      systemdAvailable = false;
+    }
+    checks["schedule"] = enabled
       ? { status: "ok", detail: "systemd user timers installed and enabled" }
       : {
           status: "blocked",
-          detail: "timer units exist but the systemd user manager is unavailable or timers are disabled",
+          detail: systemdAvailable
+            ? "timer units exist but the systemd user manager is unavailable or timers are disabled"
+            : "timer units exist but systemctl is unavailable on this host",
           nextCommand: SCHEDULE_NEXT_STEPS[1],
         };
   }

@@ -1,8 +1,10 @@
+import { desc } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { marketCommand } from "./cli.ts";
 import { MarketStoreError } from "./repository.ts";
 import type { Lane } from "../app/actions.ts";
 import { marketActionNames } from "./mcp-actions.ts";
+import { marketBriefs, marketReviews, marketSignals } from "../db/schema.ts";
 
 const views = {
   market_capabilities: { command: [], required: [], optional: [] },
@@ -20,6 +22,12 @@ const views = {
   market_evidence: { command: ["evidence", "show"], required: ["signal", "revision", "evidence"], optional: [] },
   market_question: { command: ["question", "context"], required: ["signal", "revision", "question"], optional: [] },
   market_compare: { command: ["compare"], required: ["left", "left_revision", "right", "right_revision"], optional: [] },
+  // List projections let CLI-less clients discover which refs exist before
+  // drilling into a bound ref/revision. All lists are bounded.
+  market_briefs: { command: ["brief", "list"], required: [], optional: [] },
+  market_signals: { command: ["signal", "list"], required: [], optional: [] },
+  market_reviews: { command: ["review", "list"], required: [], optional: [] },
+  market_evidence_list: { command: ["evidence", "list"], required: ["signal", "revision"], optional: [] },
 } satisfies Record<string, { command: string[]; required: string[]; optional: string[] }>;
 
 export const MARKET_VIEWS = Object.keys(views);
@@ -43,6 +51,54 @@ export function marketCapabilities(lane: Lane = "reader") {
     limitations: ["Available local projections do not establish live platform coverage."] };
 }
 
+const briefSummaries = (db: RadarDb) => db.select().from(marketBriefs)
+  .orderBy(desc(marketBriefs.windowEnd), desc(marketBriefs.generatedAt)).limit(30).all()
+  .map(row => ({ brief_ref: row.payload.brief_ref, digest: row.payload.digest,
+    window: row.payload.window, status: row.payload.status, generated_at: row.payload.generated_at,
+    supersedes: row.payload.supersedes }));
+
+const reviewSummaries = (db: RadarDb) => db.select().from(marketReviews)
+  .orderBy(desc(marketReviews.windowEnd), desc(marketReviews.cutoff)).limit(30).all()
+  .map(row => ({ review_ref: row.payload.review_ref, digest: row.payload.digest,
+    window: row.payload.window, as_of: row.payload.as_of, entries: row.payload.entries.length }));
+
+const signalHeads = (db: RadarDb) => {
+  const heads = new Map<string, typeof marketSignals.$inferSelect>();
+  for (const row of db.select().from(marketSignals).orderBy(desc(marketSignals.observedAt), desc(marketSignals.revision)).limit(500).all()) {
+    if (heads.size >= 100) break;
+    if (!heads.has(row.ref)) heads.set(row.ref, row);
+  }
+  return [...heads.values()].map(row => ({ signal_ref: row.payload.signal_ref, revision: row.payload.revision,
+    claim_kind: row.payload.claim_kind, lifecycle: row.payload.lifecycle, market: row.payload.market,
+    title: row.payload.title, observed_at: row.payload.observed_at }));
+};
+
+const evidenceList = (db: RadarDb, signalRef: string, revision: number) => {
+  const { signalByRef } = require("./signals.ts") as typeof import("./signals.ts");
+  const signal = signalByRef(db, signalRef, revision);
+  if (!signal) throw new MarketStoreError("signal_not_found", "Requested signal revision does not exist.");
+  return signal.evidence_refs.slice(0, 10).map(ref => ({ evidence_ref: ref }));
+};
+
+const listViews = {
+  market_briefs: (db: RadarDb) => ({ spec: "radar.market_briefs.v1", briefs: briefSummaries(db),
+    limitations: ["Latest 30 briefs; drill into radar://market/briefs/{ref} for the bound payload."] }),
+  market_signals: (db: RadarDb) => ({ spec: "radar.market_signals.v1", signals: signalHeads(db),
+    limitations: ["Latest 100 signal heads; drill into radar://market/signals/{ref}/revisions/{revision}."] }),
+  market_reviews: (db: RadarDb) => ({ spec: "radar.market_reviews.v1", reviews: reviewSummaries(db),
+    limitations: ["Latest 30 reviews; drill into radar://market/reviews/{ref}."] }),
+  market_evidence_list: (db: RadarDb, args: Record<string, unknown>) => {
+    const signal = typeof args.signal === "string" ? args.signal : "";
+    const revision = Number(args.revision);
+    if (!Number.isSafeInteger(revision) || revision < 1 || !signal) {
+      throw new MarketStoreError("input_invalid", "Market view parameters do not match tools/list inputSchema.");
+    }
+    return { spec: "radar.market_evidence_list.v1", signal_ref: signal, signal_revision: revision,
+      evidence: evidenceList(db, signal, revision),
+      limitations: ["At most 10 evidence refs; each opens via radar://market/signals/{ref}/revisions/{revision}/evidence/{evidence}."] };
+  },
+};
+
 export async function marketSearch(db: RadarDb, args: Record<string, unknown>) {
   const view = typeof args.view === "string" ? args.view : "";
   if (!Object.hasOwn(views, view)) throw new MarketStoreError("view_invalid", "Unknown market view; inspect tools/list.");
@@ -54,6 +110,12 @@ export async function marketSearch(db: RadarDb, args: Record<string, unknown>) {
   }
   if (view === "market_capabilities") return { command: "radar.market.capabilities", status: "success" as const,
     summary: "Market reader capabilities.", data: marketCapabilities(), facts: { external_collection: false }, exitCode: 0 };
+  if (listViews[view as keyof typeof listViews]) {
+    // Bounded discovery lists; the bound single-ref views carry the payloads.
+    const data = listViews[view as keyof typeof listViews](db, args);
+    return { command: "radar.market." + view.replace("market_", "").replaceAll("_", "."), status: "success" as const,
+      summary: "Market list projection.", data, facts: { external_collection: false }, exitCode: 0 };
+  }
   const flags = new Map<string, string[]>();
   for (const name of names) {
     const value = args[name];
@@ -67,7 +129,7 @@ export async function marketSearch(db: RadarDb, args: Record<string, unknown>) {
   return marketCommand(["market", ...config.command], flags, db);
 }
 
-export const MARKET_STATIC_RESOURCES = ["capabilities", "coverage", "sources", "reader", "watches", "briefs/latest", "catchup"]
+export const MARKET_STATIC_RESOURCES = ["capabilities", "coverage", "sources", "reader", "watches", "briefs/latest", "catchup", "briefs", "signals", "reviews"]
   .map(path => "radar://market/" + path);
 export const MARKET_RESOURCE_TEMPLATES = [
   "briefs/{ref}", "signals/{ref}/revisions/{revision}", "reviews/{ref}", "qualifications/{ref}", "compare/{left}/{left_revision}/{right}/{right_revision}",
@@ -88,7 +150,8 @@ export async function marketResource(db: RadarDb, uri: string, lane: Lane = "rea
   if (compare) return (await marketSearch(db, { view: "market_compare", left: compare[1], left_revision: Number(compare[2]), right: compare[3], right_revision: Number(compare[4]) })).data;
   if (path === "capabilities") return marketCapabilities(lane);
   const simple: Record<string, string> = { coverage: "market_coverage", sources: "market_sources",
-    reader: "market_reader", watches: "market_watches" };
+    reader: "market_reader", watches: "market_watches",
+    briefs: "market_briefs", signals: "market_signals", reviews: "market_reviews" };
   let args: Record<string, unknown> | undefined;
   if (Object.hasOwn(simple, path)) args = { view: simple[path] };
   else {

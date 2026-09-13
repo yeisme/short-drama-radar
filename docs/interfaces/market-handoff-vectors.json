@@ -1,0 +1,3467 @@
+{
+  "spec": "radar.market.handoff.vectors.v1",
+  "generated": "2026-09-13",
+  "owner": "cli/short-drama-radar",
+  "regenerate": "bun run scripts/generate-market-handoff-vectors.ts",
+  "notes": [
+    "Every vector is produced by the market services on a fixture-seeded disposable database; the file is machine-generated, never hand-edited.",
+    "ready/empty/partial carry successful read envelopes; stale/blocked/conflict carry named error envelopes; unknown exposes explicit unknown markets; retracted shows an immutable correction revision.",
+    "The stale vector carries the reconciliation receipt of the earlier successful reader mutation for key-based recovery."
+  ],
+  "vectors": [
+    {
+      "name": "partial",
+      "command": "radar.market.brief.show",
+      "purpose": "Fixture-seeded brief: degraded coverage with named source gaps; consumers render partial states without inventing data.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.brief.show",
+        "status": "success",
+        "summary": "Market brief show completed.",
+        "facts": {
+          "external_collection": false
+        },
+        "actions": [
+          {
+            "name": "sources",
+            "command": "radar market source list"
+          }
+        ],
+        "data": {
+          "spec": "radar.market_brief.v1",
+          "brief_ref": "market-brief-9a35a6cbc78034cf7006ac2ce19bfad0",
+          "digest": "sha256:9a35a6cbc78034cf7006ac2ce19bfad0fec759f3dbd09c7d50f9a77e439f35d2",
+          "supersedes": null,
+          "generated_at": "2026-09-12T09:00:00.000Z",
+          "timezone": "UTC",
+          "window": {
+            "start": "2026-09-10T00:00:00.000Z",
+            "end": "2026-09-12T00:00:00.000Z"
+          },
+          "status": "degraded",
+          "order_version": "market-signal-order.v1",
+          "policy_revision": "sha256:ab4d7ae58b7faf1b9477182e45e7ca7913c6bd6d025d25abfb276830b7a80ac2",
+          "main": [],
+          "watching": [
+            {
+              "spec": "radar.market_signal.v1",
+              "subject_ref": "work-eeb47047ee3e0a76720cc9ca",
+              "source_ref": "reelshort",
+              "market": "unknown",
+              "title": "Sample Drama",
+              "topics": [],
+              "observed_at": "2026-09-11T08:00:00.000Z",
+              "lifecycle": "active",
+              "analysis_version": "market-analysis.v1",
+              "mapping_version": "market-label-mapping.v1",
+              "origin": "fixture",
+              "independent_evidence_groups": 1,
+              "signal_ref": "signal-7279ae8a736e9f7c99ee460790881dae",
+              "claim_kind": "newly_observed",
+              "assertion_level": "observed",
+              "comparison": null,
+              "observation_refs": [
+                "catalog-obs-b393b1568668b4c63ae248816285744c"
+              ],
+              "evidence_refs": [
+                "evidence-catalog-obs-b393b1568668b4c63ae248816285744c"
+              ],
+              "limitations": [
+                "First observed in this source sample; not a premiere or popularity claim."
+              ],
+              "revision": 1
+            },
+            {
+              "spec": "radar.market_signal.v1",
+              "subject_ref": "work-b5bd43c7e2b3b4e0896515df",
+              "source_ref": "reelshort",
+              "market": "unknown",
+              "title": "Another Drama",
+              "topics": [],
+              "observed_at": "2026-09-11T08:00:00.000Z",
+              "lifecycle": "active",
+              "analysis_version": "market-analysis.v1",
+              "mapping_version": "market-label-mapping.v1",
+              "origin": "fixture",
+              "independent_evidence_groups": 1,
+              "signal_ref": "signal-f3e3911a355a4de14b1e5f14d8d6266c",
+              "claim_kind": "newly_observed",
+              "assertion_level": "observed",
+              "comparison": null,
+              "observation_refs": [
+                "catalog-obs-371d1cea316242267b976c3c6867974b"
+              ],
+              "evidence_refs": [
+                "evidence-catalog-obs-371d1cea316242267b976c3c6867974b"
+              ],
+              "limitations": [
+                "First observed in this source sample; not a premiere or popularity claim."
+              ],
+              "revision": 1
+            }
+          ],
+          "correction_count": 0,
+          "correction_refs": [],
+          "visible_signal_refs": [
+            {
+              "ref": "signal-7279ae8a736e9f7c99ee460790881dae",
+              "revision": 1
+            },
+            {
+              "ref": "signal-f3e3911a355a4de14b1e5f14d8d6266c",
+              "revision": 1
+            },
+            {
+              "ref": "signal-36ac84d8d70e1912231f7af97378d6df",
+              "revision": 1
+            },
+            {
+              "ref": "signal-b29ecdcb85bd92be80fe3cce20101636",
+              "revision": 1
+            }
+          ],
+          "remaining": 2,
+          "filtered": false,
+          "coverage": {
+            "spec": "radar.market_source_gaps.v1",
+            "as_of": "2026-09-12T00:00:00.000Z",
+            "sources": [
+              {
+                "platform": "bilibili",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "bilibili",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "dataeye",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "dataeye",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required",
+                  "background_source_not_daily_trend"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "douyin",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "douyin",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "dramabox",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "dramabox",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 1
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "dramawave",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "dramawave",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "hongguo",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "hongguo",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "hongguo-animation",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "hongguo-animation",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "huolong",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "huolong",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "kuaishou",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "kuaishou",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "kukutv",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "kukutv",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "melolo",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "melolo",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "netshort",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "netshort",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "pinedrama",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "pinedrama",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "quicktv",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "quicktv",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "reelshort",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "reelshort",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 1
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "sensortower",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "sensortower",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required",
+                  "background_source_not_daily_trend"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "xiaohongshu",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "xiaohongshu",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "xifan",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "xifan",
+                "source_revision": 1,
+                "as_of": "2026-09-12T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-09-05T00:00:00.000Z",
+                  "end": "2026-09-12T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-09-05",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-06",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-07",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-08",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-09",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-10",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-11",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              }
+            ],
+            "markets": [
+              {
+                "market": "CN",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "US",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "MX",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "BR",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "ID",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "IN",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "TH",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "PH",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "JP",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "KR",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "GB",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "DE",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "FR",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              }
+            ]
+          },
+          "limitations": [
+            "Source qualification is incomplete; coverage does not represent the entire market.",
+            "This edition contains fixture or manually imported observations."
+          ]
+        }
+      },
+      "digest": "sha256:e5d3b6fe960e0a9fad03f6f627fcb00b4e9476cad1db108cc6cddec4c1163e2d"
+    },
+    {
+      "name": "empty",
+      "command": "radar.market.brief.show",
+      "purpose": "Empty window brief: zero entries is a legitimate state, never padded.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.brief.show",
+        "status": "success",
+        "summary": "Market brief show completed.",
+        "facts": {
+          "external_collection": false
+        },
+        "actions": [
+          {
+            "name": "sources",
+            "command": "radar market source list"
+          }
+        ],
+        "data": {
+          "spec": "radar.market_brief.v1",
+          "brief_ref": "market-brief-ff942b8a624813b6a34465f440ef81fb",
+          "digest": "sha256:ff942b8a624813b6a34465f440ef81fb300313eb7f76d2e5223104651cec6688",
+          "supersedes": null,
+          "generated_at": "2026-09-02T09:00:00.000Z",
+          "timezone": "UTC",
+          "window": {
+            "start": "2026-09-01T00:00:00.000Z",
+            "end": "2026-09-02T00:00:00.000Z"
+          },
+          "status": "empty",
+          "order_version": "market-signal-order.v1",
+          "policy_revision": "sha256:ab4d7ae58b7faf1b9477182e45e7ca7913c6bd6d025d25abfb276830b7a80ac2",
+          "main": [],
+          "watching": [],
+          "correction_count": 0,
+          "correction_refs": [],
+          "visible_signal_refs": [],
+          "remaining": 0,
+          "filtered": false,
+          "coverage": {
+            "spec": "radar.market_source_gaps.v1",
+            "as_of": "2026-09-02T00:00:00.000Z",
+            "sources": [
+              {
+                "platform": "bilibili",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "bilibili",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "dataeye",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "dataeye",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required",
+                  "background_source_not_daily_trend"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "douyin",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "douyin",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "dramabox",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "dramabox",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "dramawave",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "dramawave",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "hongguo",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "hongguo",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "hongguo-animation",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "hongguo-animation",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "huolong",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "huolong",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "kuaishou",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "kuaishou",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "kukutv",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "kukutv",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "melolo",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "melolo",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "netshort",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "netshort",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "pinedrama",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "pinedrama",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "quicktv",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "quicktv",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "reelshort",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "reelshort",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "sensortower",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "sensortower",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required",
+                  "background_source_not_daily_trend"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "xiaohongshu",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "xiaohongshu",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              },
+              {
+                "platform": "xifan",
+                "declared_markets": [
+                  "unknown"
+                ],
+                "spec": "radar.market_qualification.v1",
+                "source_ref": "xifan",
+                "source_revision": 1,
+                "as_of": "2026-09-02T00:00:00.000Z",
+                "configured_readiness": "planned",
+                "qualified": false,
+                "health": "unavailable",
+                "identity_verified": false,
+                "sampling_schedule_verified": false,
+                "fixed_utc_slots": [],
+                "sampling_plan": null,
+                "sampling_plan_preregistered": false,
+                "window": {
+                  "start": "2026-08-26T00:00:00.000Z",
+                  "end": "2026-09-02T00:00:00.000Z"
+                },
+                "days": [
+                  {
+                    "date": "2026-08-26",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-27",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-28",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-29",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-30",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-08-31",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  },
+                  {
+                    "date": "2026-09-01",
+                    "observations": 0,
+                    "two_spaced_observations": false
+                  }
+                ],
+                "sample_batches": {
+                  "live": 0,
+                  "manual": 0,
+                  "fixture": 0
+                },
+                "latest_live_observation": null,
+                "reasons": [
+                  "identity_evidence_missing",
+                  "non_fixture_sample_missing",
+                  "seven_complete_live_days_missing",
+                  "sampling_plan_not_preregistered",
+                  "sampling_schedule_verification_required",
+                  "sample_review_required"
+                ],
+                "limitations": [
+                  "No verified observation sample or continuous collection evidence."
+                ]
+              }
+            ],
+            "markets": [
+              {
+                "market": "CN",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "US",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "MX",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "BR",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "ID",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "IN",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "TH",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "PH",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "JP",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "KR",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "GB",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "DE",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "FR",
+                "declared_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              }
+            ]
+          },
+          "limitations": [
+            "Source qualification is incomplete; coverage does not represent the entire market."
+          ]
+        }
+      },
+      "digest": "sha256:d4e48a20f1f820eac0daa47c6c91877d5e2044c2cf249d34a5e1d72d9d91e4a5"
+    },
+    {
+      "name": "ready",
+      "command": "radar.market.reader.catchup",
+      "purpose": "Ready read path: explicit catch-up returns unread signal revisions without side effects.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.reader.catchup",
+        "status": "success",
+        "summary": "Market reader catchup completed.",
+        "facts": {
+          "external_collection": false
+        },
+        "actions": [
+          {
+            "name": "sources",
+            "command": "radar market source list"
+          }
+        ],
+        "data": {
+          "spec": "radar.market_catchup.v1",
+          "reader_revision": 1,
+          "policy_revision": "sha256:ab4d7ae58b7faf1b9477182e45e7ca7913c6bd6d025d25abfb276830b7a80ac2",
+          "window": {
+            "start": "2026-08-13T11:00:00.000Z",
+            "end": "2026-09-12T11:00:00.000Z"
+          },
+          "signals": [
+            {
+              "spec": "radar.market_signal.v1",
+              "subject_ref": "work-eeb47047ee3e0a76720cc9ca",
+              "source_ref": "reelshort",
+              "market": "unknown",
+              "title": "Sample Drama",
+              "topics": [],
+              "observed_at": "2026-09-11T08:00:00.000Z",
+              "lifecycle": "active",
+              "analysis_version": "market-analysis.v1",
+              "mapping_version": "market-label-mapping.v1",
+              "origin": "fixture",
+              "independent_evidence_groups": 1,
+              "signal_ref": "signal-7279ae8a736e9f7c99ee460790881dae",
+              "claim_kind": "newly_observed",
+              "assertion_level": "observed",
+              "comparison": null,
+              "observation_refs": [
+                "catalog-obs-b393b1568668b4c63ae248816285744c"
+              ],
+              "evidence_refs": [
+                "evidence-catalog-obs-b393b1568668b4c63ae248816285744c"
+              ],
+              "limitations": [
+                "First observed in this source sample; not a premiere or popularity claim."
+              ],
+              "revision": 1
+            },
+            {
+              "spec": "radar.market_signal.v1",
+              "subject_ref": "work-b5bd43c7e2b3b4e0896515df",
+              "source_ref": "reelshort",
+              "market": "unknown",
+              "title": "Another Drama",
+              "topics": [],
+              "observed_at": "2026-09-11T08:00:00.000Z",
+              "lifecycle": "active",
+              "analysis_version": "market-analysis.v1",
+              "mapping_version": "market-label-mapping.v1",
+              "origin": "fixture",
+              "independent_evidence_groups": 1,
+              "signal_ref": "signal-f3e3911a355a4de14b1e5f14d8d6266c",
+              "claim_kind": "newly_observed",
+              "assertion_level": "observed",
+              "comparison": null,
+              "observation_refs": [
+                "catalog-obs-371d1cea316242267b976c3c6867974b"
+              ],
+              "evidence_refs": [
+                "evidence-catalog-obs-371d1cea316242267b976c3c6867974b"
+              ],
+              "limitations": [
+                "First observed in this source sample; not a premiere or popularity claim."
+              ],
+              "revision": 1
+            },
+            {
+              "spec": "radar.market_signal.v1",
+              "subject_ref": "work-54c7cea92a6eb40a2195d88e",
+              "source_ref": "dramabox",
+              "market": "unknown",
+              "title": "Sample Drama",
+              "topics": [],
+              "observed_at": "2026-09-10T08:00:00.000Z",
+              "lifecycle": "active",
+              "analysis_version": "market-analysis.v1",
+              "mapping_version": "market-label-mapping.v1",
+              "origin": "fixture",
+              "independent_evidence_groups": 1,
+              "signal_ref": "signal-36ac84d8d70e1912231f7af97378d6df",
+              "claim_kind": "newly_observed",
+              "assertion_level": "observed",
+              "comparison": null,
+              "observation_refs": [
+                "catalog-obs-6c09e54fdb1c8d9b109f7c365b5e9561"
+              ],
+              "evidence_refs": [
+                "evidence-catalog-obs-6c09e54fdb1c8d9b109f7c365b5e9561"
+              ],
+              "limitations": [
+                "First observed in this source sample; not a premiere or popularity claim."
+              ],
+              "revision": 1
+            },
+            {
+              "spec": "radar.market_signal.v1",
+              "subject_ref": "work-730ef86212dfe86fd32687be",
+              "source_ref": "dramabox",
+              "market": "unknown",
+              "title": "Another Drama",
+              "topics": [],
+              "observed_at": "2026-09-10T08:00:00.000Z",
+              "lifecycle": "active",
+              "analysis_version": "market-analysis.v1",
+              "mapping_version": "market-label-mapping.v1",
+              "origin": "fixture",
+              "independent_evidence_groups": 1,
+              "signal_ref": "signal-b29ecdcb85bd92be80fe3cce20101636",
+              "claim_kind": "newly_observed",
+              "assertion_level": "observed",
+              "comparison": null,
+              "observation_refs": [
+                "catalog-obs-0b8e129e75335fce8e9312cded0d3d39"
+              ],
+              "evidence_refs": [
+                "evidence-catalog-obs-0b8e129e75335fce8e9312cded0d3d39"
+              ],
+              "limitations": [
+                "First observed in this source sample; not a premiere or popularity claim."
+              ],
+              "revision": 1
+            }
+          ],
+          "next_cursor": null,
+          "history_limited": true,
+          "limitations": [
+            "Catch-up covers the last 30 days. Older signal revisions remain available by ref."
+          ]
+        }
+      },
+      "digest": "sha256:40460636105382be0296ac7352614a479fb2c51d184bc39f38495a429db24396"
+    },
+    {
+      "name": "unknown",
+      "command": "radar.market.compare",
+      "purpose": "Unknown markets stay explicit; language never implies geography and no shared axis is computed.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.compare",
+        "status": "success",
+        "summary": "Market compare completed.",
+        "facts": {
+          "external_collection": false
+        },
+        "actions": [
+          {
+            "name": "sources",
+            "command": "radar market source list"
+          }
+        ],
+        "data": {
+          "spec": "radar.market_cross_market.v1",
+          "policy_revision": "sha256:ab4d7ae58b7faf1b9477182e45e7ca7913c6bd6d025d25abfb276830b7a80ac2",
+          "sides": [
+            {
+              "signal_ref": "signal-b29ecdcb85bd92be80fe3cce20101636",
+              "signal_revision": 1,
+              "subject_ref": "work-730ef86212dfe86fd32687be",
+              "title": "Another Drama",
+              "market": "unknown",
+              "lifecycle": "active",
+              "comparison": null,
+              "observations": [
+                {
+                  "observation_ref": "catalog-obs-0b8e129e75335fce8e9312cded0d3d39",
+                  "original_title": "Another Drama",
+                  "market": "unknown",
+                  "market_evidence_refs": [],
+                  "locale": "en",
+                  "observed_at": "2026-09-10T08:00:00.000Z",
+                  "source_published_at": null,
+                  "source_ref": "dramabox",
+                  "source_revision": 1,
+                  "platform": "dramabox",
+                  "sampling_scope": "Pending source-specific sampling qualification",
+                  "publisher_group": "dramabox",
+                  "facts": [],
+                  "evidence_refs": [
+                    "evidence-catalog-obs-0b8e129e75335fce8e9312cded0d3d39"
+                  ],
+                  "origin": "fixture"
+                }
+              ],
+              "identity": {
+                "mapping_status": "candidate",
+                "mapping_revision": 1,
+                "canonical_work_ref": null,
+                "evidence_refs": [
+                  "evidence-catalog-obs-0b8e129e75335fce8e9312cded0d3d39"
+                ]
+              }
+            },
+            {
+              "signal_ref": "signal-f3e3911a355a4de14b1e5f14d8d6266c",
+              "signal_revision": 1,
+              "subject_ref": "work-b5bd43c7e2b3b4e0896515df",
+              "title": "Another Drama",
+              "market": "unknown",
+              "lifecycle": "active",
+              "comparison": null,
+              "observations": [
+                {
+                  "observation_ref": "catalog-obs-371d1cea316242267b976c3c6867974b",
+                  "original_title": "Another Drama",
+                  "market": "unknown",
+                  "market_evidence_refs": [],
+                  "locale": "en",
+                  "observed_at": "2026-09-11T08:00:00.000Z",
+                  "source_published_at": null,
+                  "source_ref": "reelshort",
+                  "source_revision": 1,
+                  "platform": "reelshort",
+                  "sampling_scope": "Pending source-specific sampling qualification",
+                  "publisher_group": "reelshort",
+                  "facts": [],
+                  "evidence_refs": [
+                    "evidence-catalog-obs-371d1cea316242267b976c3c6867974b"
+                  ],
+                  "origin": "fixture"
+                }
+              ],
+              "identity": {
+                "mapping_status": "candidate",
+                "mapping_revision": 1,
+                "canonical_work_ref": null,
+                "evidence_refs": [
+                  "evidence-catalog-obs-371d1cea316242267b976c3c6867974b"
+                ]
+              }
+            }
+          ],
+          "identity_relation": "not_established",
+          "presentation": "side_by_side",
+          "shared_numeric_axis": false,
+          "causal_inference": false,
+          "limitations": [
+            "Titles and candidate mappings do not establish that two works are identical.",
+            "Unknown and global markets remain explicit; language does not establish geography.",
+            "Metrics retain their own source, sampling scope, definition, unit and window; no combined popularity score."
+          ]
+        }
+      },
+      "digest": "sha256:2876e9e247ebb983d86d72426802816ff1953d90a16a1dd12059338e1ffd524a"
+    },
+    {
+      "name": "retracted",
+      "command": "radar.market.signal.show",
+      "purpose": "A correction mints a new immutable revision with lifecycle retracted; the old revision stays readable.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.signal.show",
+        "status": "success",
+        "summary": "Market signal show completed.",
+        "facts": {
+          "external_collection": false
+        },
+        "actions": [
+          {
+            "name": "sources",
+            "command": "radar market source list"
+          }
+        ],
+        "data": {
+          "spec": "radar.market_signal.v1",
+          "subject_ref": "work-730ef86212dfe86fd32687be",
+          "source_ref": "dramabox",
+          "market": "unknown",
+          "title": "Another Drama",
+          "topics": [],
+          "observed_at": "2026-09-12T10:00:00.000Z",
+          "lifecycle": "retracted",
+          "analysis_version": "market-analysis.v1",
+          "mapping_version": "market-label-mapping.v1",
+          "origin": "fixture",
+          "independent_evidence_groups": 1,
+          "signal_ref": "signal-b29ecdcb85bd92be80fe3cce20101636",
+          "claim_kind": "correction",
+          "assertion_level": "observed",
+          "comparison": null,
+          "observation_refs": [
+            "catalog-obs-0b8e129e75335fce8e9312cded0d3d39"
+          ],
+          "evidence_refs": [
+            "evidence-catalog-obs-0b8e129e75335fce8e9312cded0d3d39",
+            "evidence-handoff-retraction"
+          ],
+          "limitations": [
+            "handoff vector retraction",
+            "Explicit owner correction; consult the original revision and linked evidence."
+          ],
+          "corrects_revision": 1,
+          "revision": 2
+        }
+      },
+      "digest": "sha256:ac87b31f0e7854a123799c5f015a7f459f6dc5dbad8357a664512e81224e348e"
+    },
+    {
+      "name": "stale",
+      "command": "radar.market.reader.mark",
+      "purpose": "After a policy revision, writes signed with the old policy revision conflict; clients must re-read.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.reader.mark",
+        "status": "failed",
+        "summary": "failed",
+        "error": {
+          "code": "state_conflict",
+          "message": "Reader or content policy changed; read the current state before retrying."
+        }
+      },
+      "receipt": {
+        "spec": "radar.market_receipt.v1",
+        "idempotency_key": "handoff-vector-mark",
+        "payload_digest": "sha256:2b64c31e0e5752cccd9e7618a70465e6b32a0327e04f197f0ad6c1fcb93e8912",
+        "reader_revision": 2
+      },
+      "digest": "sha256:fceb38e21b6d63e332c6fd69b676a89b7f6c980a9a5251b26b39e7088bfebcea"
+    },
+    {
+      "name": "blocked",
+      "command": "radar.market.question.context",
+      "purpose": "Blocked or unclassified content returns a safe refusal without echoing content.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.question.context",
+        "status": "failed",
+        "summary": "failed",
+        "error": {
+          "code": "content_blocked",
+          "message": "Content is blocked or has not been classified against the current policy."
+        }
+      },
+      "digest": "sha256:5974765341c4531d762c44de772bd7b09ab1d22145b348c53b47cbf8eea17ab8"
+    },
+    {
+      "name": "conflict",
+      "command": "radar.market.reader.mark",
+      "purpose": "Reusing an idempotency key with different parameters is refused; the original receipt stays authoritative.",
+      "envelope": {
+        "spec_version": "1.0",
+        "mode": "json",
+        "command": "radar.market.reader.mark",
+        "status": "failed",
+        "summary": "failed",
+        "error": {
+          "code": "idempotency_conflict",
+          "message": "Reader key was already used with different parameters."
+        }
+      },
+      "digest": "sha256:144ac46aaa048df203b23365cb3878270c8e0bd8136614ca1c41a88fcc714d5f"
+    }
+  ]
+}

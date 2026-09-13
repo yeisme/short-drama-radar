@@ -10,8 +10,9 @@ export interface ComparisonSelection { signal_ref: string; revision: number }
 
 // This read deliberately does not calculate a cross-platform score or ratio.
 export function crossMarketView(db: RadarDb, left: ComparisonSelection, right: ComparisonSelection) {
+  const safeRef = (v: unknown) => typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(v);
   for (const selection of [left, right]) {
-    if (!selection || typeof selection.signal_ref !== "string" || !Number.isSafeInteger(selection.revision) || selection.revision < 1) {
+    if (!selection || !safeRef(selection.signal_ref) || !Number.isSafeInteger(selection.revision) || selection.revision < 1) {
       throw new MarketStoreError("comparison_invalid", "Select two stored signal references with positive revisions.");
     }
   }

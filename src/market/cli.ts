@@ -12,7 +12,7 @@ import { assertMarketContentReadable } from "./policy.ts";
 import { buildMarketBrief, readMarketBrief } from "./brief.ts";
 import { changeReadState, readReader, readerReceipt } from "./reader.ts";
 import { catchUp } from "./catchup.ts";
-import { listWatches, mutateWatch, watchReceipt, type MarketWatch } from "./watch.ts";
+import { listWatches, mutateWatch, watchChanges, watchReceipt, type MarketWatch } from "./watch.ts";
 import { evidenceForSignal, questionContext } from "./question.ts";
 import { buildMarketReview, readMarketReview } from "./review.ts";
 import { crossMarketView } from "./cross-market.ts";
@@ -20,10 +20,18 @@ import { previousMarketWindow } from "./calendar.ts";
 import { recordSamplingCheck, registerSamplingPlan, samplingPlan } from "./sampling.ts";
 import { reviewSource, sourceReviewReceipt } from "./source-review.ts";
 import { listWorkMappings, workMapping } from "./identity.ts";
+import type { EventWriter } from "../output/events.ts";
+import { buildMarketScheduleUnits, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { systemdUserDir } from "../schedule.ts";
 
-export async function marketCommand(command: string[], flags: Map<string, string[]>, db: RadarDb): Promise<CommandResult> {
+export async function marketCommand(command: string[], flags: Map<string, string[]>, db: RadarDb, events?: EventWriter): Promise<CommandResult> {
   const [, group, action] = command;
   const id = ["radar", "market", group, action].filter(Boolean).join(".");
+  // Long builds stream staged progress; the final end|error event is written
+  // by this path on success and by the CLI error path on failure.
+  if (events) events.start(id);
   const value = (name: string): string => {
     const values = flags.get(name);
     if (!values || values.length !== 1 || values[0] === "true" || values[0] === "") {
@@ -80,6 +88,11 @@ export async function marketCommand(command: string[], flags: Map<string, string
   } else if (group === "watch" && action === "list") {
     checkFlags([]);
     data = { watches: listWatches(db), reader: readReader(db) };
+  } else if (group === "watch" && action === "changes") {
+    checkFlags(["watch", "since", "until"]);
+    data = watchChanges(db, { watch: value("watch"),
+      ...(flags.has("since") ? { since: value("since") } : {}),
+      ...(flags.has("until") ? { until: value("until") } : {}) });
   } else if (group === "watch" && action === "receipt") {
     checkFlags(["key"]);
     data = watchReceipt(db, value("key"));
@@ -105,13 +118,19 @@ export async function marketCommand(command: string[], flags: Map<string, string
     if (!data) throw new MarketStoreError("receipt_not_found", "No reader receipt exists for this key.");
   } else if (group === "analyze" && !action) {
     checkFlags(["start", "end"]);
-    data = analyzeMarket(db, value("start"), value("end"));
+    // Without an explicit window the scheduled pass analyzes the previous
+    // complete local day — the same default rule `brief build` uses.
+    const window = flags.has("start") || flags.has("end") ? { start: value("start"), end: value("end") }
+      : previousMarketWindow(readSettings(db).timezone, "day");
+    data = analyzeMarket(db, window.start, window.end);
+    events?.emit({ event: "phase", phase: "analyzed", window, signals: (data as { created?: number }).created ?? 0 });
   } else if (group === "brief" && action === "build") {
     checkFlags(["start", "end"]);
     const window = flags.has("start") || flags.has("end") ? { start: value("start"), end: value("end") }
       : previousMarketWindow(readSettings(db).timezone, "day");
     const result = buildMarketBrief(db, window.start, window.end);
     data = { ...readMarketBrief(db, result.brief.brief_ref), reused: result.reused };
+    events?.emit({ event: "phase", phase: "brief_frozen", window, status: (data as { status: string }).status, reused: result.reused });
   } else if (group === "brief" && action === "show") {
     checkFlags(["brief"]);
     data = readMarketBrief(db, flags.has("brief") ? value("brief") : "latest");
@@ -127,6 +146,7 @@ export async function marketCommand(command: string[], flags: Map<string, string
       : previousMarketWindow(readSettings(db).timezone, "week", now);
     const result = buildMarketReview(db, window.start, window.end, flags.has("as-of") ? value("as-of") : now.toISOString(), now);
     data = { ...readMarketReview(db, result.review.review_ref), reused: result.reused };
+    events?.emit({ event: "phase", phase: "review_frozen", window, entries: (data as { entries: unknown[] }).entries.length, reused: result.reused });
   } else if (group === "review" && action === "show") {
     checkFlags(["review"]);
     data = readMarketReview(db, value("review"));
@@ -232,9 +252,48 @@ export async function marketCommand(command: string[], flags: Map<string, string
     // verified canonical ref appends corrections to affected signals.
     data = reviewWorkIdentity(db, { work: value("work"), expected_revision: revision(),
       canonical_work_ref: value("canonical"), evidence_refs: flags.get("evidence") ?? [] });
+  } else if (group === "observe" && !action) {
+    // Live collection is deliberately not wired: it must respect source
+    // qualification and owner authorization first (design §3/§7). The
+    // command exists so callers get an honest, recoverable answer.
+    checkFlags(["source"]);
+    throw new MarketStoreError("capability_unavailable",
+      "Live market observation is not enabled yet. Sources must pass qualification (radar market source qualify) and the owner must authorize collection; use radar market import-catalog for fixture/manual imports.");
+  } else if (group === "canary" && action === "report") {
+    checkFlags(["days"]);
+    throw new MarketStoreError("capability_unavailable",
+      "The 14-day market canary is planned but not started; it requires real source qualification and a real observation window. The personal canary report (radar canary report) keeps its original meaning.");
+  } else if (group === "schedule" && (action === "show" || action === "install")) {
+    checkFlags(["print"]);
+    if (action === "show") {
+      if (flags.has("print")) throw new MarketStoreError("flag_invalid", "Use 'market schedule install --print' for unit contents.");
+      const planned = [{ stage: "observe", status: "planned" as const,
+        reason: "Scheduled observation starts only after a source passes qualification and the owner CLI exposes observe; no timer is generated for it yet." }];
+      data = { scheduled_stages: ["analyze", "brief"],
+        planned_stages: planned,
+        local_times: MARKET_SCHEDULE_TIMES,
+        observe_policy: "two slots per day 12h apart, per-source 60s timeout, at most two read-only retries (2s/8s backoff), global concurrency 2, 24h cooldown on login/risk-control failures",
+        installed_note: "Printing or writing units never enables a timer; enable steps are owner actions." };
+    } else {
+      const execStart = `${process.execPath} ${join(import.meta.dir, "../cli.ts")}`;
+      const units = buildMarketScheduleUnits(execStart);
+      const target = systemdUserDir(process.env.HOME ?? "~");
+      if (flags.has("print")) {
+        data = { units_written: 0, target, units };
+      } else {
+        mkdirSync(target, { recursive: true });
+        for (const [name, content] of Object.entries(units)) writeFileSync(join(target, name), content);
+        data = { units_written: Object.keys(units).length, target,
+          next_steps: MARKET_SCHEDULE_NEXT_STEPS,
+          note: "Units were written but not enabled; enabling the timers is an explicit owner action." };
+      }
+    }
+  } else if (group === "schedule" && !action) {
+    throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/receipt, question context, source list/show/set/qualify/gaps, config show/set.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps, config show/set, schedule show/install.");
   }
+  events?.end("success", { command: id });
   return {
     command: id, status: "success", summary: "Market " + [group, action].filter(Boolean).join(" ") + " completed.",
     data, facts: { external_collection: false },

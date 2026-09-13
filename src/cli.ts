@@ -21,6 +21,7 @@ import { RADAR_HOME } from "./config.ts";
 import type { AppDeps } from "./app/actions.ts";
 import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, recordRun, ActionError } from "./app/actions.ts";
 import { EventWriter } from "./output/events.ts";
+import { renderExplain } from "./output/envelope.ts";
 import { renderAgentLine, renderJsonEnvelope, renderSummary, type CommandResult } from "./output/envelope.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -34,18 +35,18 @@ import { MarketValidationError } from "./market/domain.ts";
 interface Args {
   command: string[];
   flags: Map<string, string[]>; // value flags, repeatable
-  mode: "summary" | "json" | "agent" | "events";
+  mode: "summary" | "json" | "agent" | "events" | "explain";
 }
 
 function parseArgs(argv: string[]): Args {
   const command: string[] = [];
   const flags = new Map<string, string[]>();
   let mode: Args["mode"] = "summary";
-  const MODE_FLAGS = new Set(["--json", "--agent", "--events"]);
+  const MODE_FLAGS = new Set(["--json", "--agent", "--events", "--explain"]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (MODE_FLAGS.has(a)) {
-      mode = a === "--json" ? "json" : a === "--agent" ? "agent" : "events";
+      mode = a === "--json" ? "json" : a === "--agent" ? "agent" : a === "--events" ? "events" : "explain";
       continue;
     }
     if (a.startsWith("--")) {
@@ -127,6 +128,9 @@ function emit(result: CommandResult, args: Args): void {
       // The NDJSON stream was already written by the command itself; the
       // final end|error event IS the outcome surface.
       break;
+    case "explain":
+      console.log(renderExplain(result));
+      break;
     default:
       console.log(renderSummary(result));
   }
@@ -136,9 +140,11 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
   const [group, sub] = args.command;
   const positional = args.command[2]; // group sub <positional> — date or ref
   switch (group) {
-    case "market":
-      if (args.mode === "events") throw new CliError("mode_unsupported", "Market configuration commands support summary, --json and --agent.");
-      return marketCommand(args.command, args.flags, db);
+    case "market": {
+      // Long market builds stream staged events; reads render normally.
+      const events = args.mode === "events" ? new EventWriter(`market-${new Date().toISOString()}`) : undefined;
+      return marketCommand(args.command, args.flags, db, events);
+    }
     case "profile":
       return profileCommand(sub, args, profiles);
     case "feedback":
@@ -580,7 +586,7 @@ function numericFlag(args: Args, name: string, min: number, max: number): number
 function usage(): string {
   return `short-drama-radar — crawler-first daily short-drama intelligence with personal edition
 
-Usage: radar <command> [args] [--json | --agent | --events]
+Usage: radar <command> [args] [--json | --agent | --events | --explain]
 
 Collection & scoring:
   collect                          Fetch all layers (0 firecrawl / 1 backends / 2 browser)
@@ -613,6 +619,11 @@ Market foundation (local only):
   market config set --revision <n> --blocked-topic <ref>
   market config set --revision <n> --clear-blocked-topics
   market analyze --start <UTC-instant> --end <UTC-instant>
+  market analyze (without windows: previous complete local day)
+  market schedule show                 Market pipeline schedule description (planned vs schedulable)
+  market schedule install [--print]    Write (or print) market-only systemd user units; never enables timers
+  market observe --source <ref>        Planned: live observation needs source qualification + owner authorization
+  market canary report --days 14       Planned: 14-day market canary (radar canary report keeps its old meaning)
   market signal show --signal <ref> [--revision <n>]
   market signal correct --signal <ref> --revision <n> --reason <text> --evidence <ref> --outcome <retracted|inconclusive> --at <UTC-instant>
   market signal restore --signal <ref> --revision <n> --observation <ref> --reason <text> --at <UTC-instant>
@@ -637,6 +648,7 @@ Market foundation (local only):
   market watch list
   market watch add --kind <topic|work|platform|market> --target <ref> --revision <n> --policy-revision <digest> --key <key>
   market watch pause|resume|remove --watch <ref> --revision <n> --policy-revision <digest> --key <key>
+  market watch changes --watch <ref> [--since <UTC-instant>] [--until <UTC-instant>]  Pause-period changes with source gaps
   market watch receipt --key <key>
   market question context --signal <ref> --revision <n> --question <text>
   market evidence show --signal <ref> --revision <n> --evidence <ref>

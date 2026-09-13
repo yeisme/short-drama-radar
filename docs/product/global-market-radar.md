@@ -4,25 +4,25 @@
 
 方案日期：2026-09-11。目标是替代用户在多个平台/榜单间反复切换的部分工作：每日 3–5 分钟掌握值得注意的变化，再由 Agent 和 DSH 深看证据。内容变化为主，行业背景为辅；真人短剧与漫剧分别观察，AI 制作方式另有证据标签。
 
-这是已确认方向的设计文档，市场能力正在实现。当前已有观测输入校验、来源/观测基础存储及来源/配置 CLI；可比分析、市场简报和五项体验扩展尚未完成。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
+这是已确认方向的设计文档。本地软件面（2026-09-13 OpenSpec radar-market-observation-and-brief-v1 软件门）已交付：观测输入校验、来源/观测/资格存储、来源/配置/资格 CLI、七类命题可比分析、信号修订与更正/恢复、每日简报（supersedes/ready-degraded-empty）、时区/截止/迟到规则、市场调度单元描述（market schedule，写单元不启用）、显式已读/补看/观察清单（含暂停期变化与 source_gap）、跨市场对照、周度回顾、禁区全出口、question context 与回答引用验证、summary/json/agent/events/explain 输出合同、MCP 只读 view/curator/operator 动作/资源（含列表 view）、市场 handoff 向量与读取性能验证（100k 观测下 latest brief 与 20 条补看 p95 均远低于 1s）。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。真实门仍未完成且必须分别报告：已授权来源的持续资格验证（任务 5.4，须真实来源与权限）、14 天真实观察与用户对照（5.5，须 DSH 真实连接）、付费补缺与发布决定（5.6，须用户授权）；observe/canary market 命令以 capability_unavailable 诚实拒绝。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
 
 ### 当前可用的本地基础命令
 
-信号更正已支持market signal correct，必需 --signal、--revision、--reason、--evidence、--outcome（retracted或inconclusive）和--at。它是显式owner操作，追加修订不覆盖旧判断；缺失证据或陈旧revision拒绝。更正会重新进入补看并在新简报优先出现，旧版次保持原digest。自动判断回顾仍待实现。
+信号更正已支持market signal correct，必需 --signal、--revision、--reason、--evidence、--outcome（retracted或inconclusive）和--at。它是显式owner操作，追加修订不覆盖旧判断；缺失证据或陈旧revision拒绝。更正会重新进入补看并在新简报优先出现，旧版次保持原digest。周度回顾已支持 market review build/show（前一完整周、四种结果、cutoff 有界、重建幂等）；market signal restore 支持显式恢复审查。
 
-证据上下文入口：`bun run src/cli.ts market question context --signal <ref> --revision <n> --question "为什么这样判断？" --json`。它只提供已存证据和回答约束，不调用模型或发起研究；缺失/禁区证据报错。单条证据用market evidence show并提供同一signal/revision/evidence读取；不能拿其他信号的ref绕过当前策略。完整Agent问答产品尚待MCP与DSH接入。
+证据上下文入口：`bun run src/cli.ts market question context --signal <ref> --revision <n> --question "为什么这样判断？" --json`。它只提供已存证据和回答约束，不调用模型或发起研究；缺失/禁区证据报错。单条证据用market evidence show并提供同一signal/revision/evidence读取；不能拿其他信号的ref绕过当前策略。MCP 已暴露 market_question view 与 radar_market_brief prompt，回答引用验证（fact 必须引用上下文携带证据）由服务校验；DSH 真实会话接入仍属外部门。
 
-观察清单已有 watch add/list/pause/resume/remove/receipt。使用 `bun run src/cli.ts market watch list --json` 获取列表和reader状态；新增使用 `bun run src/cli.ts market watch add --kind platform --target hongguo --revision <n> --policy-revision <digest> --key <key> --json`。暂停/恢复/取消传 --watch，均要求当前revision与policy；这些动作不写原创作反馈或已读。关注变化汇总尚待接通。
+观察清单已有 watch add/list/pause/resume/remove/receipt。使用 `bun run src/cli.ts market watch list --json` 获取列表和reader状态；新增使用 `bun run src/cli.ts market watch add --kind platform --target hongguo --revision <n> --policy-revision <digest> --key <key> --json`。暂停/恢复/取消传 --watch，均要求当前revision与policy；这些动作不写原创作反馈或已读。暂停期与任意窗口的变化汇总已支持 market watch changes --watch <ref> [--since --until]（默认最近暂停期，否则30天；窗口内无采集的来源标 source_gap，不把缺数据当无变化）。
 
 补看入口为 `bun run src/cli.ts market reader catchup --json`，默认最近30天、每页20条，下一页传 --cursor。分页不自动标已读；读者、禁区或信号集合改变后旧cursor返回state_conflict，重新读取即可。受禁区过滤时可能返回空页与next_cursor，仍应按游标继续，不能将空页误判为全部读完。
 
 显式阅读进度已支持 reader show/mark/unread/receipt。先运行 `bun run src/cli.ts market reader show --json` 获取当前reader revision和policy_revision，再用 `bun run src/cli.ts market reader mark --signal <ref> --signal-revision <n> --revision <n> --policy-revision <digest> --key <key> --json` 标记指定修订。撤销使用unread；回执丢失可用reader receipt --key查询，不使用新键重复写入。打开简报或Agent读取不会自动记已读。
 
-本地市场版次已支持 `bun run src/cli.ts market brief build --start 2026-09-10T00:00:00Z --end 2026-09-11T00:00:00Z --json` 和 `bun run src/cli.ts market brief show --json`。构建读取已有信号，不联网，固定输入复用原版次；show使用当前内容禁区，保留原版次ref/digest。当前来源资格不完整，非空版次标degraded；自动日报调度、更正及完整阅读体验尚未完成。
+本地市场版次已支持 `bun run src/cli.ts market brief build --start 2026-09-10T00:00:00Z --end 2026-09-11T00:00:00Z --json` 和 `bun run src/cli.ts market brief show --json`。构建读取已有信号，不联网，固定输入复用原版次；show使用当前内容禁区，保留原版次ref/digest。当前来源资格不完整，非空版次标degraded。市场调度单元已可生成与安装（market schedule show / install [--print]，analyze 08:50、brief 09:00 本地时区，observe 在来源资格完成前保持 planned）；写入单元不启用 timer，启用为 owner 动作。
 
-基础分析现已支持 `bun run src/cli.ts market analyze --start 2026-09-10T00:00:00Z --end 2026-09-14T00:00:00Z --json`，读取已入库观察并生成首次观察和可比指标信号，不联网。可用 `bun run src/cli.ts market signal show --signal <ref> --revision <n> --json` 回查绑定修订；缺失修订不会回退最新。完整题材/目录分析、更正生命周期及简报仍待实现。
+基础分析现已支持 `bun run src/cli.ts market analyze --start 2026-09-10T00:00:00Z --end 2026-09-14T00:00:00Z --json`，读取已入库观察并生成首次观察和可比指标信号，不联网。可用 `bun run src/cli.ts market signal show --signal <ref> --revision <n> --json` 回查绑定修订；缺失修订不会回退最新。七类命题（含 listing/topic-mix/cross-market 证据门与版本化排序）、更正生命周期与不可变简报均已交付。
 
-来源检查已支持 `bun run src/cli.ts market source qualify --source hongguo --json` 和 `bun run src/cli.ts market source gaps --json`。当前为只读证据/缺口报告，区分配置readiness、完整观察日、fixture/manual/live和freshness；资格晋级服务仍未完成，缺少采样计划/完整性证据时明确返回未合格，不代表正式source资格任务已完成。
+来源检查已支持 `bun run src/cli.ts market source qualify --source hongguo --json` 和 `bun run src/cli.ts market source gaps --json`，另有采样计划（plan/show-plan）、采样回执（check-sample）、人工审查（review/review-receipt）与资格记录（record-qualification/qualification）owner 动作；资格与运行 health 分离，fixture/manual 不计入 live 天数，缺少采样计划/完整性证据时明确返回未合格。逐来源的持续资格验证（任务 5.4）仍需真实来源与权限，保持未完成。
 
 目录文件导入已支持红果 HTML、ReelShort HTML、DramaBox Markdown 等明确链接结构，例如：
 
@@ -150,9 +150,9 @@ bun run test:integration
 openspec validate radar-market-observation-and-brief-v1 --strict --no-interactive
 ```
 
-目前已执行多项市场模块的定向单元/集成测试和类型检查，具体结果及证据位于 change 的 tasks.md；完整质量门和真实 14 天试用尚未完成。上述命令是验证入口，不代表全部已经运行通过。
+2026-09-13 软件最终门已通过：typecheck、全量 bun test、bun run test:integration（带证据）与 strict openspec validate 全部退出 0，具体结果及证据位于 change 的 tasks.md。真实 14 天试用与已授权来源资格仍属外部门，未由本页推断完成。
 
-本地回顾支持 `radar market review build --start <UTC时间> --end <UTC时间> --as-of <UTC截止时间>` 和 `radar market review show --review <回顾引用>`。回顾冻结原始与后续信号版本，缺少后续证据表示证据不足；读取旧回顾继续执行当前禁区。不指定窗口时，`radar market brief build` 采用配置时区的上一完整日，`radar market review build` 采用上一完整周（周一到周一），回顾截止默认为当前时间。日历计算覆盖夏令时的 23/25 小时日；不存在的本地日期明确报错，不按固定 24 小时猜测。自动定时触发尚未交付。MCP operator 的构建参数仍要求显式窗口，以当前 tools/list 为准。
+本地回顾支持 `radar market review build --start <UTC时间> --end <UTC时间> --as-of <UTC截止时间>` 和 `radar market review show --review <回顾引用>`。回顾冻结原始与后续信号版本，缺少后续证据表示证据不足；读取旧回顾继续执行当前禁区。不指定窗口时，`radar market brief build` 采用配置时区的上一完整日，`radar market review build` 采用上一完整周（周一到周一），回顾截止默认为当前时间。日历计算覆盖夏令时的 23/25 小时日；不存在的本地日期明确报错，不按固定 24 小时猜测。自动定时触发以 market schedule install 生成的 systemd 单元为准（写入不启用，启用为 owner 动作）；本容器等无 systemd 环境只输出安装说明，不报告已调度。MCP operator 的构建参数仍要求显式窗口，以当前 tools/list 为准。
 
 本地跨市场对照支持 `radar market compare --left <信号引用> --left-revision <版本> --right <信号引用> --right-revision <版本>`。两侧保留各自原名、地区依据、采样范围、时间及指标口径，不合成跨平台热度。候选同作映射只表示待核实，任一侧触发当前禁区时整个请求拒绝。当前已验证目录夹具与安全读取，并暴露 MCP 读取入口；已验证同作的评审流程和 DSH 展示仍待接入。
 
