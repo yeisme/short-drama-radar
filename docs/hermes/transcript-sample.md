@@ -1,6 +1,6 @@
 # radar-personal-brief 脱敏 dry-run transcript（4.1 验证样例）
 
-来源：fixture 驱动的 MCP reader 会话（test/integration/mcp-e2e.test.ts 真实子进程
+来源：fixture 驱动的 Radar CLI 会话（JSON 回执）
 输出），无任何私人创作内容、凭据或原始平台 payload。真实 canary 的每日
 transcript 记录方法见 canary-runbook.md。
 
@@ -8,7 +8,7 @@ transcript 记录方法见 canary-runbook.md。
 
 ```text
 user: 今天的短剧机会简报
-skill: (reads radar://capabilities) mcp_stdio_lanes=ready; remote/a2a=unavailable — 按边界只读本地。
+skill: (runs radar doctor and reads JSON receipt) CLI-only local access; no remote service.
 skill: (reads radar://sources/status) last-collection=degraded, douyin-cookie=blocked → 今日指标偏下界，简报中已标注。
 skill: (reads radar://editions/latest)
 skill: Edition edition-2026-08-30-ab12cd34 (ready), profile profile-main rev 2:

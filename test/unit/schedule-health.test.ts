@@ -34,14 +34,6 @@ describe("schedule units (task: systemd wiring)", () => {
     expect(svc).not.toMatch(/cookie|password|token/i);
   });
 
-  test("installation also owns a restartable user-level XHS backend service", () => {
-    const svc = units["short-drama-radar-xhs.service"];
-    expect(svc).toContain("ConditionPathExists=%h/.agent-reach/tools/xiaohongshu-mcp");
-    expect(svc).toContain("WorkingDirectory=%h/.agent-reach/xiaohongshu");
-    expect(svc).toContain("Restart=on-failure");
-    expect(SCHEDULE_NEXT_STEPS.join(" ")).toContain("short-drama-radar-xhs.service");
-  });
-
   test("install next steps are systemd user commands", () => {
     expect(SCHEDULE_NEXT_STEPS[0]).toBe("systemctl --user daemon-reload");
     expect(SCHEDULE_NEXT_STEPS.join(" ")).toContain("enable --now");

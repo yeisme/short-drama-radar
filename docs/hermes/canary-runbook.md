@@ -72,7 +72,7 @@ bun run src/cli.ts doctor --json
    radar runs --json
    radar edition show latest --json
    radar audit tail --json
-   radar mcp capabilities --json
+   radar doctor --json
    ```
 
    `health` 负责采集覆盖；`canary report` 自动计算 Edition 天数、非空日 usefulness、`not_relevant`/无 reason code 比例和 Profile 调整次数，并将 Hermes memory 冲突、秘密扫描和无自动重放保留为明确人工门；`audit tail` 负责人工确认 curator 反馈和无自动重放；`mcp capabilities` 在 5.2/5.3 尚未通过时必须继续把公共 Skill、remote endpoint 与 A2A 标为 `planned|unavailable`。
@@ -85,4 +85,4 @@ bun run src/cli.ts doctor --json
 
 ## 5.4：晋级决定（外部门）
 
-公共 Hermes Skill、remote endpoint、A2A、多用户方向只有在 5.2+5.3 全绿后另行立项；在此之前 `radar mcp capabilities` 必须继续把它们标为 `planned|unavailable`。
+Hermes 仅通过 Radar CLI 和用户级运行回执读取结果；不依赖 MCP、remote endpoint、A2A 或多用户服务。

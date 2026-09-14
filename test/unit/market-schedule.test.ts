@@ -25,7 +25,6 @@ describe("market schedule units (task 2.6)", () => {
       "short-drama-radar-card.service", "short-drama-radar-card.timer",
       "short-drama-radar-collect.service", "short-drama-radar-collect.timer",
       "short-drama-radar-score.service", "short-drama-radar-score.timer",
-      "short-drama-radar-xhs.service",
     ]);
     for (const name of Object.keys(legacy)) expect(units[name]).toBeUndefined();
   });

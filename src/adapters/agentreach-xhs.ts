@@ -1,15 +1,14 @@
 import { emptyResult, type Adapter, type AdapterContext, type FetchResult, type RawItem } from "./types.ts";
 
 // Layer 1 (xiaohongshu): agent-reach routed platform backend.
-// Three supported backends (picked by `agent-reach doctor --json`):
-//   A. OpenCLI       (desktop, reuses Chrome login state)
-//   B. xiaohongshu-mcp via mcporter (server, QR login)
-//   C. xhs-cli       (legacy fallback, upstream stalled)
+// Supported CLI backends (picked by `agent-reach doctor --json`):
+//   A. OpenCLI (desktop, reuses Chrome login state)
+//   B. xhs-cli (legacy CLI fallback)
 // Login material lives inside the backend's own user-level config; this
 // adapter never sees or stores credentials. Missing backend or missing login
 // state degrades loudly with the exact next command — never fabricates data.
 
-export type XhsBackend = "opencli" | "xiaohongshu-mcp" | "xhs-cli";
+export type XhsBackend = "opencli" | "xhs-cli";
 
 export interface BackendProbe {
   backend: XhsBackend | null;
@@ -20,7 +19,6 @@ export interface ProbeDeps {
   runJson?: (cmd: string[]) => { stdout: string; exitCode: number } | Promise<{ stdout: string; exitCode: number }>;
 }
 
-export const XHS_MCP_START_COMMAND = 'mkdir -p "$HOME/.agent-reach/xiaohongshu" && cd "$HOME/.agent-reach/xiaohongshu" && "$HOME/.agent-reach/tools/xiaohongshu-mcp" -headless=true -port 127.0.0.1:18060';
 
 // Probe agent-reach for the currently active xiaohongshu backend. doctor is
 // the routing source of truth; we do not guess a backend by PATH sniffing.
@@ -34,26 +32,18 @@ export async function probeXhsBackend(agentReachBin: string, deps: ProbeDeps = {
     const doctor = JSON.parse(res.stdout.toString()) as Record<string, unknown>;
     const channel = doctor["xiaohongshu"] as { status?: string; active_backend?: string | null; message?: string } | undefined;
     if (!channel || channel.status !== "ok" || !channel.active_backend) {
-      // Agent Reach currently sees a server backend only while it is reachable.
-      // A persistent mcporter registration is still concrete provisioning, so
-      // distinguish "configured but offline" from "not installed".
-      const configured = await runJson(["mcporter", "config", "list", "--json"]);
-      if (configured.exitCode === 0 && hasConfiguredXhsMcp(configured.stdout.toString())) {
-        return { backend: "xiaohongshu-mcp", hint: XHS_MCP_START_COMMAND };
-      }
       const first = (channel?.message ?? "xiaohongshu backend not provisioned.").split("\n").map((l) => l.trim()).filter(Boolean);
       const install = first.find((l) => l.includes("agent-reach install")) ?? "agent-reach install --channels opencli";
       return { backend: null, hint: install };
     }
     const map: Record<string, XhsBackend> = {
       "OpenCLI": "opencli",
-      "xiaohongshu-mcp": "xiaohongshu-mcp",
       "xhs-cli (xiaohongshu-cli)": "xhs-cli",
     };
     const backend = map[channel.active_backend] ?? null;
     return backend
       ? { backend, hint: "" }
-      : { backend: null, hint: `unknown active_backend '${channel.active_backend}'; supported: OpenCLI, xiaohongshu-mcp, xhs-cli.` };
+      : { backend: null, hint: `unknown active_backend '${channel.active_backend}'; supported: OpenCLI, xhs-cli.` };
   } catch (err) {
     return { backend: null, hint: `agent-reach doctor failed: ${(err as Error).message}` };
   }
@@ -126,66 +116,13 @@ export async function probeXhsReadiness(
   timeoutMs: number,
   run: (cmd: string[]) => Promise<{ stdout: string; exitCode: number }> = defaultRun,
 ): Promise<BackendReadiness> {
-  if (backend !== "xiaohongshu-mcp") {
-    return { ready: true, detail: `active backend: ${backend}` };
-  }
-
-  const hint = "mcporter call 'xiaohongshu.get_login_qrcode()' --timeout 120000";
-  try {
-    const result = await run([
-      "mcporter",
-      "call",
-      "xiaohongshu.check_login_status()",
-      "--timeout",
-      String(Math.max(timeoutMs, 30_000)),
-      "--output",
-      "json",
-    ]);
-    if (result.exitCode !== 0) {
-      return { ready: false, detail: `xiaohongshu-mcp is configured but unreachable (login probe exited ${result.exitCode})`, hint: XHS_MCP_START_COMMAND };
-    }
-    const parsed = JSON.parse(result.stdout);
-    const text = collectText(parsed);
-    if (/ECONNREFUSED|appears offline|SSE error|\"kind\"\s*:\s*\"offline\"/i.test(`${result.stdout}\n${text}`)) {
-      return { ready: false, detail: "xiaohongshu-mcp is configured but unreachable", hint: XHS_MCP_START_COMMAND };
-    }
-    if (/未登录|not logged in/i.test(text)) return { ready: false, detail: "xiaohongshu login required", hint };
-    if (/已登录|logged in/i.test(text)) return { ready: true, detail: "active backend: xiaohongshu-mcp; login confirmed" };
-    return { ready: false, detail: "xiaohongshu login state could not be confirmed", hint };
-  } catch (err) {
-    return { ready: false, detail: `login probe failed: ${(err as Error).message}`, hint };
-  }
-}
-
-function hasConfiguredXhsMcp(raw: string): boolean {
-  try {
-    const parsed = JSON.parse(raw) as { servers?: Array<{ name?: string; transport?: string; baseUrl?: string }> };
-    return (parsed.servers ?? []).some((server) =>
-      server.name === "xiaohongshu"
-      && server.transport === "http"
-      && typeof server.baseUrl === "string"
-      && /127\.0\.0\.1|localhost/.test(server.baseUrl),
-    );
-  } catch {
-    return false;
-  }
+  return { ready: true, detail: `active backend: ${backend}` };
 }
 
 export function backendCommand(backend: XhsBackend, keyword: string, timeoutMs: number): string[] {
   switch (backend) {
     case "opencli":
       return ["opencli", "xiaohongshu", "search", keyword, "-f", "json"];
-    case "xiaohongshu-mcp":
-      // mcporter JSON-RPC style call; headless browser first call downloads ~150MB — keep the long timeout.
-      return [
-        "mcporter",
-        "call",
-        `xiaohongshu.search_feeds(keyword: "${keyword}")`,
-        "--timeout",
-        String(Math.max(timeoutMs, 120_000)),
-        "--output",
-        "json",
-      ];
     case "xhs-cli":
       return ["xhs", "search", keyword, "--json"];
   }
@@ -199,15 +136,19 @@ export function normalizeXhsItems(payload: unknown): RawItem[] {
   for (const row of list) {
     if (typeof row !== "object" || row === null) continue;
     const o = row as Record<string, unknown>;
-    const contentId = str(o["note_id"] ?? o["id"] ?? o["feed_id"]);
-    const title = str(o["display_title"] ?? o["title"] ?? o["note_title"]);
-    const url = str(o["xsec_url"] ?? o["url"] ?? o["note_url"] ?? (contentId ? `https://www.xiaohongshu.com/explore/${contentId}` : ""));
+    // OpenCLI and xhs-cli may return nested camelCase or flattened fields.
+    const card = (o["noteCard"] ?? o["note_card"] ?? {}) as Record<string, unknown>;
+    const contentId = str(o["note_id"] ?? o["id"] ?? o["feed_id"] ?? card["noteId"] ?? card["note_id"]);
+    const title = str(o["display_title"] ?? o["title"] ?? o["note_title"] ?? card["displayTitle"] ?? card["title"]);
+    const url = str(o["xsec_url"] ?? o["url"] ?? o["note_url"] ?? card["xsecUrl"] ?? (contentId ? `https://www.xiaohongshu.com/explore/${contentId}` : ""));
     if (!contentId || !title) continue; // rows without stable id or title are not radar evidence
-    const user = (o["user"] ?? o["author"] ?? {}) as Record<string, unknown>;
+    const user = (o["user"] ?? o["author"] ?? card["user"] ?? {}) as Record<string, unknown>;
+    const interaction = (o["interactInfo"] ?? o["interact_info"] ?? card["interactInfo"] ?? {}) as Record<string, unknown>;
+    const metric = (key: string, ...values: unknown[]) => values.map(str).map(parseMetric).find((v): v is number => v !== null) ?? null;
     const metrics = {
-      ...(num(o["liked_count"] ?? o["likes"]) ? { liked_count: num(o["liked_count"] ?? o["likes"])! } : {}),
-      ...(num(o["collected_count"] ?? o["collect_count"]) ? { collected_count: num(o["collected_count"] ?? o["collect_count"])! } : {}),
-      ...(num(o["comment_count"] ?? o["comments"]) ? { comment_count: num(o["comment_count"] ?? o["comments"])! } : {}),
+      ...(metric("liked_count", o["liked_count"], o["likes"], interaction["likedCount"]) !== null ? { liked_count: metric("liked_count", o["liked_count"], o["likes"], interaction["likedCount"])! } : {}),
+      ...(metric("collected_count", o["collected_count"], o["collect_count"], interaction["collectedCount"]) !== null ? { collected_count: metric("collected_count", o["collected_count"], o["collect_count"], interaction["collectedCount"])! } : {}),
+      ...(metric("comment_count", o["comment_count"], o["comments"], interaction["commentCount"]) !== null ? { comment_count: metric("comment_count", o["comment_count"], o["comments"], interaction["commentCount"])! } : {}),
     };
     items.push({
       platform: "xiaohongshu",
@@ -216,7 +157,7 @@ export function normalizeXhsItems(payload: unknown): RawItem[] {
       url,
       authorId: str(user["user_id"] ?? user["id"]),
       authorName: str(user["nickname"] ?? user["name"]),
-      publishedAt: isoDate(str(o["time"] ?? o["publish_time"] ?? o["create_time"])),
+      publishedAt: isoDate(str(o["time"] ?? o["publish_time"] ?? o["create_time"] ?? card["time"])),
       metrics,
       // Structured backend rows carry stable IDs and real engagement counts,
       // unlike Layer 0 public pages (confidence 40).
@@ -274,4 +215,12 @@ function isoDate(raw: string): string {
 
 function num(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function parseMetric(v: string): number | null {
+  if (!v) return null;
+  const m = v.replaceAll(",", "").match(/^(\d+(?:\.\d+)?)(万|亿)?/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n * (m[2] === "万" ? 10_000 : m[2] === "亿" ? 100_000_000 : 1) : null;
 }

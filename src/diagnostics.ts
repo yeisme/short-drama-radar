@@ -5,8 +5,7 @@ import { openSecretStore, SecretsError } from "./adapters/secrets.ts";
 import type { RadarConfig } from "./config.ts";
 import { SCHEDULE_NEXT_STEPS } from "./schedule.ts";
 
-// Real backing probes for `radar doctor` / `radar mcp doctor` /
-// `radar mcp capabilities`. Unimplemented or unreachable capabilities are
+// Real backing probes for `radar doctor`. Unimplemented or unreachable capabilities are
 // reported blocked/unavailable with the exact next command — never "ready".
 
 export interface CheckResult {
@@ -123,7 +122,7 @@ function checkAccountPool(poolPath: string): CheckResult {
     : { status: "blocked", detail: "no active accounts in pool descriptors", nextCommand: `add account descriptors to ${poolPath} (credentials go to the secret store only)` };
 }
 
-// Local-only source status backing the MCP resource `radar://sources/status`.
+// Local-only source status backing the CLI doctor.
 // Never touches the network or platform backends — live probing is CLI-only
 // (`radar doctor`); MCP resources report local state plus the latest
 // persisted collection receipt instead.

@@ -14,7 +14,6 @@
     "test:integration": "bun run scripts/integration-test-run.ts -- bun test test/integration --timeout 30000"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
     "drizzle-orm": "^0.44.2",
     "playwright": "^1.63.0"
   },

@@ -17,7 +17,7 @@ import type { AdapterContext } from "../adapters/types.ts";
 import { makeManualImportAdapter } from "../adapters/manual-import.ts";
 
 // Shared application action registry — the single source of business
-// semantics for CLI commands and MCP tools (task 3.2). Handlers here own
+// semantics for CLI commands. Handlers here own
 // revision/digest/degraded semantics; entry points only parse and render.
 
 export interface AppDeps {

@@ -14,10 +14,7 @@ import { buildEdition, DEFAULT_LIMIT, editionByRef, latestEdition } from "./pipe
 import { opportunityReviews } from "./db/schema.ts";
 import { ProfileService, ProfileError, type ProfileRecord } from "./profile/service.ts";
 import { buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir } from "./schedule.ts";
-import { probeRuntime, probeLayer2 } from "./diagnostics.ts";
-import { auditPath, tailAudit } from "./mcp/audit.ts";
-import { capabilities } from "./mcp/server.ts";
-import { RADAR_HOME } from "./config.ts";
+import { probeRuntime } from "./diagnostics.ts";
 import type { AppDeps } from "./app/actions.ts";
 import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, recordRun, ActionError } from "./app/actions.ts";
 import { EventWriter } from "./output/events.ts";
@@ -65,9 +62,6 @@ function parseArgs(argv: string[]): Args {
   return { command, flags, mode };
 }
 
-// Set when an MCP stdio session ran; main() must then exit silently so the
-// session's stdout stays pure JSON-RPC and pending writes still flush.
-let mcpStdioSessionDone = false;
 
 const first = (args: Args, key: string): string | undefined => args.flags.get(key)?.[0];
 // A flag present without a value parses as "true"; commands that need real
@@ -95,10 +89,6 @@ async function main(): Promise<void> {
     const db = openDb(cfg.dbPath);
     const profiles = new ProfileService(db);
     const result = await dispatch(args, cfg, db, profiles);
-    if (mcpStdioSessionDone) {
-      process.exitCode = result.exitCode;
-      return; // natural exit: no extra stdout, pending frames can flush
-    }
     emit(result, args);
     process.exit(result.exitCode);
   } catch (err) {
@@ -175,10 +165,6 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
       return scheduleCommand(sub, args, cfg);
     case "doctor":
       return doctorCommand(cfg);
-    case "mcp":
-      return mcpCommand(sub, args, cfg, db);
-    case "audit":
-      return auditCommand(sub, args);
     default:
       throw new CliError("unknown_command", `unknown command '${args.command.join(" ")}' — run 'radar' for usage`);
   }
@@ -461,66 +447,6 @@ async function doctorCommand(cfg: RadarConfig): Promise<CommandResult> {
   };
 }
 
-async function mcpCommand(sub: string | undefined, args: Args, cfg: RadarConfig, db: RadarDb): Promise<CommandResult> {
-  if (sub === "doctor") {
-    // Real backing probes: SDK importability, db, audit ledger path — never a faked ready.
-    const checks: Record<string, { status: string; detail: string; nextCommand?: string }> = {};
-    try {
-      await import("@modelcontextprotocol/sdk/server/index.js");
-      checks["mcp-sdk"] = { status: "ok", detail: "official TypeScript SDK importable" };
-    } catch {
-      checks["mcp-sdk"] = { status: "unavailable", detail: "SDK not installed", nextCommand: "bun add @modelcontextprotocol/sdk" };
-    }
-    checks["db"] = { status: "ok", detail: cfg.dbPath };
-    checks["audit"] = { status: "ok", detail: auditPath(RADAR_HOME) };
-    const bad = Object.values(checks).filter((c) => c.status !== "ok");
-    return {
-      command: "radar.mcp.doctor",
-      status: bad.length > 0 ? "partial" : "success",
-      summary: bad.length === 0 ? "MCP stdio backing ready." : `${bad.length} backing issue(s).`,
-      facts: Object.fromEntries(Object.entries(checks).map(([k, v]) => [k, v.status])),
-      data: checks,
-      actions: [{ name: "start", command: "radar mcp --transport stdio --lane reader" }],
-      exitCode: 0,
-    };
-  }
-  if (sub === "capabilities") {
-    const caps = capabilities({ cfg, db, profiles: new ProfileService(db) }, await probeLayer2(cfg));
-    return ok("radar.mcp.capabilities", `${caps.filter((c) => c.status === "ready").length}/${caps.length} capabilities ready; planned/blocked/unavailable are never advertised as ready.`, {
-      total: caps.length,
-      ready: caps.filter((c) => c.status === "ready").length,
-    }, { data: caps });
-  }
-  // `radar mcp --transport stdio [--lane reader|curator|operator]`
-  const transport = first(args, "transport") ?? "stdio";
-  if (transport !== "stdio") {
-    return fail("radar.mcp", "transport_unsupported", `transport '${transport}' is not available in V1; remote endpoints require a separate proposal (see radar mcp capabilities).`);
-  }
-  const lane = (first(args, "lane") ?? "reader") as "reader" | "curator" | "operator";
-  if (!["reader", "curator", "operator"].includes(lane)) {
-    return fail("radar.mcp", "lane_invalid", "lane must be reader|curator|operator");
-  }
-  const { runMcpServer } = await import("./mcp/server.ts");
-  const inputListen=first(args,"input-listen"),inputBase=first(args,"input-base-url"),inputProject=first(args,"input-project");
-  if ((inputListen||inputBase||inputProject)&&(!inputListen||!inputBase||!inputProject||lane!=="operator")) return fail("radar.mcp","input_configuration_invalid","Input requires --lane operator --input-listen --input-base-url --input-project together");
-  await runMcpServer(lane,inputListen&&inputBase&&inputProject?{listen:inputListen,baseURL:inputBase,project:inputProject}:undefined);
-  // The stdio stream is over; return a silent marker so main() exits without
-  // printing — and without process.exit(), which races pending stdout writes
-  // on fast-EOF clients and truncates the JSON-RPC responses.
-  mcpStdioSessionDone = true;
-  return ok("radar.mcp", "MCP stdio session ended.", { lane });
-}
-
-function auditCommand(sub: string | undefined, args: Args): CommandResult {
-  if (sub !== "tail") throw new CliError("unknown_command", "usage: radar audit tail [--action <action>] [--limit <n>]");
-  const limit = numericFlag(args, "limit", 1, 100) ?? 20;
-  const entries = tailAudit(RADAR_HOME, { action: first(args, "action"), limit: Number.isFinite(limit) ? limit : 20 });
-  return ok("radar.audit.tail", `${entries.length} audit entries (the only read surface for radar.mcp.audit.v1).`, {
-    count: entries.length,
-    action_filter: first(args, "action") ?? "none",
-  }, { data: entries });
-}
-
 // --- helpers ----------------------------------------------------------------
 
 function ok(command: string, summary: string, facts: Record<string, unknown>, opts: { actions?: { name: string; command: string }[]; data?: unknown; evidence?: string[] } = {}): CommandResult {
@@ -656,8 +582,6 @@ Market foundation (local only):
 
 Diagnostics:
   doctor                           Probe firecrawl / agent-reach / cookie env / playwright / schedule
-  mcp doctor                       Probe MCP SDK / database / audit backing state
-  mcp capabilities                 Capability table ready|planned|blocked|unavailable
 
 Output:
   default   English human summary, one next command

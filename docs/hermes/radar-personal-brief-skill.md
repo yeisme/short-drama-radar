@@ -1,36 +1,32 @@
 ---
 name: radar-personal-brief
-description: 每日个人短剧机会简报。通过本地 `radar mcp --transport stdio --lane reader` 只读最近一个已完成 Morning Edition；无 Edition、过期、空榜或降级时给出真实原因与可运行的 radar 命令；用户明确确认后可经 curator lane 写入 saved/dismissed 等反馈提案。绝不自行触发采集、绝不修改 Profile 真源。
+description: 每日个人短剧机会简报。通过本地 `radar edition show latest --json` 读取最近一个已完成 Morning Edition；无 Edition、过期、空榜或降级时给出真实原因与可运行的 radar 命令。反馈通过明确的 radar CLI 命令执行，绝不自行触发采集或修改 Profile 真源。
 version: 0.1.0
 metadata:
   hermes:
-    tags: [radar, short-drama, morning-brief, mcp, reader]
+    tags: [radar, short-drama, morning-brief, cli]
 ---
 
 # Hermes 用户级本地 Skill：radar-personal-brief
 
-状态：canary 草案（M4，未发布公共 Skill）。默认 reader lane，只读。本文件可直接作为 Hermes Skill 主体，放入 `$HERMES_HOME/skills/radar-personal-brief/SKILL.md`；默认 `$HERMES_HOME=~/.hermes`。Radar 仓库不自动安装或修改用户的 Hermes 配置。
+状态：CLI 消费草案（未发布公共 Skill）。本文件可直接作为 Hermes Skill 主体，放入 `$HERMES_HOME/skills/radar-personal-brief/SKILL.md`；Radar 仓库不自动安装或修改用户的 Hermes 配置。
 
 ## 连接配置
 
 ```bash
-hermes mcp add radar \
-  --connect-timeout 30 \
-  --command bun \
-  --args /absolute/path/to/short-drama-radar/src/cli.ts mcp --transport stdio --lane reader
-hermes mcp test radar
+command -v radar
+radar doctor --json
 ```
 
-- 首次 `mcp add` 会展示发现的工具并要求确认；reader lane 应发现 `radar.search` 和被 lane 拒绝 mutation 的 `radar.execute`。
-- 默认 lane=reader：只有 `radar.search` 可读，`radar.execute` 全部拒绝。
-- 反馈写入需用户显式确认后，由用户把 lane 切到 curator（Hermes 不持有 operator lane）。
-- Profile 修改永远不进 MCP：Hermes 只能返回 `radar profile set ...` 建议命令。
+- Hermes 只执行 CLI 读取命令，不连接 Radar 服务。
+- 反馈写入必须得到用户确认，再执行明确的 `radar feedback add ...` 命令。
+- Profile 修改永远由用户确认后执行 `radar profile set ...`。
 
 ## Briefing 流程（严格只读）
 
-1. 读 `radar://capabilities` —— 确认 `mcp_stdio_lanes=ready`；remote/A2A/公共 Skill 必须 `unavailable|planned`，不要尝试。
-2. 读 `radar://sources/status`（本地状态 + 最近采集回执，零网络副作用）—— 最近采集 degraded 或 login material 缺失时在简报中明示"指标是下界"。
-3. 读 `radar://editions/latest`，按状态分支：
+1. 运行 `radar doctor --json`，确认本地 CLI 和渠道状态；无可用来源时按回执中的恢复命令处理。
+2. 运行 `radar doctor --json`，读取渠道状态—— 最近采集 degraded 或登录材料缺失时在简报中明示"指标是下界"。
+3. 运行 `radar edition show latest --json`，按状态分支：
    - `ready`：输出机会（topic/hook、market score、personal fit、evidence confidence）、每个机会的 reason codes、风险（degraded/low_confidence 项）与建议下一步命令。
    - `empty`：把 limitations 原样转述（阈值 / blocked topics / 数据缺失 / already_seen），并给出对应命令：
      - 数据缺失 → `radar run`
@@ -41,8 +37,8 @@ hermes mcp test radar
 
 ## 硬边界
 
-- 不调用 collect/daily_run（operator-only 且有外部平台副作用）；Edition 不新鲜时只报告并给命令。
-- 不伪造 ready；blocked/unavailable 能力只引用 `radar://capabilities` 原文。
-- 反馈走 `radar.execute feedback_add`（curator，需用户确认），幂等键由 Hermes 生成；重放返回原 receipt。
+- Edition 不新鲜时只报告并给命令，不自动触发采集。
+- 不伪造 ready；blocked/unavailable 能力只引用 `radar doctor --json` 原文。
+- 反馈使用 `radar feedback add`（需用户确认），重复执行遵循 CLI 回执。
 - 提案大纲可写（非 canonical），但不得自动持久化为下游项目、批准或启动生产。
-- 审计文件不可读（MCP 无审计 URI）；审计查询只属于用户在终端运行 `radar audit tail`。
+- Hermes 不读取 Radar 数据库或内部审计文件，只消费 CLI 输出和导出回执。

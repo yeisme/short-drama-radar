@@ -32,7 +32,7 @@ describe("CLI output contract (--json)", () => {
     expect(stdout).toContain("collect -> score -> cluster -> card + edition");
     expect(stdout).toContain("canary report [window-days]");
     expect(stdout).not.toContain("run                              collect -> score -> card\n");
-    expect(stdout).toContain("Probe MCP SDK / database / audit backing state");
+    expect(stdout).not.toContain("mcp");
     expect(stdout).not.toContain("lands with M3");
   });
 
@@ -153,10 +153,10 @@ describe("profile commands (process)", () => {
 });
 
 describe("doctor probes", () => {
-  // Both tests below run the real probeRuntime chain (firecrawl HTTP probe +
-  // agent-reach/mcporter subprocesses); a fully provisioned host legitimately
+  // The test runs the real probeRuntime chain (firecrawl HTTP probe +
+  // agent-reach subprocess); a fully provisioned host legitimately
   // needs ~5s+, past bun's default 5s test timeout. Budget for the 30s
-  // mcporter readiness floor so slow-but-honest probes are not flagged red.
+  // readiness floor so slow-but-honest probes are not flagged red.
   test("doctor reports blocked/unavailable states honestly, never fake-ready", () => {
     const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
     const { stdout, exitCode } = runCli(home, ["doctor", "--json"]);
@@ -168,7 +168,7 @@ describe("doctor probes", () => {
     expect(["blocked", "ok"]).toContain(checks["xhs-backend"].status);
     expect(checks["douyin-cookie"].status).toBe("blocked");
     if (checks["xhs-backend"].status === "blocked") {
-      expect(checks["xhs-backend"].nextCommand).toMatch(/agent-reach|xiaohongshu-mcp|get_login_qrcode/);
+      expect(checks["xhs-backend"].nextCommand).toMatch(/agent-reach|opencli|xhs-cli/);
     }
     // playwright is a hard dependency now; the honest gap is the chromium
     // executable (degraded) on machines without `playwright install chromium`.
@@ -178,32 +178,4 @@ describe("doctor probes", () => {
     }
   }, 45_000);
 
-  test("mcp capabilities discloses ready/planned/blocked honestly", () => {
-    const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
-    const { exitCode, stdout } = runCli(home, ["mcp", "capabilities", "--json"]);
-    expect(exitCode).toBe(0);
-    const env = JSON.parse(stdout);
-    expect(env.status).toBe("success");
-    const caps = Object.fromEntries(env.data.map((c: { capability: string; status: string }) => [c.capability, c.status]));
-    expect(caps["mcp_stdio_lanes"]).toBe("ready");
-    expect(caps["remote_mcp_endpoint"]).toBe("unavailable");
-    // layer2 is derived from the live environment: honestly blocked with
-    // named reasons until every prerequisite is provisioned.
-    expect(["blocked", "ready"]).toContain(caps["layer2_browser_fallback"]);
-    if (caps["layer2_browser_fallback"] === "blocked") {
-      const entry = env.data.find((c: { capability: string }) => c.capability === "layer2_browser_fallback");
-      expect((entry?.reasons ?? []).length).toBeGreaterThan(0);
-    }
-    expect(caps["a2a"]).toBe("unavailable");
-    expect(caps["multi_user"]).toBe("unavailable");
-    expect(caps["hermes_local_canary"]).toBe("planned");
-  }, 45_000);
-
-  test("unsupported transport fails closed with the proposal gate", () => {
-    const home = mkdtempSync(join(tmpdir(), "radar-cli-"));
-    const { exitCode, stdout } = runCli(home, ["mcp", "--transport", "http", "--json"]);
-    expect(exitCode).not.toBe(0);
-    const env = JSON.parse(stdout);
-    expect(env.error.code).toBe("transport_unsupported");
-  });
 });

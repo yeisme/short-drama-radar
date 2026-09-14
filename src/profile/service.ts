@@ -4,7 +4,7 @@ import { personalProfiles, personalProfileRevisions } from "../db/schema.ts";
 import { defaultProfile, profileDigest, validateProfile, type PersonalProfileV1 } from "./domain.ts";
 
 // Profile application service — the only structured write path for profiles
-// (CLI reaches it directly; MCP never does). Every mutation creates a new
+// Every mutation creates a new
 // immutable revision; activating a profile deactivates the previous one
 // inside a transaction so the single-active invariant always holds.
 
