@@ -1,6 +1,6 @@
 {
   "spec": "radar.market.handoff.vectors.v1",
-  "generated": "2026-09-13",
+  "generated": "2026-09-14",
   "owner": "cli/short-drama-radar",
   "regenerate": "bun run scripts/generate-market-handoff-vectors.ts",
   "notes": [
@@ -30,8 +30,8 @@
         ],
         "data": {
           "spec": "radar.market_brief.v1",
-          "brief_ref": "market-brief-9a35a6cbc78034cf7006ac2ce19bfad0",
-          "digest": "sha256:9a35a6cbc78034cf7006ac2ce19bfad0fec759f3dbd09c7d50f9a77e439f35d2",
+          "brief_ref": "market-brief-cd8e9434889c624eb40e789dc2069026",
+          "digest": "sha256:cd8e9434889c624eb40e789dc2069026b1019899df099be43651b0849bbc627f",
           "supersedes": null,
           "generated_at": "2026-09-12T09:00:00.000Z",
           "timezone": "UTC",
@@ -1498,82 +1498,96 @@
                 ]
               }
             ],
+            "candidate_entry": "radar market source register-candidate",
             "markets": [
               {
                 "market": "CN",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "US",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "MX",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "BR",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "ID",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "IN",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "TH",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "PH",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "JP",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "KR",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "GB",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "DE",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "FR",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               }
@@ -1585,7 +1599,7 @@
           ]
         }
       },
-      "digest": "sha256:e5d3b6fe960e0a9fad03f6f627fcb00b4e9476cad1db108cc6cddec4c1163e2d"
+      "digest": "sha256:a22c6d1b08a31f875cf4977408b2f0b3edadbd775eb632d3195c255627d14326"
     },
     {
       "name": "empty",
@@ -1608,8 +1622,8 @@
         ],
         "data": {
           "spec": "radar.market_brief.v1",
-          "brief_ref": "market-brief-ff942b8a624813b6a34465f440ef81fb",
-          "digest": "sha256:ff942b8a624813b6a34465f440ef81fb300313eb7f76d2e5223104651cec6688",
+          "brief_ref": "market-brief-c71fd82125ffdbbb6344a348f393d780",
+          "digest": "sha256:c71fd82125ffdbbb6344a348f393d7804aa3f72b380e52cf4af61c850ba4ea10",
           "supersedes": null,
           "generated_at": "2026-09-02T09:00:00.000Z",
           "timezone": "UTC",
@@ -3002,82 +3016,96 @@
                 ]
               }
             ],
+            "candidate_entry": "radar market source register-candidate",
             "markets": [
               {
                 "market": "CN",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "US",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "MX",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "BR",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "ID",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "IN",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "TH",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "PH",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "JP",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "KR",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "GB",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "DE",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               },
               {
                 "market": "FR",
                 "declared_sources": [],
+                "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               }
@@ -3088,7 +3116,7 @@
           ]
         }
       },
-      "digest": "sha256:d4e48a20f1f820eac0daa47c6c91877d5e2044c2cf249d34a5e1d72d9d91e4a5"
+      "digest": "sha256:166e1430c52e18f2843fda53901b0f264a8f903b3df7c7b1fe8f3c5ad5530941"
     },
     {
       "name": "ready",

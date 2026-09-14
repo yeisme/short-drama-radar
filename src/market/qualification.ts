@@ -112,11 +112,18 @@ export function sourceGaps(db: RadarDb, now = new Date()) {
   const targets = ["CN", "US", "MX", "BR", "ID", "IN", "TH", "PH", "JP", "KR", "GB", "DE", "FR"];
   return {
     spec: "radar.market_source_gaps.v1", as_of: now.toISOString(), sources,
-    markets: targets.map(market => ({
-      market,
-      declared_sources: sources.filter(source => source.declared_markets.includes(market as Uppercase<string>)).map(source => source.source_ref),
-      status: "coverage_unverified",
-      reason: "Source declarations and App availability do not prove audience or complete market coverage.",
-    })),
+    // Fixed region matrix: breadth is preserved without claiming coverage.
+    // A market counts as verified only through sample-verified+ sources.
+    candidate_entry: "radar market source register-candidate",
+    markets: targets.map(market => {
+      const declared = sources.filter(source => source.declared_markets.includes(market as Uppercase<string>));
+      return {
+        market,
+        declared_sources: declared.map(source => source.source_ref),
+        verified_sources: declared.filter(source => ["sample_verified", "qualified"].includes(source.configured_readiness)).map(source => source.source_ref),
+        status: "coverage_unverified",
+        reason: "Source declarations and App availability do not prove audience or complete market coverage.",
+      };
+    }),
   };
 }

@@ -96,3 +96,52 @@ export function updateSource(db: RadarDb, ref: string, expectedRevision: number,
   });
   return saveSource(db, next, expectedRevision);
 }
+
+// Discovery entry for regions without a seeded source (design: "平台由
+// Agent 提供候选"). Registration only writes a planned research candidate;
+// it never installs an adapter, backend or schedule, and readiness stays
+// planned until the qualification service promotes it.
+export function registerSourceCandidate(db: RadarDb, input: {
+  source_ref: string; publisher_group: string; locale: string; markets: string[];
+  role?: "catalog" | "discussion" | "industry"; note?: string;
+}) {
+  const refPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
+  const note = input.note?.replace(/\s+/g, " ").trim() ?? "";
+  if (!refPattern.test(input.source_ref) || !refPattern.test(input.publisher_group) ||
+    !Array.isArray(input.markets) || input.markets.length < 1 || input.markets.length > 10 ||
+    input.markets.some(m => typeof m !== "string" || !/^(?:global|unknown|[A-Z]{2})$/.test(m)) ||
+    note.length > 500 || (input.role !== undefined && !["catalog", "discussion", "industry"].includes(input.role)) ||
+    (input.locale !== "unknown" && (typeof input.locale !== "string" || input.locale.length > 60 ||
+      Intl.getCanonicalLocales(input.locale).length !== 1))) {
+    throw new MarketStoreError("candidate_invalid",
+      "Provide a source ref, publisher group, locale, 1-10 declared markets (global/unknown/ISO code) and an optional short note.");
+  }
+  return db.transaction(tx => {
+    const prior = sourceByRef(tx, input.source_ref);
+    if (prior) {
+      // Registration is declarative and idempotent: the same candidate
+      // replays to the same descriptor, conflicting parameters are refused
+      // instead of silently overwriting an existing source.
+      const same = prior.publisher_group === input.publisher_group && prior.locale === input.locale &&
+        prior.role === (input.role ?? "catalog") && JSON.stringify(prior.market_scope) === JSON.stringify(input.markets);
+      if (!same) throw new MarketStoreError("state_conflict", "Source ref already registered with different parameters; register a distinct ref or use source set.");
+      return { source: prior, reused: true };
+    }
+    const source = parseMarketSource({
+      spec: "radar.market_source.v1", source_ref: input.source_ref, revision: 1,
+      platform: input.source_ref, role: input.role ?? "catalog", publisher_group: input.publisher_group,
+      official_identity_evidence: [], market_scope: input.markets as MarketSource["market_scope"],
+      locale: input.locale, collection_method: "public_page", metric_definitions: [],
+      sampling_scope: "Research candidate; sampling scope not yet qualified",
+      freshness_budget: (input.role ?? "catalog") === "industry" ? null : 26 * 3600,
+      readiness: "planned",
+      limitations: [
+        "Agent-registered research candidate; no observation, identity or qualification evidence.",
+        "Registration does not install an adapter, backend or schedule; readiness stays planned until qualification.",
+        ...(note ? [note] : []),
+      ],
+    });
+    saveSource(tx, source, 0);
+    return { source, reused: false };
+  }, { behavior: "immediate" });
+}

@@ -1,6 +1,6 @@
 import type { RadarDb } from "../db/client.ts";
 import type { CommandResult } from "../output/envelope.ts";
-import { initializeMarket, listSources, readSettings, updateSettings, updateSource } from "./sources.ts";
+import { initializeMarket, listSources, readSettings, registerSourceCandidate, updateSettings, updateSource } from "./sources.ts";
 import { MarketStoreError, sourceByRef } from "./repository.ts";
 import type { Market } from "./domain.ts";
 import { importLegacyRun } from "./legacy.ts";
@@ -76,6 +76,16 @@ export async function marketCommand(command: string[], flags: Map<string, string
   } else if (group === "source" && action === "list") {
     checkFlags([]);
     data = { sources: listSources(db) };
+  } else if (group === "source" && action === "register-candidate") {
+    // Discovery entry: an agent may register research candidates for
+    // regions without a seeded source. Registration writes a planned
+    // descriptor only; no adapter, backend or schedule is installed.
+    checkFlags(["source", "publisher-group", "locale", "market", "role", "note"]);
+    const role = flags.has("role") ? value("role") : "catalog";
+    if (!["catalog", "discussion", "industry"].includes(role)) throw new MarketStoreError("flag_invalid", "--role must be catalog, discussion or industry.");
+    data = registerSourceCandidate(db, { source_ref: value("source"), publisher_group: value("publisher-group"),
+      locale: value("locale"), markets: flags.get("market") ?? [], role: role as "catalog" | "discussion" | "industry",
+      ...(flags.has("note") ? { note: value("note") } : {}) });
   } else if (group === "reader" && action === "show") {
     checkFlags([]);
     data = readReader(db);
@@ -291,7 +301,7 @@ export async function marketCommand(command: string[], flags: Map<string, string
   } else if (group === "schedule" && !action) {
     throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps, config show/set, schedule show/install.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install.");
   }
   events?.end("success", { command: id });
   return {

@@ -64,6 +64,9 @@ export const marketEvidence = sqliteTable("market_evidence", {
   observedAt: text("observed_at").notNull(),
   payload: text("payload", { mode: "json" }).$type<{
     title: string; public_url: string; source_item_id: string; origin: string;
+    // Optional per-source catalog fields; present only when the source page
+    // carried them, so old rows and digests stay unchanged.
+    category_label?: string; episode_count?: number;
   }>().notNull(),
 });
 
