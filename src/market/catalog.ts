@@ -11,6 +11,12 @@ export const CATALOG_PAGES: Record<string, string> = {
   dramabox: "https://www.dramabox.com/",
 };
 
+// Live sampling pages are distinct from identity URLs. Hongguo work links
+// live on the public category listing, not the marketing homepage.
+export const CATALOG_SAMPLE_PAGES: Record<string, string> = {
+  hongguo: "https://novelquickapp.com/category",
+};
+
 export interface CatalogItem {
   id: string; title: string; url: string;
   category: string | null; episode_count: number | null;
@@ -166,7 +172,20 @@ export async function parseCatalog(source: string, content: string, format: "htm
 
 export async function importCatalog(db: RadarDb, input: {
   source: string; content: string; format: "html" | "markdown";
-  observedAt: string; origin: "manual" | "fixture";
+  observedAt: string; origin: "manual" | "fixture" | "live";
+}) {
+  if (input.origin === "live") {
+    throw new MarketStoreError("origin_invalid", "Live observations cannot be minted by import-catalog; use radar market observe.");
+  }
+  return ingestCatalog(db, input);
+}
+
+// Shared catalog ingest used by import-catalog (fixture/manual) and observe
+// (live or fixture). Callers must already have decided the origin; this
+// function never upgrades fixture/manual into live.
+export async function ingestCatalog(db: RadarDb, input: {
+  source: string; content: string; format: "html" | "markdown";
+  observedAt: string; origin: MarketObservation["origin"];
 }) {
   const source = sourceByRef(db, input.source);
   if (!source) throw new MarketStoreError("source_not_found", "Run 'radar market init' before importing a catalog.");

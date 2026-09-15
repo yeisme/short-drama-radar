@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-15
+goal: Enable hongguo verify-sample/production observe and radar assignment
+  create/show/reject

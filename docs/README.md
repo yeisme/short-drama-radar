@@ -4,7 +4,7 @@
 
 - [面向其他 Agent 的 CLI 消费合同](interfaces/agent-cli-consumption.md)：CLI 唯一入口、JSON/agent/events/explain、运行回执、恢复和 Hermes/DSH 消费边界。
 
-- [国内外市场变化 Radar（规格阶段）](product/global-market-radar.md)：已确认产品方向、红果及区域平台矩阵、来源证据、20 个场景；[技术设计](../openspec/changes/radar-market-observation-and-brief-v1/design.md)与[实现 tasks](../openspec/changes/radar-market-observation-and-brief-v1/tasks.md)。新能力尚未实现，原个人推荐保持兼容。
+- [国内外市场变化 Radar](product/global-market-radar.md)：软件面已交付；红果 live 验证采样与 assignment 见 [radar-hongguo-live-assignment-v1](../openspec/changes/radar-hongguo-live-assignment-v1/)。
 - [AGENTS.md](../AGENTS.md)：技术栈、架构边界、禁止事项、测试命令、14 天验证标准。
 - [product/personal-drama-radar.md](product/personal-drama-radar.md)：既有个人化循环、Morning Edition、Hermes/DSH 与验证门；独立 Workbench 段落只保留历史背景。
 - [hermes/radar-personal-brief-skill.md](hermes/radar-personal-brief-skill.md)：Hermes 用户级本地 Skill 草案（reader lane 只读简报；4.2 canary 前不发布公共 Skill）。
@@ -17,6 +17,7 @@
 
 - `short-drama-radar.card.v1`：已实现的通用榜单兼容合同，见 `src/pipeline/card.ts`，个人化变更不得改字段。
 - `radar.personal_profile.v1`、`radar.preference_feedback.v1`、`radar.opportunity.v1`、`radar.personal_opportunity.v1`、`radar.morning_edition.v1`：由个人化 OpenSpec 定义，M1–M2 已实现（域模块 `src/profile/`、`src/pipeline/{feedback,opportunity,ranker,edition}.ts`）。
+- `radar.production_assignment.v1`：Edition 绑定的生产任务，见 `src/pipeline/assignment.ts`。不调用 Auctra、不写 `used`。
 
 ## Optional consumers（不由本子项目背书实现）
 

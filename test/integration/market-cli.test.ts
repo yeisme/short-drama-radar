@@ -30,9 +30,9 @@ test("market initialization, source revisions and reader config survive separate
     expect(invoke("market", "config", "set", "--revision", "2", "--timezone", "not-a-zone").body.error.code).toBe("config_invalid");
     expect(invoke("market", "config", "set", "--revision", "2", "--clear-blocked-topics").body.data.blocked_topics).toEqual([]);
     expect(invoke("market", "config", "show", "--secret", "test-secret").body.error.message).not.toContain("test-secret");
-    // Observe is disclosed as a planned capability, not an unknown command.
-    expect(invoke("market", "observe", "--source", "hongguo").body.error.code).toBe("capability_unavailable");
-    expect(invoke("market", "observe", "--source", "hongguo").body.error.message).toContain("qualification");
+    // Observe is a real command: missing owner authorization must not look unknown.
+    expect(invoke("market", "observe", "--source", "hongguo", "--mode", "verify-sample").body.error.code).toBe("owner_authorization_required");
+    expect(invoke("market", "observe", "--source", "hongguo", "--mode", "verify-sample").body.error.message).toContain("confirm-live");
     const catalog = invoke("market", "import-catalog", "--source", "dramabox",
       "--file", "test/fixtures/market/dramabox.md", "--format", "markdown",
       "--observed-at", "2026-09-11T08:00:00Z", "--fixture");

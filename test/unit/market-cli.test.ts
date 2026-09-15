@@ -60,7 +60,6 @@ test("planned capabilities are disclosed honestly and never fake success", async
   try {
     await run(db, ["market", "init"]);
     const planned: Array<[string[], Record<string, string[]>, string]> = [
-      [["market", "observe"], { source: ["hongguo"] }, "qualification"],
       [["market", "canary", "report"], { days: ["14"] }, "not started"],
     ];
     for (const [command, f, hint] of planned) {

@@ -261,6 +261,19 @@ export const opportunityReviews = sqliteTable("opportunity_reviews", {
   createdAt: text("created_at").notNull(),
 });
 
+export const radarAssignments = sqliteTable("radar_assignments", {
+  ref: text("ref").primaryKey(),
+  idempotencyKey: text("idempotency_key").notNull().unique(),
+  profileRef: text("profile_ref").notNull(),
+  profileRevision: integer("profile_revision").notNull(),
+  editionRef: text("edition_ref").notNull(),
+  opportunityRef: text("opportunity_ref"),
+  briefRef: text("brief_ref"),
+  status: text("status").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../pipeline/assignment.ts").ProductionAssignment>().notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 // Owner-scoped intake control state. Only credential digests are persisted.
 export const inputRequests = sqliteTable("input_requests", {
  id: text("id").primaryKey(), revision: integer("revision").notNull(), project: text("project").notNull(), payload: text("payload").notNull(),

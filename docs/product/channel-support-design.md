@@ -13,7 +13,7 @@
 - 已有抖音、小红书旧采集适配器、浏览器兜底、人工 CSV，以及市场观测/来源/信号/简报/补看/关注/回顾/MCP 本地软件面。
 - src/adapters/agentreach-xhs.ts 已路由 OpenCLI、xiaohongshu-mcp、xhs-cli，支持登录探测与 search_feeds；默认关键词为“短剧”，规范化最多保留 30 条。未形成详情、评论、作者观察与持续复采的完整渠道合同。
 - 当前小红书规范化读取扁平标题与数值型互动字段。上游 Feed 使用 noteCard.displayTitle、noteCard.interactInfo 和字符串互动数。按上游结构构造的一条合成笔记，经现有 normalizeXhsItems 得到零条；这是本地兼容复现，不是实际登录采集结果。
-- 新市场来源初始化为 18 个 planned 候选。红果/ReelShort/DramaBox 有目录文件导入路径；不是自动在线连接器。market observe 和 market canary report 当前明确拒绝为 capability_unavailable。
+- 新市场来源初始化为 18 个 planned 候选。红果/ReelShort/DramaBox 有目录文件导入路径。红果可用 `market observe --mode verify-sample --confirm-live` 做验证采样；其他来源 observe 仍拒绝。market canary report 仍为 capability_unavailable。
 - import-legacy 保留原快照时间，但因旧快照缺少 live/fixture 标志，保守导入为 manual，不能积累真实来源资格。新采集必须从入口记录 origin，不能事后把旧数据改成 live。
 - 产品文档还存在局部状态过期陈述。功能可用性以源码和实际 CLI 为准，后续交付需统一文档。
 

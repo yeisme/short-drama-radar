@@ -72,7 +72,7 @@ test("fixture, manual and live origins stay separated at the import boundary", a
     // observe command; imports can never mint live observations.
     expect(db.select().from(marketBatches).all().every(row => row.origin !== "live")).toBe(true);
     await expect(marketCommand(["market", "observe"], new Map([["source", ["hongguo"]]]), db))
-      .rejects.toThrow("not enabled");
+      .rejects.toThrow("--mode");
   } finally { db.$client.close(); }
 });
 

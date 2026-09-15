@@ -1,6 +1,6 @@
 # short-drama-radar
 
-[国内外市场变化 Radar](docs/product/global-market-radar.md)的本地软件面已按 OpenSpec 交付：来源/观测/资格存储与 CLI、可比信号与更正、每日简报、补看/已读/关注、跨市场对照、周度回顾、question context 与文件回执；读取性能在 100k 观测夹具下 p95<100ms。真实来源资格、14 天试用与发布/付费决定仍是独立外部门（来源初始为 planned，不代表已接通真实平台）。
+[国内外市场变化 Radar](docs/product/global-market-radar.md)的本地软件面已按 OpenSpec 交付：来源/观测/资格存储与 CLI、可比信号与更正、每日简报、补看/已读/关注、跨市场对照、周度回顾、question context 与文件回执；读取性能在 100k 观测夹具下 p95<100ms。红果公共目录现已支持显式 live 验证采样：`radar market observe --source hongguo --mode verify-sample --confirm-live`。生产 observe 仍要求 `sample_verified` 或 `qualified`。`radar assignment create` 把个人 Edition 变成不可变生产任务；`radar assignment submit --auctra-path <project>` 调用 Auctra `text proposal from-radar`，成功后才写 `used`。Auctra accept 之后 `radar assignment produce --scaena-path <project>` 建 Scaena 骨架，不分镜、不生成。其余来源资格、14 天试用与发布/付费决定仍是独立外部门。
 
 短剧爆款雷达：爬虫主路的每日短剧选题情报 + 个人化机会 Edition CLI。每天从抖音/小红书四层采集候选内容，快照入库、去重、打标签、评分，输出 Top5+Top5 卡片合同 payload 与只属于当前创作者的 Morning Edition。
 
@@ -63,6 +63,10 @@ Profile 更新只创建不可变 revision；反馈 append-only、幂等、每特
 radar doctor
 radar runs --json
 radar run --json
+radar market observe --source hongguo --mode verify-sample --confirm-live --json
+radar assignment create --json
+radar assignment submit --auctra-path <auctra-project> --json
+radar assignment produce --scaena-path <scaena-project> --json
 radar market brief show --json
 ```
 

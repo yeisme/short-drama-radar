@@ -25,6 +25,7 @@ import { join } from "node:path";
 import { marketCommand } from "./market/cli.ts";
 import { MarketStoreError } from "./market/repository.ts";
 import { MarketValidationError } from "./market/domain.ts";
+import { assignmentByRef, createAssignment, produceAssignment, rejectAssignment, submitAssignment } from "./pipeline/assignment.ts";
 
 // Command surface per radar-cli-agent-contract. One CommandResult per
 // command; the four renderers (summary/json/agent/events) all derive from it.
@@ -165,6 +166,8 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
       return scheduleCommand(sub, args, cfg);
     case "doctor":
       return doctorCommand(cfg);
+    case "assignment":
+      return assignmentCommand(sub, positional, args, db, profiles);
     default:
       throw new CliError("unknown_command", `unknown command '${args.command.join(" ")}' — run 'radar' for usage`);
   }
@@ -318,6 +321,112 @@ function clusterCommand(sub: string, date: string | undefined, db: RadarDb, cfg:
   if (sub !== "build") throw new CliError("unknown_command", "usage: radar cluster build [date]");
   return clusterBuildAction({ cfg, db, profiles: new ProfileService(db) }, date);
 }
+function assignmentCommand(sub: string, positional: string | undefined, args: Args, db: RadarDb, profiles: ProfileService): CommandResult {
+  const profile = profiles.show(first(args, "profile"));
+  if (sub === "create") {
+    const result = createAssignment(db, {
+      profile,
+      editionRef: first(args, "edition") ?? positional,
+      opportunityRef: first(args, "opportunity"),
+      briefRef: first(args, "brief"),
+      idempotencyKey: first(args, "key"),
+    });
+    return {
+      command: "radar.assignment.create",
+      status: "success",
+      summary: result.reused
+        ? `Assignment ${result.assignment.assignment_ref} reused.`
+        : `Assignment ${result.assignment.assignment_ref} (${result.assignment.status}) ready for Auctra ingress.`,
+      facts: {
+        assignment_ref: result.assignment.assignment_ref,
+        status: result.assignment.status,
+        reused: result.reused,
+        downstream_status: result.assignment.downstream_status,
+      },
+      data: result.assignment,
+      actions: result.assignment.status === "do_not_shoot"
+        ? [{ name: "edition", command: "radar edition show latest" }]
+        : [{ name: "show", command: `radar assignment show ${result.assignment.assignment_ref}` }],
+      exitCode: 0,
+    };
+  }
+  if (sub === "show") {
+    const assignment = assignmentByRef(db, first(args, "assignment") ?? positional ?? "latest", profile.ref);
+    return {
+      command: "radar.assignment.show",
+      status: "success",
+      summary: `Assignment ${assignment.assignment_ref} (${assignment.status}).`,
+      facts: { assignment_ref: assignment.assignment_ref, status: assignment.status, downstream_status: assignment.downstream_status },
+      data: assignment,
+      exitCode: 0,
+    };
+  }
+  if (sub === "submit") {
+    const result = submitAssignment(db, {
+      profile,
+      assignmentRef: first(args, "assignment") ?? positional ?? "latest",
+      auctraPath: req(args, "auctra-path", "radar assignment submit"),
+      auctraBin: first(args, "auctra-bin"),
+    });
+    return {
+      command: "radar.assignment.submit",
+      status: "success",
+      summary: result.reused
+        ? `Assignment ${result.assignment.assignment_ref} already submitted.`
+        : `Assignment ${result.assignment.assignment_ref} submitted as Auctra ${result.assignment.auctra?.proposal_ref ?? "proposal"}.`,
+      facts: {
+        assignment_ref: result.assignment.assignment_ref,
+        downstream_status: result.assignment.downstream_status,
+        reused: result.reused,
+        proposal_ref: result.assignment.auctra?.proposal_ref ?? null,
+      },
+      data: result.assignment,
+      exitCode: 0,
+    };
+  }
+  if (sub === "produce") {
+    const result = produceAssignment(db, {
+      profile,
+      assignmentRef: first(args, "assignment") ?? positional ?? "latest",
+      scaenaPath: req(args, "scaena-path", "radar assignment produce"),
+      auctraBin: first(args, "auctra-bin"),
+      scaenaBin: first(args, "scaena-bin"),
+    });
+    return {
+      command: "radar.assignment.produce",
+      status: "success",
+      summary: result.reused
+        ? `Assignment ${result.assignment.assignment_ref} already produced a Scaena skeleton.`
+        : `Assignment ${result.assignment.assignment_ref} produced Scaena ${result.assignment.scaena?.receipt_ref ?? "receipt"}.`,
+      facts: {
+        assignment_ref: result.assignment.assignment_ref,
+        downstream_status: result.assignment.downstream_status,
+        reused: result.reused,
+        receipt_ref: result.assignment.scaena?.receipt_ref ?? null,
+      },
+      data: result.assignment,
+      exitCode: 0,
+    };
+  }
+  if (sub === "reject") {
+    const result = rejectAssignment(db, {
+      profile,
+      assignmentRef: first(args, "assignment") ?? positional ?? "",
+      kind: req(args, "kind", "radar assignment reject"),
+      idempotencyKey: first(args, "key"),
+    });
+    return {
+      command: "radar.assignment.reject",
+      status: "success",
+      summary: `Assignment ${result.assignment.assignment_ref} rejected.`,
+      facts: { assignment_ref: result.assignment.assignment_ref, status: result.assignment.status },
+      data: result.assignment,
+      exitCode: 0,
+    };
+  }
+  throw new CliError("unknown_command", "usage: radar assignment create|show|submit|produce|reject");
+}
+
 function editionCommand(sub: string, positional: string | undefined, args: Args, db: RadarDb, profiles: ProfileService, cfg: RadarConfig): CommandResult {
   if (sub === "build") {
     return editionBuildAction({ cfg, db, profiles }, {
@@ -548,7 +657,7 @@ Market foundation (local only):
   market analyze (without windows: previous complete local day)
   market schedule show                 Market pipeline schedule description (planned vs schedulable)
   market schedule install [--print]    Write (or print) market-only systemd user units; never enables timers
-  market observe --source <ref>        Planned: live observation needs source qualification + owner authorization
+  market observe --source hongguo --mode verify-sample|production [--confirm-live|--fixture] [--observed-at UTC]
   market canary report --days 14       Planned: 14-day market canary (radar canary report keeps its old meaning)
   market signal show --signal <ref> [--revision <n>]
   market signal correct --signal <ref> --revision <n> --reason <text> --evidence <ref> --outcome <retracted|inconclusive> --at <UTC-instant>
@@ -578,7 +687,11 @@ Market foundation (local only):
   market watch receipt --key <key>
   market question context --signal <ref> --revision <n> --question <text>
   market evidence show --signal <ref> --revision <n> --evidence <ref>
-  Live observation is not available yet.
+  assignment create [--edition <ref>] [--opportunity <ref>] [--brief <ref>] [--key <key>]
+  assignment show [<ref>|latest]
+  assignment submit --assignment <ref> --auctra-path <project> [--auctra-bin <bin>]
+  assignment produce --assignment <ref> --scaena-path <project> [--auctra-bin <bin>] [--scaena-bin <bin>]
+  assignment reject --assignment <ref> --kind too_risky|not_relevant [--key <key>]
 
 Diagnostics:
   doctor                           Probe firecrawl / agent-reach / cookie env / playwright / schedule

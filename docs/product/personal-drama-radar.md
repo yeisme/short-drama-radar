@@ -68,7 +68,7 @@ Morning Edition 默认最多 8 项，宁可空榜，也不以低适配或低置�
 - 三类分数；
 - 最多 3 个“适合你的原因”；
 - 1 个主要风险或证据限制；
-- `Save / Dismiss / Detail / Draft proposal`。
+- `Save / Dismiss / Detail / Draft proposal`。CLI 侧 `radar assignment create` 生成不可变生产任务（`ready` 或空榜 `do_not_shoot`）。`radar assignment submit --auctra-path <project>` 调用 Auctra 待审提案入口，成功后才写 `used` 和不透明 proposal refs。Auctra accept 之后 `radar assignment produce --scaena-path <project>` 建 Scaena 项目骨架，不分镜、不生成。拒绝使用 `radar assignment reject --kind too_risky|not_relevant`。
 
 版次状态：
 

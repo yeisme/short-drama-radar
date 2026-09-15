@@ -4,7 +4,7 @@
 
 方案日期：2026-09-11。目标是替代用户在多个平台/榜单间反复切换的部分工作：每日 3–5 分钟掌握值得注意的变化，再由 Agent 和 DSH 深看证据。内容变化为主，行业背景为辅；真人短剧与漫剧分别观察，AI 制作方式另有证据标签。
 
-这是已确认方向的设计文档。本地软件面（2026-09-13 OpenSpec radar-market-observation-and-brief-v1 软件门）已交付：观测输入校验、来源/观测/资格存储、来源/配置/资格 CLI、七类命题可比分析、信号修订与更正/恢复、每日简报（supersedes/ready-degraded-empty）、时区/截止/迟到规则、市场调度单元描述（market schedule，写单元不启用）、显式已读/补看/观察清单（含暂停期变化与 source_gap）、跨市场对照、周度回顾、禁区全出口、question context 与回答引用验证、summary/json/agent/events/explain 输出合同、MCP 只读 view/curator/operator 动作/资源（含列表 view）、市场 handoff 向量与读取性能验证（100k 观测下 latest brief 与 20 条补看 p95 均远低于 1s）。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。真实门仍未完成且必须分别报告：已授权来源的持续资格验证（任务 5.4，须真实来源与权限）、14 天真实观察与用户对照（5.5，须 DSH 真实连接）、付费补缺与发布决定（5.6，须用户授权）；observe/canary market 命令以 capability_unavailable 诚实拒绝。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
+这是已确认方向的设计文档。本地软件面（2026-09-13 OpenSpec radar-market-observation-and-brief-v1 软件门）已交付：观测输入校验、来源/观测/资格存储、来源/配置/资格 CLI、七类命题可比分析、信号修订与更正/恢复、每日简报（supersedes/ready-degraded-empty）、时区/截止/迟到规则、市场调度单元描述（market schedule，写单元不启用）、显式已读/补看/观察清单（含暂停期变化与 source_gap）、跨市场对照、周度回顾、禁区全出口、question context 与回答引用验证、summary/json/agent/events/explain 输出合同、MCP 只读 view/curator/operator 动作/资源（含列表 view）、市场 handoff 向量与读取性能验证（100k 观测下 latest brief 与 20 条补看 p95 均远低于 1s）。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。真实门仍未完成且必须分别报告：已授权来源的持续资格验证（任务 5.4，须真实来源与权限）、14 天真实观察与用户对照（5.5，须 DSH 真实连接）、付费补缺与发布决定（5.6，须用户授权）；`radar market observe --source hongguo --mode verify-sample --confirm-live` 已接通红果公共目录验证采样（固定页 `https://novelquickapp.com/category`，origin=live，不自动晋级 qualified）。其他来源 observe 仍拒绝。`market canary report` 仍以 capability_unavailable 拒绝。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
 
 ### 当前可用的本地基础命令
 

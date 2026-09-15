@@ -22,6 +22,7 @@ import { reviewSource, sourceReviewReceipt } from "./source-review.ts";
 import { listWorkMappings, workMapping } from "./identity.ts";
 import type { EventWriter } from "../output/events.ts";
 import { buildMarketScheduleUnits, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
+import { observeCatalog } from "./observe.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { systemdUserDir } from "../schedule.ts";
@@ -263,12 +264,25 @@ export async function marketCommand(command: string[], flags: Map<string, string
     data = reviewWorkIdentity(db, { work: value("work"), expected_revision: revision(),
       canonical_work_ref: value("canonical"), evidence_refs: flags.get("evidence") ?? [] });
   } else if (group === "observe" && !action) {
-    // Live collection is deliberately not wired: it must respect source
-    // qualification and owner authorization first (design §3/§7). The
-    // command exists so callers get an honest, recoverable answer.
-    checkFlags(["source"]);
-    throw new MarketStoreError("capability_unavailable",
-      "Live market observation is not enabled yet. Sources must pass qualification (radar market source qualify) and the owner must authorize collection; use radar market import-catalog for fixture/manual imports.");
+    checkFlags(["source", "mode", "confirm-live", "fixture", "observed-at"]);
+    if (flags.has("confirm-live") && flags.get("confirm-live")?.join() !== "true") {
+      throw new MarketStoreError("flag_invalid", "Use --confirm-live without a value.");
+    }
+    if (flags.has("fixture") && flags.get("fixture")?.join() !== "true") {
+      throw new MarketStoreError("flag_invalid", "Use --fixture without a value.");
+    }
+    const mode = value("mode");
+    if (mode !== "verify-sample" && mode !== "production") {
+      throw new MarketStoreError("mode_invalid", "mode must be verify-sample or production.");
+    }
+    data = await observeCatalog(db, {
+      source: value("source"),
+      mode,
+      confirmLive: flags.has("confirm-live"),
+      fixture: flags.has("fixture"),
+      observedAt: flags.has("observed-at") ? value("observed-at") : undefined,
+      fixtureDir: process.env.RADAR_FIXTURE_DIR,
+    });
   } else if (group === "canary" && action === "report") {
     checkFlags(["days"]);
     throw new MarketStoreError("capability_unavailable",
@@ -301,12 +315,13 @@ export async function marketCommand(command: string[], flags: Map<string, string
   } else if (group === "schedule" && !action) {
     throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe.");
   }
   events?.end("success", { command: id });
+  const live = !!data && typeof data === "object" && "origin" in data && (data as { origin?: string }).origin === "live";
   return {
     command: id, status: "success", summary: "Market " + [group, action].filter(Boolean).join(" ") + " completed.",
-    data, facts: { external_collection: false },
+    data, facts: { external_collection: live },
     actions: [{ name: "sources", command: "radar market source list" }], exitCode: 0,
   };
 }

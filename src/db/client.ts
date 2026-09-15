@@ -246,6 +246,19 @@ CREATE TABLE IF NOT EXISTS opportunity_reviews (
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_idempotency ON opportunity_reviews (idempotency_key);
+
+CREATE TABLE IF NOT EXISTS radar_assignments (
+  ref TEXT PRIMARY KEY NOT NULL,
+  idempotency_key TEXT NOT NULL UNIQUE,
+  profile_ref TEXT NOT NULL,
+  profile_revision INTEGER NOT NULL,
+  edition_ref TEXT NOT NULL,
+  opportunity_ref TEXT,
+  brief_ref TEXT,
+  status TEXT NOT NULL,
+  payload TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 `);
 	ensureMorningEditionEntryColumns(sqlite);
 	ensureDailyItemColumns(sqlite);
