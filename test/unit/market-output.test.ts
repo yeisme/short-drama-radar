@@ -96,3 +96,61 @@ test("market streams carry staged phases and terminate with end or error", async
     expect(failureEvents.map(e => e.seq)).toEqual([...failureEvents.keys()].map(i => i + 1));
   } finally { db.$client.close(); }
 });
+
+// radar market sync (task 3.2): the sync command rides the same five output
+// surfaces; a password-bearing DSN never appears on any of them, verify
+// failures exit non-zero, and the events stream stays start -> phase -> end
+// with a strictly increasing seq.
+
+const SECRET = "s3cr3t-pw";
+
+test("sync results render on every surface with the DSN redacted and no secrets", () => {
+  const facts = {
+    tables: 12, rows_synced: 24, rows_reused: 3, chunks: 2, resumed: false,
+    pg_source: "env", pg_target: "db.internal:5432/radar schema=radar_archive",
+    pg_target_fingerprint: "0123456789ab", pg_dsn: "<redacted>",
+  };
+  const success = {
+    command: "radar.market.sync", status: "success" as const,
+    summary: "Synced 24 row(s) to the PostgreSQL archive (3 reused, 2 chunk(s)).",
+    facts, data: { tables: [{ table: "market_batches", rows_synced: 24, rows_reused: 3, chunks: 2 }] },
+    actions: [{ name: "verify", command: "radar market sync --to pg --verify" }], exitCode: 0,
+  };
+  const envelope = renderJsonEnvelope(success);
+  expect(validateEnvelope(envelope).problems).toEqual([]);
+  expect(envelope.command).toBe("radar.market.sync");
+  const agent = renderAgentLine(success);
+  expect(agent).toContain("fact.pg_source=env");
+  expect(agent).toContain("fact.pg_dsn=<redacted>");
+  expect(agent).toContain("action.next=\"radar market sync --to pg --verify\"");
+  const explain = renderExplain(success);
+  expect(explain).toContain("Conclusion: ");
+  const failure = {
+    command: "radar.market.sync", status: "failed" as const, summary: "verify failed",
+    error: { code: "verify_diverged", message: "Archived rows diverge from the SQLite source." }, exitCode: 1,
+  };
+  expect(renderAgentLine(failure)).toContain("error.code=verify_diverged");
+  expect(renderJsonEnvelope(failure).error?.code).toBe("verify_diverged");
+  // A DSN with a password never reaches any rendered surface.
+  for (const rendered of [JSON.stringify(envelope), agent, explain, JSON.stringify(renderJsonEnvelope(failure))]) {
+    expect(rendered).not.toContain(SECRET);
+    expect(rendered).not.toContain("postgres://");
+  }
+});
+
+test("sync failure stream terminates with the named error after start", async () => {
+  const db = openDb(":memory:");
+  try {
+    const lines: string[] = [];
+    const writer = new EventWriter("market-sync-test", line => lines.push(line));
+    await marketCommand(["market", "sync"], flags({ to: [] }), db, writer)
+      .then(() => { throw new Error("expected value_required"); }, (error: MarketStoreError) => {
+        writer.error(error.code, error.message);
+      });
+    const events = lines.map(l => JSON.parse(l) as { seq: number; event: string; code?: string });
+    expect(events[0]!.event).toBe("start");
+    expect(events.at(-1)!.event).toBe("error");
+    expect(events.at(-1)!.code).toBe("value_required");
+    expect(events.map(e => e.seq)).toEqual([...events.keys()].map(i => i + 1));
+  } finally { db.$client.close(); }
+});

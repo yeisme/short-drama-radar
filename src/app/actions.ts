@@ -8,6 +8,8 @@ import { scoreDay } from "../pipeline/scoring.ts";
 import { buildCard } from "../pipeline/card.ts";
 import { persistOpportunities, opportunityByRef, loadOpportunities } from "../pipeline/opportunity.ts";
 import { addFeedback } from "../pipeline/feedback.ts";
+import { createAssignment } from "../pipeline/assignment.ts";
+import { MarketStoreError } from "../market/repository.ts";
 import { rankOpportunities } from "../pipeline/ranker.ts";
 import { buildEdition, DEFAULT_LIMIT, editionByRef, latestEdition } from "../pipeline/edition.ts";
 import { ProfileService, ProfileError } from "../profile/service.ts";
@@ -412,9 +414,45 @@ export function searchAction(deps: AppDeps, input: SearchInput): CommandResult {
 // Lane model for radar.execute (cumulative: operator > curator > reader).
 export type Lane = "reader" | "curator" | "operator";
 
+export function assignmentCreateAction(deps: AppDeps, input: Record<string, unknown>): CommandResult {
+  const opportunityRef = typeof input.opportunity_ref === "string" ? input.opportunity_ref
+    : typeof input.opportunityRef === "string" ? input.opportunityRef : undefined;
+  const editionRef = typeof input.edition_ref === "string" ? input.edition_ref
+    : typeof input.editionRef === "string" ? input.editionRef : undefined;
+  const idempotencyKey = typeof input.idempotency_key === "string" ? input.idempotency_key
+    : typeof input.idempotencyKey === "string" ? input.idempotencyKey : undefined;
+  try {
+    const result = createAssignment(deps.db, {
+      profile: deps.profiles.show(),
+      opportunityRef,
+      editionRef,
+      idempotencyKey,
+    });
+    return {
+      command: "radar.assignment.create",
+      status: "success",
+      summary: result.assignment.status === "do_not_shoot"
+        ? `Assignment ${result.assignment.assignment_ref} is do_not_shoot.`
+        : `Assignment ${result.assignment.assignment_ref} created for Auctra ingress.`,
+      facts: {
+        assignment_ref: result.assignment.assignment_ref,
+        status: result.assignment.status,
+        reused: result.reused,
+        downstream_status: result.assignment.downstream_status,
+      },
+      data: result.assignment,
+      exitCode: 0,
+    };
+  } catch (error) {
+    if (error instanceof MarketStoreError) throw new ActionError(error.code, error.message);
+    throw error;
+  }
+}
+
 export const EXECUTE_ACTIONS: Record<string, { lane: Lane; sideEffect: "local" | "external"; run: (deps: AppDeps, input: Record<string, unknown>) => Promise<CommandResult> }> = {
   feedback_add: { lane: "curator", sideEffect: "local", run: (d, i) => Promise.resolve(feedbackAddAction(d, i as never)) },
   opportunity_review: { lane: "curator", sideEffect: "local", run: (d, i) => Promise.resolve(opportunityReviewAction(d, i as never)) },
+  assignment_create: { lane: "curator", sideEffect: "local", run: (d, i) => Promise.resolve(assignmentCreateAction(d, i)) },
   collect: { lane: "operator", sideEffect: "external", run: (d) => collectAction(d) },
   score: { lane: "operator", sideEffect: "local", run: (d, i) => scoreAction(d, i["date"] as string | undefined) },
   cluster_build: { lane: "operator", sideEffect: "local", run: (d, i) => Promise.resolve(clusterBuildAction(d, i["date"] as string | undefined)) },

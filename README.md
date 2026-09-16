@@ -1,6 +1,10 @@
 # short-drama-radar
 
+新增本地决策闭环：`radar decision help`。通过 CLI 管理候选证据、显式基线、实验锁定、小样哈希绑定、取消、准备检查、本地工作包导出和人工结果回顾；见[完整操作指南](docs/product/greenlight-pilot/cli-guide.md)。该能力不自动采集、生成或招募，fixture 与真实观测保持区别。
+
 [国内外市场变化 Radar](docs/product/global-market-radar.md)的本地软件面已按 OpenSpec 交付：来源/观测/资格存储与 CLI、可比信号与更正、每日简报、补看/已读/关注、跨市场对照、周度回顾、question context 与文件回执；读取性能在 100k 观测夹具下 p95<100ms。红果公共目录现已支持显式 live 验证采样：`radar market observe --source hongguo --mode verify-sample --confirm-live`。生产 observe 仍要求 `sample_verified` 或 `qualified`。`radar assignment create` 把个人 Edition 变成不可变生产任务；`radar assignment submit --auctra-path <project>` 调用 Auctra `text proposal from-radar`，成功后才写 `used`。Auctra accept 之后 `radar assignment produce --scaena-path <project>` 建 Scaena 骨架，不分镜、不生成。其余来源资格、14 天试用与发布/付费决定仍是独立外部门。
+
+数据长期化方向：市场域数据以本地 SQLite 为热存储与证据真源。三个接续 OpenSpec 变更均已交付软件面：`radar-hongguo-catalog-parsing-v1`（红果目录解析清洗）、`radar-market-pg-sync-v1`（`radar market sync --to pg` 幂等、断点续传归档到用户提供的 PostgreSQL，PG 是归档+分析副本，append-only 不改写，连接串只来自 `RADAR_PG_URL` 或用户级 config 且全链路脱敏，不新增服务端）、`radar-work-ingestion-gate-v1`（candidate → canonical 入库门：`radar market work gate/review-batch/promote`，观测质量写入 health；`radar market canary report` 仍为 planned）。L0–L4 分层与变现前提详见 [docs/product/global-market-radar.md](docs/product/global-market-radar.md)。
 
 短剧爆款雷达：爬虫主路的每日短剧选题情报 + 个人化机会 Edition CLI。每天从抖音/小红书四层采集候选内容，快照入库、去重、打标签、评分，输出 Top5+Top5 卡片合同 payload 与只属于当前创作者的 Morning Edition。
 
@@ -75,10 +79,14 @@ Radar 只提供 CLI；结果和运行回执保存在用户级目录。小红书�
 ## 调度与健康
 
 ```bash
-radar schedule install [--print]   # systemd user XHS service + 08:10/08:30 collect、08:42 score、08:55/08:59 card
+radar schedule show --json
+radar schedule install [--backend auto|systemd|launchd|windows] [--print]
+radar schedule session-plan --runtime both --json
 radar health 14                    # source coverage / stable id / duplicate rate / degraded days
 radar canary report 14 --json      # Edition days / usefulness / false-or-unexplained gates
 ```
+
+OS 单元默认不启用。macOS 用 launchd，Windows 用 Task Scheduler，Linux 仍是 systemd user timer。无 OS 调度器时用 session-plan 做只读巡检，不能代替 08:10 collect。详见 [docs/runtime/schedule.md](docs/runtime/schedule.md)。
 
 ## 测试
 

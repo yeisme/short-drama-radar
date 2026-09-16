@@ -19,7 +19,7 @@
 
 ## 架构边界
 
-- 拥有：短剧候选发现、快照历史、跨平台标准化、钩子/题材/情绪标签、基础 market score/`confidence`、个人 Profile/revision、反馈 ledger、机会簇、personal fit、Morning Edition、卡片合同 payload、MCP 安全投影和运行/审计证据。
+- 拥有：短剧候选发现、快照历史、跨平台标准化、钩子/题材/情绪标签、基础 market score/`confidence`、个人 Profile/revision、反馈 ledger、机会簇、personal fit、Morning Edition、卡片合同 payload、MCP 安全投影、运行/审计证据，以及墙钟调度单元（Linux systemd / macOS launchd / Windows Task Scheduler）和 Claude/Grok session-plan 投影。不实现 Claude/Grok 调度器本身。
 - 不拥有：剧本/分镜/图片/音频/视频生成、投放管理、多人协作后台、云同步、远程 Agent 服务、Workbench/DSH UI、飞书投递实现、通用跨项目调度。
 - Hermes、Workbench 与 DSH 是 consumer：不得读取 Radar SQLite、用户配置或审计文件，不得保存第二份 Profile/排序/Edition 真源，不得自动批准 production mutation。
 - 抖音官方开放平台不覆盖全平台热榜，不能作为主源；小红书“传播增速”用互动增量作代理值，禁止伪造播放量。

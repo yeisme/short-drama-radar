@@ -20,16 +20,23 @@ import { previousMarketWindow } from "./calendar.ts";
 import { recordSamplingCheck, registerSamplingPlan, samplingPlan } from "./sampling.ts";
 import { reviewSource, sourceReviewReceipt } from "./source-review.ts";
 import { listWorkMappings, workMapping } from "./identity.ts";
+import { CURRENT_GATE_VERSION, gateDecisionsForWork, gateRuleSet, promoteWork } from "./gate.ts";
+import { gateReport, reviewBatchReceipt, reviewWorkBatch } from "./review-batch.ts";
+import { loadConfig } from "../config.ts";
+import { migratePg, openPg } from "../db/pg-client.ts";
+import { resolvePgConnection, pgConnectionDiagnostics } from "./sync-config.ts";
+import { postgresArchive, syncMarketToPg, unsupportedTargetError, verifyMarketPg } from "./sync.ts";
+import { normalizeChunkSize } from "./sync-plan.ts";
 import type { EventWriter } from "../output/events.ts";
-import { buildMarketScheduleUnits, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
+import { buildMarketScheduleUnits, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_SYNC_HOOK, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
 import { observeCatalog } from "./observe.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { systemdUserDir } from "../schedule.ts";
 
 export async function marketCommand(command: string[], flags: Map<string, string[]>, db: RadarDb, events?: EventWriter): Promise<CommandResult> {
-  const [, group, action] = command;
-  const id = ["radar", "market", group, action].filter(Boolean).join(".");
+  const [, group, action, nested] = command;
+  const id = ["radar", "market", group, action, group === "work" && action === "gate" ? nested : undefined].filter(Boolean).join(".");
   // Long builds stream staged progress; the final end|error event is written
   // by this path on success and by the CLI error path on failure.
   if (events) events.start(id);
@@ -263,6 +270,40 @@ export async function marketCommand(command: string[], flags: Map<string, string
     // verified canonical ref appends corrections to affected signals.
     data = reviewWorkIdentity(db, { work: value("work"), expected_revision: revision(),
       canonical_work_ref: value("canonical"), evidence_refs: flags.get("evidence") ?? [] });
+  } else if (group === "work" && action === "gate" && nested === "show") {
+    checkFlags(["version"]);
+    data = gateRuleSet(flags.has("version") ? value("version") : CURRENT_GATE_VERSION);
+  } else if (group === "work" && action === "gate" && nested === "report") {
+    checkFlags(["source", "batch", "version"]);
+    data = gateReport(db, {
+      ...(flags.has("source") ? { source_ref: value("source") } : {}),
+      ...(flags.has("batch") ? { batch_ref: value("batch") } : {}),
+    }, flags.has("version") ? value("version") : CURRENT_GATE_VERSION);
+  } else if (group === "work" && action === "gate" && nested === "decisions") {
+    checkFlags(["work", "version"]);
+    data = { decisions: gateDecisionsForWork(db, value("work"), flags.has("version") ? value("version") : undefined) };
+  } else if (group === "work" && action === "gate") {
+    throw new MarketStoreError("command_unknown", "Use 'market work gate show', 'market work gate report' or 'market work gate decisions'.");
+  } else if (group === "work" && action === "review-batch") {
+    checkFlags(["source", "batch", "key"]);
+    data = reviewWorkBatch(db, {
+      source_ref: value("source"), key: value("key"),
+      ...(flags.has("batch") ? { batch_ref: value("batch") } : {}),
+    });
+  } else if (group === "work" && action === "review-batch-receipt") {
+    checkFlags(["key"]);
+    data = reviewBatchReceipt(db, value("key"));
+    if (!data) {
+      throw new MarketStoreError("receipt_not_found",
+        "Review-batch receipt not found. If a previous run outcome is unknown, query this key before replaying; do not mint a second key.");
+    }
+  } else if (group === "work" && action === "promote") {
+    checkFlags(["work", "revision", "canonical", "evidence", "override-reason"]);
+    data = promoteWork(db, {
+      work: value("work"), expected_revision: revision(),
+      canonical_work_ref: value("canonical"), evidence_refs: flags.get("evidence") ?? [],
+      ...(flags.has("override-reason") ? { override_reason: value("override-reason") } : {}),
+    });
   } else if (group === "observe" && !action) {
     checkFlags(["source", "mode", "confirm-live", "fixture", "observed-at"]);
     if (flags.has("confirm-live") && flags.get("confirm-live")?.join() !== "true") {
@@ -283,10 +324,78 @@ export async function marketCommand(command: string[], flags: Map<string, string
       observedAt: flags.has("observed-at") ? value("observed-at") : undefined,
       fixtureDir: process.env.RADAR_FIXTURE_DIR,
     });
+  } else if (group === "sync" && !action) {
+    // PG archive sync: SQLite stays the source of truth; the archive is
+    // append-only. Long syncs stream start -> table_synced phases -> end.
+    checkFlags(["to", "chunk-size", "verify", "reset-cursor", "confirm-reset", "allow-target-change"]);
+    const target = value("to");
+    if (target !== "pg") throw unsupportedTargetError(target);
+    const switchFlag = (name: string): boolean => {
+      if (!flags.has(name)) return false;
+      if (flags.get(name)?.join() !== "true") throw new MarketStoreError("flag_invalid", "Use --" + name + " without a value.");
+      return true;
+    };
+    const verifyOnly = switchFlag("verify");
+    const resetCursor = switchFlag("reset-cursor");
+    const confirmReset = switchFlag("confirm-reset");
+    if (resetCursor && !confirmReset) {
+      throw new MarketStoreError("flag_invalid", "--reset-cursor requires --confirm-reset; the full replay is idempotent but must be confirmed explicitly.");
+    }
+    // Validate cheap inputs before any connection is attempted.
+    if (flags.has("chunk-size")) normalizeChunkSize(value("chunk-size"));
+    const connection = resolvePgConnection(loadConfig());
+    const pg = await openPg(connection.dsn);
+    try {
+      const archive = postgresArchive(pg.db);
+      const diagnostics = pgConnectionDiagnostics(connection);
+      const warnings = connection.warnings;
+      if (verifyOnly) {
+        // Zero-write reconciliation: no migrate, no inserts.
+        const report = await verifyMarketPg(db, archive, connection.fingerprint, { allowTargetChange: switchFlag("allow-target-change") });
+        const payload = { verify: true, ok: report.ok, tables_checked: report.tables_checked, differences: report.differences, ...diagnostics, warnings };
+        if (!report.ok) {
+          events?.end("failed", { command: id, differences: report.differences.length });
+          return {
+            command: id, status: "failed",
+            summary: `Archive verification found ${report.differences.length} difference(s); both sides were left untouched.`,
+            data: payload, facts: { verify: true, differences: report.differences.length, ...diagnostics },
+            error: { code: "verify_diverged", message: "Archived rows diverge from the SQLite source; review the listed differences — existing archive rows are never updated or deleted." },
+            actions: [{ name: "resync", command: "radar market sync --to pg" }], exitCode: 1,
+          };
+        }
+        events?.end("success", { command: id, verify: true });
+        return {
+          command: id, status: "success",
+          summary: `Archive verified: ${report.tables_checked} tables match the SQLite source.`,
+          data: payload, facts: { verify: true, differences: 0, ...diagnostics },
+          actions: [{ name: "sync", command: "radar market sync --to pg" }], exitCode: 0,
+        };
+      }
+      await migratePg(pg.db);
+      const report = await syncMarketToPg(db, archive, connection.fingerprint, {
+        ...(flags.has("chunk-size") ? { chunkSize: value("chunk-size") } : {}),
+        resetCursor, confirmReset,
+        allowTargetChange: switchFlag("allow-target-change"),
+      }, events);
+      const payload = { ...report, ...diagnostics, warnings };
+      events?.end("success", { command: id, rows_synced: report.rows_synced, rows_reused: report.rows_reused });
+      return {
+        command: id, status: "success",
+        summary: `Synced ${report.rows_synced} row(s) to the PostgreSQL archive (${report.rows_reused} reused, ${report.chunks} chunk(s)${report.resumed ? ", resumed" : ""}).`,
+        data: payload,
+        facts: {
+          tables: report.tables.length, rows_synced: report.rows_synced, rows_reused: report.rows_reused,
+          chunks: report.chunks, resumed: report.resumed, ...diagnostics,
+        },
+        actions: [{ name: "verify", command: "radar market sync --to pg --verify" }], exitCode: 0,
+      };
+    } finally {
+      await pg.close();
+    }
   } else if (group === "canary" && action === "report") {
     checkFlags(["days"]);
     throw new MarketStoreError("capability_unavailable",
-      "The 14-day market canary is planned but not started; it requires real source qualification and a real observation window. The personal canary report (radar canary report) keeps its original meaning.");
+      "The 14-day market canary is planned but not started; it requires real source qualification and a real observation window, and when implemented must consume persisted observation quality records (radar.observation_quality.v1) as coverage and parse-regression evidence. The personal canary report (radar canary report) keeps its original meaning.");
   } else if (group === "schedule" && (action === "show" || action === "install")) {
     checkFlags(["print"]);
     if (action === "show") {
@@ -297,25 +406,27 @@ export async function marketCommand(command: string[], flags: Map<string, string
         planned_stages: planned,
         local_times: MARKET_SCHEDULE_TIMES,
         observe_policy: "two slots per day 12h apart, per-source 60s timeout, at most two read-only retries (2s/8s backoff), global concurrency 2, 24h cooldown on login/risk-control failures",
+        sync_hook: MARKET_SCHEDULE_SYNC_HOOK,
         installed_note: "Printing or writing units never enables a timer; enable steps are owner actions." };
     } else {
       const execStart = `${process.execPath} ${join(import.meta.dir, "../cli.ts")}`;
       const units = buildMarketScheduleUnits(execStart);
       const target = systemdUserDir(process.env.HOME ?? "~");
       if (flags.has("print")) {
-        data = { units_written: 0, target, units };
+        data = { units_written: 0, target, units, sync_hook: MARKET_SCHEDULE_SYNC_HOOK };
       } else {
         mkdirSync(target, { recursive: true });
         for (const [name, content] of Object.entries(units)) writeFileSync(join(target, name), content);
         data = { units_written: Object.keys(units).length, target,
           next_steps: MARKET_SCHEDULE_NEXT_STEPS,
+          sync_hook: MARKET_SCHEDULE_SYNC_HOOK,
           note: "Units were written but not enabled; enabling the timers is an explicit owner action." };
       }
     }
   } else if (group === "schedule" && !action) {
     throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review/gate show|report|decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe, sync.");
   }
   events?.end("success", { command: id });
   const live = !!data && typeof data === "object" && "origin" in data && (data as { origin?: string }).origin === "live";

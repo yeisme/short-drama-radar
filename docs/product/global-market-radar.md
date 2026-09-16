@@ -2,6 +2,8 @@
 
 ## 产品方向与状态
 
+2026-09-16 新增[漫剧立项决策研究](greenlight-pilot/decision-pack.md)：下一阶段优先验证“选择值得进入的市场和漫剧方向，并根据结果修正判断”。首轮已交付公开来源初筛、三市场深查、候选比较与小样实验设计；原始用户选题基线缺失，真实受众与观看结果尚未取得。先验证人工辅助的完整路径，再据实际障碍决定新增自动化；以下市场观察、个人 Edition、来源资格和十四天验证保持各自原义。
+
 方案日期：2026-09-11。目标是替代用户在多个平台/榜单间反复切换的部分工作：每日 3–5 分钟掌握值得注意的变化，再由 Agent 和 DSH 深看证据。内容变化为主，行业背景为辅；真人短剧与漫剧分别观察，AI 制作方式另有证据标签。
 
 这是已确认方向的设计文档。本地软件面（2026-09-13 OpenSpec radar-market-observation-and-brief-v1 软件门）已交付：观测输入校验、来源/观测/资格存储、来源/配置/资格 CLI、七类命题可比分析、信号修订与更正/恢复、每日简报（supersedes/ready-degraded-empty）、时区/截止/迟到规则、市场调度单元描述（market schedule，写单元不启用）、显式已读/补看/观察清单（含暂停期变化与 source_gap）、跨市场对照、周度回顾、禁区全出口、question context 与回答引用验证、summary/json/agent/events/explain 输出合同、MCP 只读 view/curator/operator 动作/资源（含列表 view）、市场 handoff 向量与读取性能验证（100k 观测下 latest brief 与 20 条补看 p95 均远低于 1s）。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。真实门仍未完成且必须分别报告：已授权来源的持续资格验证（任务 5.4，须真实来源与权限）、14 天真实观察与用户对照（5.5，须 DSH 真实连接）、付费补缺与发布决定（5.6，须用户授权）；`radar market observe --source hongguo --mode verify-sample --confirm-live` 已接通红果公共目录验证采样（固定页 `https://novelquickapp.com/category`，origin=live，不自动晋级 qualified）。其他来源 observe 仍拒绝。`market canary report` 仍以 capability_unavailable 拒绝。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
@@ -49,6 +51,65 @@ bun run src/cli.ts market source set --source hongguo --revision 1 --sampling-sc
 
 实现真源：[proposal](../../openspec/changes/radar-market-observation-and-brief-v1/proposal.md)、[design](../../openspec/changes/radar-market-observation-and-brief-v1/design.md)、[tasks](../../openspec/changes/radar-market-observation-and-brief-v1/tasks.md)。跨项目治理归根 change，DSH 视觉方案归 harness-plugins。
 
+## 数据长期化分层与在途变更（2026-09-16）
+
+市场域数据当前全部落在本地 SQLite（热存储与证据真源）。数据长期化与变现按以下分层推进；L3 产品对外读取面与 L4 的 M2/M3 仍是方向判断，未承诺交付时间：
+
+- L0 采集层：本地 SQLite 是热存储与证据真源，fixture/manual/live 区分已交付。
+- L1 长期层：PostgreSQL 归档（已交付，见下文「L1 PG 归档同步」）。`radar market sync --to pg` 用 Drizzle 双方言把市场域数据幂等归档到用户提供的 PostgreSQL；SQLite 仍是真源，PG 是归档+分析副本。不新增服务端、不多用户、不开 remote endpoint。
+- L2 入库层：candidate → canonical 正式入库门已交付（见下文「L2 正式入库门」）。质量指标入 `radar health`；`radar market canary report` 仍为 planned，落地时必须消费质量记录。
+- L3 产品层：market brief / 跨市场对照 / signals 的只读投影，即面向读者的「榜单」。
+- L4 变现层：M1 内部生产链（assignment → Auctra → Scaena）已通；M2 个人订阅简报，前提 5.5 十四天 canary 通过；M3 B 端数据 API，前提 5.4 来源资格、5.6 发布决定与未来 backend-server/radar-api 独立授权。三个真实门（5.4/5.5/5.6）未过前，M2/M3 不得标 ready。
+
+对应三个 OpenSpec 变更（引用以 change id 为准）：
+
+- [`radar-hongguo-catalog-parsing-v1`](../../openspec/changes/radar-hongguo-catalog-parsing-v1/)：红果目录解析清洗（标题/标签拆分、类目映射扩条目、字段覆盖率修复）；已交付。
+- [`radar-market-pg-sync-v1`](../../openspec/changes/radar-market-pg-sync-v1/)：L1 的 PG 归档同步（已交付）。
+- [`radar-work-ingestion-gate-v1`](../../openspec/changes/radar-work-ingestion-gate-v1/)：L2 的 candidate → canonical 入库门（已交付软件面）。
+
+## L1 PG 归档同步（radar-market-pg-sync-v1，已交付）
+
+`radar market sync --to pg` 把 12 张市场域证据表（sources/batches/observations/evidence/signals/work_mappings/briefs/reviews 及资格、采样、来源审阅回执）从 SQLite 真源幂等归档到用户提供的 PostgreSQL 独立 schema `radar_archive`：
+
+```bash
+radar market sync --to pg                                   # 增量续传；无游标时全量首同步
+radar market sync --to pg --verify                          # 只读对账：行数 + 每表至多 100 行 digest 抽样，不一致退出码非零
+radar market sync --to pg --chunk-size 500                  # 分块大小 1–5000，默认 500
+radar market sync --to pg --reset-cursor --confirm-reset    # 显式清空游标后全量重放（幂等安全）
+radar market sync --to pg --allow-target-change             # 确认更换目标实例（重新全量）
+```
+
+- 幂等与 append-only：写入按各表主键（幂等键）`ON CONFLICT DO NOTHING`；冲突行回查 `payload_digest`，一致记 reused，不一致报 `sync_conflict` 并中止该表、零改写，owner 审查后人工处置——归档行永不 UPDATE/DELETE。PG 镜像表只比 SQLite 多 `payload_digest` 与 `synced_at` 两列。
+- 断点续传：SQLite 侧 `market_sync_state` 逐表存游标与 `target_fingerprint`（sha256(host|port|db|schema)，不含凭据），只在 PG 事务提交后推进；块间进程死亡重跑即从上一已提交块继续。游标损坏报 `cursor_invalid`，换目标报 `sync_target_changed`。
+- 凭据来源与脱敏：连接串只来自 `RADAR_PG_URL` 或用户级 config 的 `pgArchive.url`（env 优先）；诊断与输出只含来源类型、脱敏 host/db/schema 与指纹前 12 位，DSN 一律 `<redacted>`；含 DSN 的 config 文件非 0600 时警告不阻止。
+- 具名错误码：`pg_config_missing`、`pg_unavailable`、`pg_auth_failed`、`schema_mismatch`、`sync_target_changed`、`sync_conflict`、`cursor_invalid`、`sync_target_unsupported`（verify 不一致另报 `verify_diverged`），各附恢复命令。
+- 个人阅读/关注状态、Profile/feedback、opportunities/editions、assignments、runs 与旧两平台管线表显式不出库。
+- 调度边界：同步默认手动；`radar market schedule show/install` 只把 sync 列为可选挂接（owner 可在 market-brief 单元后自行追加 unit 的示例），不生成、不启用任何 sync 定时器，同步不在 cutoff/freeze 语义内。
+
+真实 PG 集成回放（Testcontainers / `RADAR_TEST_PG_URL`）覆盖：首同步全量→重放零新增、杀进程后续传一致、篡改触发 `sync_conflict` 零改写、指纹门、损坏游标重放；证据在 `temp/integration-test-runs/`。
+
+## L2 正式入库门（radar-work-ingestion-gate-v1，已交付软件面）
+
+candidate 作品不会因 observe/import 自动变 canonical。owner 先评估再显式晋级：
+
+```bash
+radar market work gate show --json
+radar market work gate report --source hongguo --json
+radar market work review-batch --source hongguo --key <idempotency-key> --json
+radar market work review-batch-receipt --key <idempotency-key> --json
+radar market work promote --work <ref> --revision <n> --canonical <ref> --evidence <ref> --json
+radar market work promote --work <ref> --revision <n> --canonical <ref> --evidence <ref> --override-reason "<text>" --json
+radar health 14 --json
+```
+
+- 四条版本化规则（`work-ingestion-gate-rules.v2` / `catalog-fields.v2`）：跨批次身份印证、别名无冲突、必需字段覆盖（title/category/episode_count）、至少一条非 fixture 证据。旧 `v1` 决定不追溯重判。
+- 批量 review 只记不可变 gate decision，不晋级；同键同参重放零新决定，同键异参 `idempotency_conflict`。
+- promote 要求现行版本下针对 head revision 的 operative 决定为 promotable；否则 `gate_not_passed` / `stale_gate_decision`。`--override-reason` 同事务留下 overridden 审计决定。既有 `work review` 语义不变，作为回退入口。
+- observe / import-catalog 与批次同事务写 `radar.observation_quality.v1`；`radar health` 增加市场质量段，覆盖率下降超 10 个百分点标 `regression_flagged`（告警，不是失败门）。历史无记录批次显式 `quality_unavailable`，不回填。
+- `radar market canary report` 仍以 `capability_unavailable` 拒绝；落地时必须消费质量记录。入库门不改变来源 readiness，不自动晋级。
+
+已知限制（2026-09-16 验证）：红果 live 验证采样已抓到 24 部作品，origin=live，但 readiness 仍 planned，全部作品 mapping_status=candidate。当批样本标题存在「标题重复两遍+标签串」粘连、category 字段覆盖 0/24；解析清洗已由 `radar-hongguo-catalog-parsing-v1` 交付（`hongguo-anchor-layout.v1` 拆分 anchor 卡片结构、标签经 `market-label-mapping.v1` zh 表消费、跳过归因入回执 limitations），脱敏夹具回放 category 覆盖 6/7（唯一缺口为结构性无标签的纯文本 anchor），同页真实结构离线回放达 24/24。存量 24 条 live 观测与证据不可变、仍带粘连标题；owner 显式 `--confirm-live` 重采样生成新 batch 前，旧红果样本仍不可作为 canonical 数据消费，也不能据此宣称类目观察已覆盖。
+
 ## 使用体验
 
 第一次使用不要求先填写创作偏好；有真实已完成数据就可读，没有则显示尚未建立观察窗口及 owner 配置步骤。默认摘要最多 5 条重要变化、2 条待观察；不按数量凑新闻。
@@ -71,7 +132,7 @@ bun run src/cli.ts market source set --source hongguo --revision 1 --sampling-sc
 
 | 地区／场景 | 候选平台 | 优先级 | 主要观测 | 已核实与缺口 |
 |---|---|---|---|---|
-| 国内真人作品 | 红果短剧 | P0 | 作品目录、题材、集数、展示变化 | 开发者官网一次读取可见上述内容；连续性/完整榜单/热度待验证 |
+| 国内真人作品 | 红果短剧 | P0 | 作品目录、题材、集数、展示变化 | 开发者官网一次读取可见上述内容；live 验证采样已通（origin=live），但解析清洗未完成（标题粘连、category 0/24），连续性/完整榜单/热度待验证 |
 | 国内漫剧 | 红果漫剧、火龙漫剧 | P0 | 漫剧作品、上新、形式 | 官方商店介绍可核对身份与产品功能；作品采样和 AI 制作标签待验证 |
 | 国内补充样本 | 快手、喜番短剧 | P1 | 作品供给与差异样本 | 喜番身份可核对；本次未完成快手作品级入口资格验证 |
 | 国内传播/讨论 | 抖音、小红书、B站 | P1 | 关联作品的传播与评论样本 | 前两者已有 Radar 适配器；实际 live 健康需另查；B站待资格化 |

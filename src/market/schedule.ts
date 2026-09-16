@@ -89,6 +89,32 @@ export const MARKET_SCHEDULE_NEXT_STEPS = [
   "systemctl --user list-timers 'short-drama-radar-market-*'",
 ];
 
+// Optional owner hook for the PG archive sync (radar market sync --to pg).
+// Sync is manual by default: `install` never generates or enables a sync
+// timer, and sync is outside the cutoff/freeze semantics — a late sync only
+// means the archive replica lags, never that the SQLite source is affected.
+// The owner MAY append their own unit after market-brief, e.g.:
+//
+//   [Unit]
+//   Description=short-drama-radar market: archive sync to PostgreSQL
+//   After=short-drama-radar-market-brief.service
+//   Wants=short-drama-radar-market-brief.service
+//
+//   [Service]
+//   Type=oneshot
+//   ExecStart=/usr/bin/flock -w 600 %h/.short-drama-radar/radar.lock <execStart> market sync --to pg --json
+//   Environment=RADAR_HOME=%h/.short-drama-radar
+//   # RADAR_PG_URL belongs in a user-level EnvironmentFile, never in the unit.
+//
+// Enabling any such unit is an explicit owner action, like every other timer.
+export const MARKET_SCHEDULE_SYNC_HOOK = {
+  command: "radar market sync --to pg",
+  runs_after: "short-drama-radar-market-brief.service",
+  generated: false,
+  enabled: false,
+  note: "Optional owner hook: install never writes or enables a sync timer; the owner may append their own unit after market-brief. Sync is outside cutoff/freeze semantics — a late sync only leaves the archive replica behind.",
+} as const;
+
 // Which readiness states may be collected by a scheduled observation pass.
 // planned/identity_verified have no verified sample; blocked is explicitly
 // out. Nothing here bypasses a qualification decision.

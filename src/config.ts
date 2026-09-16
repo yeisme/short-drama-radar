@@ -27,6 +27,12 @@ export interface RadarConfig {
     freeze: string; // "08:55"
     send: string; // "08:59"
   };
+  // Optional PG archive target (radar market sync --to pg). The DSN is a
+  // credential: it may live in this user-level file or in RADAR_PG_URL, but
+  // never in the DB, logs, envelopes or evidence.
+  pgArchive?: {
+    url?: string;
+  };
 }
 
 // A literal "~" would create a directory named ~ in cwd; prefer the OS tmp root as the lesser evil and let doctor flag it.
@@ -86,6 +92,14 @@ export function loadConfig(): RadarConfig {
   }
   for (const key of ["firecrawlBaseUrl", "agentReachBin", "dbPath", "accountsPath"] as const) {
     if (typeof merged[key] !== "string") throw new ConfigError(`config ${key} must be a string`);
+  }
+  if (merged.pgArchive !== undefined) {
+    if (typeof merged.pgArchive !== "object" || merged.pgArchive === null || Array.isArray(merged.pgArchive)) {
+      throw new ConfigError("config pgArchive must be an object");
+    }
+    if (merged.pgArchive.url !== undefined && typeof merged.pgArchive.url !== "string") {
+      throw new ConfigError("config pgArchive.url must be a string");
+    }
   }
   return merged;
 }

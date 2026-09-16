@@ -13,7 +13,14 @@ import { addFeedback, FeedbackError } from "./pipeline/feedback.ts";
 import { buildEdition, DEFAULT_LIMIT, editionByRef, latestEdition } from "./pipeline/edition.ts";
 import { opportunityReviews } from "./db/schema.ts";
 import { ProfileService, ProfileError, type ProfileRecord } from "./profile/service.ts";
-import { buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir } from "./schedule.ts";
+import {
+  buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir,
+  buildLaunchdUnits, launchdUserDir, LAUNCHD_NEXT_STEPS,
+  buildWindowsUnits, windowsTaskDir, WINDOWS_NEXT_STEPS,
+  buildSchedulePlan, parseScheduleBackend, parseSessionRuntime,
+  buildSessionPlan, sessionPlanActions,
+  type ScheduleBackend,
+} from "./schedule.ts";
 import { probeRuntime } from "./diagnostics.ts";
 import type { AppDeps } from "./app/actions.ts";
 import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, recordRun, ActionError } from "./app/actions.ts";
@@ -26,6 +33,7 @@ import { marketCommand } from "./market/cli.ts";
 import { MarketStoreError } from "./market/repository.ts";
 import { MarketValidationError } from "./market/domain.ts";
 import { assignmentByRef, createAssignment, produceAssignment, rejectAssignment, submitAssignment } from "./pipeline/assignment.ts";
+import { decisionCommand, decisionCommandId } from "./decision/cli.ts";
 
 // Command surface per radar-cli-agent-contract. One CommandResult per
 // command; the four renderers (summary/json/agent/events) all derive from it.
@@ -58,7 +66,7 @@ function parseArgs(argv: string[]): Args {
       }
       continue;
     }
-    if (command.length < 3) command.push(a); // group + sub + up to one positional
+    if (command.length < 3 || command[0] === "decision") command.push(a); // Keep legacy parsing; decision rejects surplus words.
   }
   return { command, flags, mode };
 }
@@ -131,6 +139,10 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
   const [group, sub] = args.command;
   const positional = args.command[2]; // group sub <positional> — date or ref
   switch (group) {
+    case "decision": {
+      const events = args.mode === "events" ? new EventWriter(`decision-${new Date().toISOString()}`) : undefined;
+      return decisionCommand(args.command, args.flags, db, events);
+    }
     case "market": {
       // Long market builds stream staged events; reads render normally.
       const events = args.mode === "events" ? new EventWriter(`market-${new Date().toISOString()}`) : undefined;
@@ -486,6 +498,9 @@ function healthCommand(windowArg: string | undefined, db: RadarDb, cfg: RadarCon
       accounts_active: report.accountSurvival.active,
       accounts_cooldown: report.accountSurvival.cooldown,
       accounts_disabled: report.accountSurvival.disabled,
+      market_quality_sources: report.marketObservationQuality.sources.length,
+      market_quality_regression_flagged: report.marketObservationQuality.sources.filter(s => s.regression_flagged).length,
+      market_quality_unavailable: report.marketObservationQuality.sources.some(s => s.quality_unavailable),
     },
     data: report as unknown as Record<string, unknown>,
     exitCode: 0,
@@ -522,24 +537,80 @@ function canaryCommand(sub: string | undefined, daysArg: string | undefined, arg
 }
 
 function scheduleCommand(sub: string, args: Args, cfg: RadarConfig): CommandResult {
-  if (sub !== "install") throw new CliError("unknown_command", "usage: radar schedule install [--print]");
-  const execStart = `${process.execPath} ${join(import.meta.dir, "cli.ts")}`;
-  const units = buildScheduleUnits(cfg, execStart);
-  const target = systemdUserDir(process.env.HOME ?? "~");
-  if (first(args, "print") !== undefined) {
-    return ok("radar.schedule.install", `Printed ${Object.keys(units).length} systemd user units (dry run).`, { units: Object.keys(units).length, target }, {
-      data: units,
-      actions: SCHEDULE_NEXT_STEPS.slice(0, 1).map((c) => ({ name: "reload", command: c })),
+  if (sub === "show") {
+    let backend: ScheduleBackend;
+    try { backend = parseScheduleBackend(first(args, "backend")); }
+    catch { throw new CliError("backend_invalid", "schedule show --backend must be auto, systemd, launchd, or windows"); }
+    const plan = buildSchedulePlan(cfg);
+    return ok("radar.schedule.show", `Schedule plan uses ${backend} for wall-clock jobs; session-plan is separate.`, {
+      backend,
+      backend_auto: plan.backend_auto,
+      pipeline_jobs: plan.pipeline.length,
+      session_jobs: plan.session_read.length,
+    }, {
+      data: { ...plan, selected_backend: backend },
+      actions: [
+        { name: "install", command: `radar schedule install --backend ${backend}` },
+        { name: "session", command: "radar schedule session-plan --runtime both --json" },
+      ],
     });
   }
-  mkdirSync(target, { recursive: true });
-  mkdirSync(join(process.env.HOME ?? "~", ".agent-reach", "xiaohongshu"), { recursive: true });
-  for (const [name, content] of Object.entries(units)) {
-    writeFileSync(join(target, name), content);
+  if (sub === "session-plan") {
+    let runtime;
+    try { runtime = parseSessionRuntime(first(args, "runtime")); }
+    catch { throw new CliError("runtime_invalid", "schedule session-plan --runtime must be grok, claude, or both"); }
+    const plan = buildSessionPlan(runtime);
+    return ok("radar.schedule.session-plan", `Printed ${plan.jobs.length} read-only session jobs for ${runtime}.`, {
+      runtime,
+      jobs: plan.jobs.length,
+      wall_clock: false,
+    }, {
+      data: plan,
+      actions: sessionPlanActions(plan),
+    });
   }
-  return ok("radar.schedule.install", `Wrote ${Object.keys(units).length} units to ${target}.`, { units: Object.keys(units).length, target }, {
-    actions: SCHEDULE_NEXT_STEPS.map((c) => ({ name: "step", command: c })),
+  if (sub !== "install") throw new CliError("unknown_command", "usage: radar schedule show|install|session-plan");
+  let backend: ScheduleBackend;
+  try { backend = parseScheduleBackend(first(args, "backend")); }
+  catch { throw new CliError("backend_invalid", "schedule install --backend must be auto, systemd, launchd, or windows"); }
+  const execStart = `${process.execPath} ${join(import.meta.dir, "cli.ts")}`;
+  const home = process.env.HOME ?? "~";
+  const pack = schedulePack(backend, cfg, execStart, home);
+  if (first(args, "print") !== undefined) {
+    return ok("radar.schedule.install", `Printed ${Object.keys(pack.units).length} ${backend} units (dry run).`, {
+      backend,
+      units: Object.keys(pack.units).length,
+      target: pack.target,
+      enabled: false,
+    }, {
+      data: pack.units,
+      actions: pack.next.slice(0, 1).map((c) => ({ name: "next", command: c })),
+    });
+  }
+  mkdirSync(pack.target, { recursive: true });
+  if (backend === "systemd") mkdirSync(join(home, ".agent-reach", "xiaohongshu"), { recursive: true });
+  if (backend === "launchd") mkdirSync(join(home, ".short-drama-radar", "logs"), { recursive: true });
+  for (const [name, content] of Object.entries(pack.units)) {
+    writeFileSync(join(pack.target, name), content);
+  }
+  return ok("radar.schedule.install", `Wrote ${Object.keys(pack.units).length} ${backend} units to ${pack.target}. Not enabled.`, {
+    backend,
+    units: Object.keys(pack.units).length,
+    target: pack.target,
+    enabled: false,
+  }, {
+    actions: pack.next.map((c) => ({ name: "step", command: c })),
   });
+}
+
+function schedulePack(backend: ScheduleBackend, cfg: RadarConfig, execStart: string, home: string): {
+  units: Record<string, string>;
+  target: string;
+  next: string[];
+} {
+  if (backend === "launchd") return { units: buildLaunchdUnits(cfg, execStart), target: launchdUserDir(home), next: LAUNCHD_NEXT_STEPS };
+  if (backend === "windows") return { units: buildWindowsUnits(cfg, execStart), target: windowsTaskDir(home), next: WINDOWS_NEXT_STEPS };
+  return { units: buildScheduleUnits(cfg, execStart), target: systemdUserDir(home), next: SCHEDULE_NEXT_STEPS };
 }
 
 async function doctorCommand(cfg: RadarConfig): Promise<CommandResult> {
@@ -602,6 +673,7 @@ function errorResult(command: string, err: unknown): CommandResult {
 }
 
 function commandId(command: string[]): string {
+  if (command[0] === "decision") return decisionCommandId(command);
   return `radar.${command.filter((c) => c !== undefined).join(".") || "help"}`;
 }
 
@@ -632,7 +704,11 @@ Collection & scoring:
   runs                             List recent run receipts
   health [window-days]             Collection health report (default 14 days)
   canary report [window-days]      Personal Edition usefulness gates (default 14 days)
-  schedule install [--print]       Write (or print) systemd user timer units
+  schedule show [--backend auto|systemd|launchd|windows]
+  schedule install [--backend auto|systemd|launchd|windows] [--print]
+                                   Write (or print) OS units; does not enable timers
+  schedule session-plan [--runtime grok|claude|both]
+                                   Print Claude/Grok /loop payloads; does not collect
 
 Profiles:
   profile create --name <n> [--genre t:80 ...] [--blocked-topic t ...]
@@ -641,6 +717,7 @@ Profiles:
   profile activate <profile-ref>
 
 Market foundation (local only):
+  decision help                       Local decision packs, baselines, experiment locks and result reviews
   market init
   market import-legacy --run <legacy-run-ref>
   market import-catalog --source <ref> --file <path> --format html --observed-at <UTC-instant>
@@ -658,6 +735,17 @@ Market foundation (local only):
   market schedule show                 Market pipeline schedule description (planned vs schedulable)
   market schedule install [--print]    Write (or print) market-only systemd user units; never enables timers
   market observe --source hongguo --mode verify-sample|production [--confirm-live|--fixture] [--observed-at UTC]
+  market sync --to pg [--verify] [--chunk-size N] [--reset-cursor --confirm-reset] [--allow-target-change]
+                                   Archive market tables to PostgreSQL (append-only, resumable); RADAR_PG_URL or config pgArchive.url
+  market work list [--status candidate|verified]
+  market work show --work <ref> [--revision <n>]
+  market work review --work <ref> --revision <n> --canonical <ref> --evidence <ref>
+  market work gate show [--version <gate-version>]
+  market work gate report [--source <ref>] [--batch <ref>] [--version <gate-version>]
+  market work gate decisions --work <ref> [--version <gate-version>]
+  market work review-batch --source <ref> [--batch <ref>] --key <key>
+  market work review-batch-receipt --key <key>
+  market work promote --work <ref> --revision <n> --canonical <ref> --evidence <ref> [--override-reason <text>]
   market canary report --days 14       Planned: 14-day market canary (radar canary report keeps its old meaning)
   market signal show --signal <ref> [--revision <n>]
   market signal correct --signal <ref> --revision <n> --reason <text> --evidence <ref> --outcome <retracted|inconclusive> --at <UTC-instant>

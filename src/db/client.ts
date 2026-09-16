@@ -21,6 +21,24 @@ export function openDb(dbPath: string): RadarDb & { $client: Database } {
 // DDL lives here (allowed exception); all business reads/writes go through Drizzle.
 function migrate(sqlite: Database): void {
   sqlite.exec(`
+CREATE TABLE IF NOT EXISTS decision_cancellations (
+  experiment_ref TEXT PRIMARY KEY NOT NULL, key TEXT NOT NULL UNIQUE, request_digest TEXT NOT NULL, payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS decision_packs (
+  ref TEXT NOT NULL, revision INTEGER NOT NULL, key TEXT NOT NULL UNIQUE,
+  request_digest TEXT NOT NULL, profile_ref TEXT, payload TEXT NOT NULL,
+  PRIMARY KEY (ref, revision)
+);
+CREATE INDEX IF NOT EXISTS idx_decision_profile ON decision_packs (profile_ref, ref, revision);
+CREATE TABLE IF NOT EXISTS decision_experiments (
+  ref TEXT PRIMARY KEY NOT NULL, pack_ref TEXT NOT NULL, sequence INTEGER NOT NULL,
+  key TEXT NOT NULL UNIQUE, request_digest TEXT NOT NULL, payload TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_decision_experiment_sequence ON decision_experiments (pack_ref, sequence);
+CREATE TABLE IF NOT EXISTS decision_results (
+  experiment_ref TEXT NOT NULL, revision INTEGER NOT NULL, key TEXT NOT NULL UNIQUE,
+  request_digest TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY (experiment_ref, revision)
+);
 CREATE TABLE IF NOT EXISTS market_reviews (
   ref TEXT PRIMARY KEY NOT NULL, window_end TEXT NOT NULL, cutoff TEXT NOT NULL, payload TEXT NOT NULL
 );
@@ -258,6 +276,34 @@ CREATE TABLE IF NOT EXISTS radar_assignments (
   status TEXT NOT NULL,
   payload TEXT NOT NULL,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_work_gate_decisions (
+  ref TEXT PRIMARY KEY NOT NULL,
+  work_ref TEXT NOT NULL,
+  mapping_revision INTEGER NOT NULL,
+  gate_version TEXT NOT NULL,
+  verdict TEXT NOT NULL,
+  evaluated_at TEXT NOT NULL,
+  payload TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_market_gate_decisions_work ON market_work_gate_decisions (work_ref, evaluated_at);
+CREATE INDEX IF NOT EXISTS idx_market_gate_decisions_version ON market_work_gate_decisions (gate_version, work_ref);
+CREATE TABLE IF NOT EXISTS market_work_review_batch_receipts (
+  key TEXT PRIMARY KEY NOT NULL, payload TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS market_observation_quality (
+  batch_ref TEXT PRIMARY KEY NOT NULL,
+  source_ref TEXT NOT NULL,
+  observed_at TEXT NOT NULL,
+  payload TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_market_observation_quality_source_time ON market_observation_quality (source_ref, observed_at);
+CREATE TABLE IF NOT EXISTS market_sync_state (
+  table_name TEXT PRIMARY KEY NOT NULL,
+  cursor_json TEXT,
+  target_fingerprint TEXT NOT NULL,
+  rows_synced INTEGER NOT NULL DEFAULT 0,
+  last_synced_at TEXT NOT NULL DEFAULT ''
 );
 `);
 	ensureMorningEditionEntryColumns(sqlite);

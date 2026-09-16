@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { openDb } from "../../src/db/client.ts";
 import { marketCommand } from "../../src/market/cli.ts";
 import { MarketStoreError } from "../../src/market/repository.ts";
@@ -67,6 +67,7 @@ test("planned capabilities are disclosed honestly and never fake success", async
         (error: MarketStoreError) => {
           expect(error.code).toBe("capability_unavailable");
           expect(error.message).toContain(hint);
+          expect(error.message).toContain("observation quality");
         });
     }
   } finally { db.$client.close(); }
@@ -103,3 +104,61 @@ async function expectsError(promise: Promise<unknown>, code: string, message: st
     expect(error.message).toContain(message);
   });
 }
+
+// radar market sync (tasks 3.1): flag validation and named errors happen
+// before any PG connection is opened, so they are unit-testable offline.
+describe("market sync flag validation", () => {
+  const noPgEnv = () => {
+    const saved = { url: process.env.RADAR_PG_URL, cfg: process.env.RADAR_CONFIG_PATH };
+    delete process.env.RADAR_PG_URL;
+    process.env.RADAR_CONFIG_PATH = "/nonexistent/radar-config.json";
+    return () => {
+      if (saved.url !== undefined) process.env.RADAR_PG_URL = saved.url;
+      if (saved.cfg !== undefined) process.env.RADAR_CONFIG_PATH = saved.cfg;
+      else delete process.env.RADAR_CONFIG_PATH;
+    };
+  };
+
+  test("unknown flags, missing --to and unsupported targets fail with named codes", async () => {
+    const db = openDb(":memory:");
+    const restore = noPgEnv();
+    try {
+      await expectsError(run(db, ["market", "sync"], { to: ["pg"], verbose: ["true"] }), "flag_invalid", "Unsupported market command flag");
+      await expectsError(run(db, ["market", "sync"], { to: [] }), "value_required", "--to");
+      await expectsError(run(db, ["market", "sync"], {}), "value_required", "--to");
+      await expectsError(run(db, ["market", "sync"], { to: ["s3"] }), "sync_target_unsupported", "supported targets: pg");
+      await expectsError(run(db, ["market", "sync"], { to: ["pg"], verify: ["yes"] }), "flag_invalid", "--verify without a value");
+      await expectsError(run(db, ["market", "sync"], { to: ["pg"], "reset-cursor": ["true"] }), "flag_invalid", "--confirm-reset");
+      await expectsError(run(db, ["market", "sync"], { to: ["pg"], "chunk-size": ["0"] }), "flag_invalid", "--chunk-size");
+    } finally { restore(); db.$client.close(); }
+  });
+
+  test("without RADAR_PG_URL or config the command reports pg_config_missing with recovery hints", async () => {
+    const db = openDb(":memory:");
+    const restore = noPgEnv();
+    try {
+      await run(db, ["market", "init"]);
+      await expectsError(run(db, ["market", "sync"], { to: ["pg"] }), "pg_config_missing", "RADAR_PG_URL");
+      await expectsError(run(db, ["market", "sync"], { to: ["pg"] }), "pg_config_missing", "pgArchive.url");
+    } finally { restore(); db.$client.close(); }
+  });
+
+  test("an unreachable target surfaces pg_unavailable, never a raw driver error", async () => {
+    const db = openDb(":memory:");
+    const saved = process.env.RADAR_PG_URL;
+    process.env.RADAR_PG_URL = "postgres://u:p@127.0.0.1:1/radar";
+    try {
+      await run(db, ["market", "sync"], { to: ["pg"] }).then(
+        () => { throw new Error("expected pg_unavailable"); },
+        (error: MarketStoreError) => {
+          expect(error.code).toBe("pg_unavailable");
+          expect(error.message).not.toContain("postgres://");
+          expect(error.message).not.toContain("u:p@");
+        },
+      );
+    } finally {
+      if (saved !== undefined) process.env.RADAR_PG_URL = saved; else delete process.env.RADAR_PG_URL;
+      db.$client.close();
+    }
+  });
+});

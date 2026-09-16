@@ -13,7 +13,7 @@ bun run test:integration
 openspec list   # 应无 active change（或仅剩已知在途项）
 ```
 
-> 前提注记：定时器链路（D1-2 的 `radar schedule install` 与三个 systemd timer）依赖 systemd user manager。devcontainer/无 systemd 环境中 doctor 的 `schedule` 检查为 unavailable 属预期——此类环境按手动节奏逐日运行 collect/score/cluster/card/edition 命令即可，14 天验证以 Edition 与反馈真源为准。三服务已通过共享 flock + After/Wants 串行化，恢复后的并发触发不会损坏 SQLite。
+> 前提注记：墙钟采集在 Linux 用 systemd user timer，macOS 用 LaunchAgents，Windows 用 Task Scheduler；`radar schedule install --backend auto` 只写单元，不启用。devcontainer/无 OS 调度器时 doctor 的 `schedule` 为 unavailable/blocked 属预期——可改用 `radar schedule session-plan` 做只读巡检，或按手动节奏逐日运行 collect/score/cluster/card/edition。session loop 不能代替 08:10 live collect。Linux 三服务已通过共享 flock + After/Wants 串行化。完整命令见 [runtime/schedule.md](../runtime/schedule.md)。
 
 随后确认真实来源。`establish-crawler-first-radar` 的任务 6 以“后端已 provision、Agent Reach 可发现、适配器对离线/未登录显式降级”为完成标准；14 天 canary 的运行前置更严格：`agent-reach doctor --json` 中 `xiaohongshu.active_backend` 必须非空，且 `bun run src/cli.ts doctor --json` 中 `xhs-backend.status` 必须为 `ok`。未登录可以验证降级合同，但不能开始高质量 canary 窗口。
 

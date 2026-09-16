@@ -5,6 +5,25 @@ import type { MarketBrief } from "../market/brief.ts";
 import type { ReaderReceipt } from "../market/reader.ts";
 import type { MarketWatch, WatchReceipt } from "../market/watch.ts";
 import type { MarketReview } from "../market/review.ts";
+import type { DecisionPack, DecisionExperiment, DecisionResult, DecisionCancellation } from "../decision/domain.ts";
+
+export const decisionPacks = sqliteTable("decision_packs", {
+  ref: text("ref").notNull(), revision: integer("revision").notNull(),
+  key: text("key").notNull().unique(), requestDigest: text("request_digest").notNull(),
+  profileRef: text("profile_ref"), payload: text("payload", { mode: "json" }).$type<DecisionPack>().notNull(),
+}, t => [primaryKey({ columns: [t.ref, t.revision] }), index("idx_decision_profile").on(t.profileRef, t.ref, t.revision)]);
+
+export const decisionExperiments = sqliteTable("decision_experiments", {
+  ref: text("ref").primaryKey(), packRef: text("pack_ref").notNull(), sequence: integer("sequence").notNull(),
+  key: text("key").notNull().unique(), requestDigest: text("request_digest").notNull(),
+  payload: text("payload", { mode: "json" }).$type<DecisionExperiment>().notNull(),
+}, t => [uniqueIndex("idx_decision_experiment_sequence").on(t.packRef, t.sequence)]);
+
+export const decisionResults = sqliteTable("decision_results", {
+  experimentRef: text("experiment_ref").notNull(), revision: integer("revision").notNull(),
+  key: text("key").notNull().unique(), requestDigest: text("request_digest").notNull(),
+  payload: text("payload", { mode: "json" }).$type<DecisionResult>().notNull(),
+}, t => [primaryKey({ columns: [t.experimentRef, t.revision] })]);
 
 export const marketReviews = sqliteTable("market_reviews", {
   ref: text("ref").primaryKey(), windowEnd: text("window_end").notNull(), cutoff: text("cutoff").notNull(),
@@ -66,7 +85,7 @@ export const marketEvidence = sqliteTable("market_evidence", {
     title: string; public_url: string; source_item_id: string; origin: string;
     // Optional per-source catalog fields; present only when the source page
     // carried them, so old rows and digests stay unchanged.
-    category_label?: string; episode_count?: number;
+    category_label?: string; category_labels?: string[]; episode_count?: number;
   }>().notNull(),
 });
 
@@ -294,4 +313,52 @@ export const marketQualificationRecords = sqliteTable("market_qualification_reco
 export const marketSourceReviews = sqliteTable("market_source_reviews", {
   key: text("key").primaryKey(),
   payload: text("payload", { mode: "json" }).$type<import("../market/source-review.ts").SourceReviewReceipt>().notNull(),
+});
+
+// Immutable ingestion-gate decisions (radar.work_gate_decision.v1). One row
+// per recorded evaluation; rows are never updated or deleted.
+export const marketWorkGateDecisions = sqliteTable("market_work_gate_decisions", {
+  ref: text("ref").primaryKey(),
+  workRef: text("work_ref").notNull(),
+  mappingRevision: integer("mapping_revision").notNull(),
+  gateVersion: text("gate_version").notNull(),
+  verdict: text("verdict").notNull(),
+  evaluatedAt: text("evaluated_at").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/gate.ts").WorkGateDecision>().notNull(),
+}, t => [
+  index("idx_market_gate_decisions_work").on(t.workRef, t.evaluatedAt),
+  index("idx_market_gate_decisions_version").on(t.gateVersion, t.workRef),
+]);
+
+// Idempotency receipts for batch reviews (radar.work_review_batch_receipt.v1).
+export const marketWorkReviewBatchReceipts = sqliteTable("market_work_review_batch_receipts", {
+  key: text("key").primaryKey(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/review-batch.ts").WorkReviewBatchReceipt>().notNull(),
+});
+
+// Per-batch parsing quality records (radar.observation_quality.v1), written in
+// the same transaction as the observation batch. One row per batch; historical
+// batches without a row are reported as quality_unavailable, never backfilled.
+export const marketObservationQuality = sqliteTable("market_observation_quality", {
+  batchRef: text("batch_ref").primaryKey(),
+  sourceRef: text("source_ref").notNull(),
+  observedAt: text("observed_at").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/quality.ts").ObservationQualityRecord>().notNull(),
+}, t => [index("idx_market_observation_quality_source_time").on(t.sourceRef, t.observedAt)]);
+
+// PG archive sync cursors (radar market sync --to pg). One row per allowlisted
+// table; the only SQLite state the sync writes. The fingerprint never carries
+// credentials — it is sha256(host|port|db|schema) by construction.
+export const marketSyncState = sqliteTable("market_sync_state", {
+  tableName: text("table_name").primaryKey(),
+  cursorJson: text("cursor_json"), // keyset position of the last committed chunk
+  targetFingerprint: text("target_fingerprint").notNull(),
+  rowsSynced: integer("rows_synced").notNull().default(0),
+  lastSyncedAt: text("last_synced_at").notNull().default(""),
+});
+
+export const decisionCancellations = sqliteTable("decision_cancellations", {
+  experimentRef: text("experiment_ref").primaryKey(), key: text("key").notNull().unique(),
+  requestDigest: text("request_digest").notNull(),
+  payload: text("payload", { mode: "json" }).$type<DecisionCancellation>().notNull(),
 });

@@ -30,6 +30,7 @@ radar doctor --json
 radar runs --json
 radar edition show latest --json
 radar market brief show --json
+radar schedule session-plan --runtime both --json
 ```
 
 无版次时，Agent 应把 `status`、`error.code`、`facts` 和 `actions` 原样转述，并建议真实命令，例如：

@@ -5,6 +5,12 @@ import {
 } from "../../src/market/schedule.ts";
 import { buildScheduleUnits } from "../../src/schedule.ts";
 import { defaultConfig } from "../../src/config.ts";
+import { openDb } from "../../src/db/client.ts";
+import { marketCommand } from "../../src/market/cli.ts";
+
+function flags(entries: Record<string, string[]> = {}): Map<string, string[]> {
+  return new Map(Object.entries(entries));
+}
 
 const EXEC = "/usr/local/bin/bun /opt/radar/src/cli.ts";
 
@@ -124,5 +130,35 @@ describe("bounded observation run plan", () => {
     expect(resolveMarketRunFreeze([
       { source_ref: "reelshort", outcome: "incomplete" },
     ], { cutoff: "2026-09-13T09:00:00Z" }).brief_status).toBe("empty");
+  });
+});
+
+describe("market schedule sync hook (radar-market-pg-sync-v1)", () => {
+  test("install --print emits exactly the existing units — never a sync timer", async () => {
+    const db = openDb(":memory:");
+    try {
+      const printed = await marketCommand(["market", "schedule", "install"], flags({ print: ["true"] }), db);
+      const data = printed.data as { units: Record<string, string>; sync_hook: { command: string; generated: boolean; enabled: boolean } };
+      expect(Object.keys(data.units).sort()).toEqual([
+        "short-drama-radar-market-analyze.service", "short-drama-radar-market-analyze.timer",
+        "short-drama-radar-market-brief.service", "short-drama-radar-market-brief.timer",
+      ]);
+      for (const content of Object.values(data.units)) expect(content).not.toContain("market sync");
+      expect(data.sync_hook.command).toBe("radar market sync --to pg");
+      expect(data.sync_hook.generated).toBe(false);
+      expect(data.sync_hook.enabled).toBe(false);
+    } finally { db.$client.close(); }
+  });
+
+  test("schedule show documents the hook as optional and owner-gated", async () => {
+    const db = openDb(":memory:");
+    try {
+      const shown = await marketCommand(["market", "schedule", "show"], flags(), db);
+      const hook = (shown.data as { sync_hook: { note: string; runs_after: string } }).sync_hook;
+      expect(hook.runs_after).toBe("short-drama-radar-market-brief.service");
+      expect(hook.note).toContain("never writes or enables a sync timer");
+      // The pre-existing unit content is byte-identical with and without the hook text.
+      expect(Object.keys(buildMarketScheduleUnits(EXEC))).toHaveLength(4);
+    } finally { db.$client.close(); }
   });
 });

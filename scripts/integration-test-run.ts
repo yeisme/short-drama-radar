@@ -8,6 +8,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 const PROJECT = "cli/short-drama-radar";
 const REDACTION_POLICY = "yeisme.integration_test_evidence.v1";
 const REDACT_PATTERNS: Array<[RegExp, string]> = [
+  [/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, "[REDACTED]"],
   [/(--(?:token|secret|api[_-]?key|password|cookie)(?:=|\s+))[^\s"']+/gi, "$1[REDACTED]"],
   [/(authorization\s*[:=]\s*bearer\s+)[^\s"']+/gi, "$1[REDACTED]"],
   [/(cookie\s*[:=]\s*)[^\n\r]+/gi, "$1[REDACTED]"],
@@ -94,7 +95,7 @@ export function runWithEvidence(options: EvidenceRunOptions): EvidenceRunResult 
   };
   writeFileSync(join(directory, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
 
-  return { runId, directory, exitCode, stdout, stderr };
+  return { runId, directory, exitCode, stdout: redactEvidence(stdout), stderr: redactEvidence(stderr) };
 }
 
 function safeEnvironment(env: NodeJS.ProcessEnv): Record<string, unknown> {

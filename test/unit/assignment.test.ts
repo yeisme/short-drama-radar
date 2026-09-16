@@ -10,6 +10,7 @@ import { scoreDay } from "../../src/pipeline/scoring.ts";
 import { persistOpportunities } from "../../src/pipeline/opportunity.ts";
 import { buildEdition } from "../../src/pipeline/edition.ts";
 import { assignmentByRef, createAssignment, produceAssignment, rejectAssignment, submitAssignment } from "../../src/pipeline/assignment.ts";
+import { assignmentCreateAction, EXECUTE_ACTIONS } from "../../src/app/actions.ts";
 import { initializeMarket } from "../../src/market/sources.ts";
 
 async function seeded() {
@@ -22,6 +23,25 @@ async function seeded() {
   persistOpportunities(db, "2026-08-29", now);
   return db;
 }
+
+test("assignment_create is a curator-local execute action and returns assignment_ref", async () => {
+  expect(EXECUTE_ACTIONS.assignment_create?.lane).toBe("curator");
+  expect(EXECUTE_ACTIONS.assignment_create?.sideEffect).toBe("local");
+  const db = await seeded();
+  try {
+    const profiles = new ProfileService(db);
+    const profile = profiles.create("exec-assign", { minimum_fit: 0, minimum_confidence: 0 });
+    const { edition } = buildEdition(db, profile, "2026-08-29");
+    const result = assignmentCreateAction({ cfg: {} as never, db, profiles }, {
+      opportunity_ref: edition.entries[0]!.opportunityRef,
+      idempotency_key: "dsh-proposal-1",
+    });
+    expect(result.status).toBe("success");
+    expect(result.facts?.assignment_ref).toEqual(expect.any(String));
+    expect(result.facts?.status).toBe("ready");
+    expect(result.facts?.downstream_status).toBe("not_submitted");
+  } finally { db.$client.close(); }
+});
 
 test("empty edition creates a do_not_shoot assignment without used feedback", async () => {
   const db = openDb(":memory:");

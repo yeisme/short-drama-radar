@@ -15,11 +15,13 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.44.2",
-    "playwright": "^1.63.0"
+    "playwright": "^1.63.0",
+    "postgres": "^3.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "bun-types": "^1.4.0",
+    "testcontainers": "^12.1.0",
     "typescript": "^5.7.0"
   }
 }

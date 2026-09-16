@@ -74,6 +74,12 @@ export function systemdUserDir(home: string): string {
   return join(home, ".config", "systemd", "user");
 }
 
+export { buildSchedulePlan, detectScheduleBackend, parseScheduleBackend, parseSessionRuntime } from "./schedule-plan.ts";
+export type { ScheduleBackend, SchedulePlan, SessionRuntime } from "./schedule-plan.ts";
+export { buildLaunchdUnits, launchdUserDir, LAUNCHD_NEXT_STEPS } from "./schedule-launchd.ts";
+export { buildWindowsUnits, windowsTaskDir, WINDOWS_NEXT_STEPS } from "./schedule-windows.ts";
+export { buildSessionPlan, sessionPlanActions } from "./schedule-session.ts";
+
 function systemdEnvironment(name: string, value: string): string {
   const escaped = value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%");
   return `Environment="${name}=${escaped}"`;

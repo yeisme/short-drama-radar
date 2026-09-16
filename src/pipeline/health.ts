@@ -2,6 +2,7 @@ import { and, eq, gte, lt, lte } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { dailyItems, rawSnapshots, runs } from "../db/schema.ts";
 import { existsSync, readFileSync } from "node:fs";
+import { marketObservationQualityWindows } from "../market/quality.ts";
 
 // Collection health report — the evidence generator for the 14-day
 // collection validation. Reads only runs/raw_snapshots/daily_items receipts;
@@ -40,6 +41,9 @@ export interface HealthReport {
   stableIdViolationTotal: number;
   accountSurvival: AccountSurvival;
   days: DayHealth[];
+  // Market observation quality is a visible section, never a command failure
+  // gate. Historical batches without a quality row stay quality_unavailable.
+  marketObservationQuality: ReturnType<typeof marketObservationQualityWindows>;
 }
 
 export function buildHealthReport(db: RadarDb, windowDays = 14, today = new Date(), accountsPath?: string): HealthReport {
@@ -113,6 +117,7 @@ export function buildHealthReport(db: RadarDb, windowDays = 14, today = new Date
     stableIdViolationTotal: days.reduce((s, d) => s + d.stableIdViolations, 0),
     accountSurvival: readAccountSurvival(accountsPath),
     days,
+    marketObservationQuality: marketObservationQualityWindows(db, from + "T00:00:00.000Z", toExclusive + "T00:00:00.000Z"),
   };
 }
 
