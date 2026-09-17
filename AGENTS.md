@@ -1,5 +1,9 @@
 # Short-Drama Radar 子项目说明
 
+## 当前阶段（2026-09-17 用户调整）
+
+聚焦中国大陆、香港、台湾、日本、韩国与欧美的个人自用，具体国家／语言保持可追溯；不招募受众，不把访谈、供应商询价、独立研究者或 A/B 实验作为使用前置条件。优先已有来源、简报、收藏、关注、补看和个人回顾。当前计划见 `docs/product/personal-radar.md`；旧实验方案保留参考，不据此恢复招募。原有来源资格、数据真实性及历史反馈语义不变，十四天 canary 是个人持续质量回顾，不是开始使用的等待门。
+
 本目录是 `short-drama-radar` TypeScript/Bun CLI 子项目，独立 git submodule，默认分支 `develop`。它拥有单人优先的短剧机会情报：四层采集（公共页 → 平台后端 CLI → 受控浏览器 → 人工兜底）、SQLite 快照、标准化去重、基础标签/评分、个人 Profile/revision、append-only 反馈、机会簇、个人排序、Morning Edition、运行证据和 `short-drama-radar.card.v1` 兼容合同。外部 Agent/客户端只消费稳定 CLI/MCP/API 投影，不得接管领域真源。
 
 ## 工作语言

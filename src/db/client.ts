@@ -21,6 +21,11 @@ export function openDb(dbPath: string): RadarDb & { $client: Database } {
 // DDL lives here (allowed exception); all business reads/writes go through Drizzle.
 function migrate(sqlite: Database): void {
   sqlite.exec(`
+CREATE TABLE IF NOT EXISTS market_title_translations (
+  work_ref TEXT NOT NULL, target_locale TEXT NOT NULL, revision INTEGER NOT NULL,
+  key TEXT NOT NULL UNIQUE, request_digest TEXT NOT NULL, payload TEXT NOT NULL,
+  PRIMARY KEY (work_ref, target_locale, revision)
+);
 CREATE TABLE IF NOT EXISTS decision_cancellations (
   experiment_ref TEXT PRIMARY KEY NOT NULL, key TEXT NOT NULL UNIQUE, request_digest TEXT NOT NULL, payload TEXT NOT NULL
 );

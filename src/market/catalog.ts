@@ -9,6 +9,8 @@ import { GENERIC_CATALOG_PARSER_VERSION, persistObservationQuality } from "./qua
 export const CATALOG_PAGES: Record<string, string> = {
   hongguo: "https://novelquickapp.com/hongguo",
   reelshort: "https://www.reelshort.com/",
+  "reelshort-ja": "https://www.reelshort.com/ja",
+  "reelshort-ko": "https://www.reelshort.com/ko",
   dramabox: "https://www.dramabox.com/",
 };
 
@@ -16,7 +18,12 @@ export const CATALOG_PAGES: Record<string, string> = {
 // live on the public category listing, not the marketing homepage.
 export const CATALOG_SAMPLE_PAGES: Record<string, string> = {
   hongguo: "https://novelquickapp.com/category",
+  "reelshort-ja": "https://www.reelshort.com/ja",
+  "reelshort-ko": "https://www.reelshort.com/ko",
 };
+
+export const LOCALIZED_REELSHORT_PARSER_VERSION = "reelshort-localized-links.v1";
+const localizedLanguage = (source: string) => source === "reelshort-ja" ? "ja" : source === "reelshort-ko" ? "ko" : null;
 
 export interface CatalogItem {
   id: string; title: string; url: string;
@@ -53,6 +60,10 @@ function identity(source: string, href: string): { id: string; url: string } | n
     }
   } else if (source === "reelshort") {
     id = url.pathname.match(/^\/movie\/[a-z0-9-]+-([a-f0-9]{24})\/?$/i)?.[1];
+    url.search = "";
+  } else if (localizedLanguage(source)) {
+    const language = localizedLanguage(source)!;
+    id = url.pathname.match(new RegExp(`^/(?:${language}/)?movie/[^/]+-([a-f0-9]{24})/?$`, "i"))?.[1];
     url.search = "";
   } else if (source === "dramabox") {
     id = url.pathname.match(/^\/drama\/(\d{5,24})\/[^/]+\/?$/)?.[1];
@@ -255,8 +266,14 @@ export async function parseCatalog(source: string, content: string, format: "htm
     let anchorLabels: string[] = [];
     const layout = source === "hongguo" && format === "html" ? splitHongguoAnchor(link) : null;
     if (layout) ({ title, episode_count } = layout, anchorLabels = layout.labels);
-    else ({ title, episode_count } = splitTitle(link.title));
-    const headingLabel = link.category === null ? null : safeLabel(link.category);
+    else if (localizedLanguage(source)) {
+      // Only strip the observed Japanese navigation suffix, never infer a
+      // title from a plot, translation, URL slug or localized category.
+      title = link.title.replace(/\s+/g, " ").trim();
+      if (source === "reelshort-ja") title = title.replace(/\s+全シリーズ$/u, "");
+      episode_count = null;
+    } else ({ title, episode_count } = splitTitle(link.title));
+    const headingLabel = localizedLanguage(source) || link.category === null ? null : safeLabel(link.category);
     // Anchor-own labels stay closer to the work than a section heading; when
     // both exist the anchor labels win, and with neither the genre stays null.
     const labels = anchorLabels.length > 0 ? anchorLabels : headingLabel ? [headingLabel] : [];
@@ -309,6 +326,10 @@ export async function ingestCatalog(db: RadarDb, input: {
   const source = sourceByRef(db, input.source);
   if (!source) throw new MarketStoreError("source_not_found", "Run 'radar market init' before importing a catalog.");
   if (!isMarketInstant(input.observedAt)) throw new MarketStoreError("observation_invalid", "Provide the original observation time as a UTC instant.");
+  const language = localizedLanguage(input.source);
+  if (language && (source.locale.split("-")[0] !== language || source.publisher_group !== "reelshort")) {
+    throw new MarketStoreError("source_descriptor_mismatch", "Localized ReelShort sampling requires its matching language and publisher group reelshort.");
+  }
   const parsed = await parseCatalog(input.source, input.content, input.format);
   if (parsed.status === "unavailable") throw new MarketStoreError("source_unavailable", "No parseable catalog items; verify the page and parser before importing.");
   // Directory order is not a rank metric. Reordered links represent the
@@ -334,7 +355,7 @@ export async function ingestCatalog(db: RadarDb, input: {
     if (!receipt.reused) {
       persistObservationQuality(tx, {
         batch_ref: batchRef, source, observed_at: observedAt, origin: input.origin,
-        parser_version: source.source_ref === "hongguo" ? HONGGUO_ANCHOR_LAYOUT_VERSION : GENERIC_CATALOG_PARSER_VERSION,
+        parser_version: source.source_ref === "hongguo" ? HONGGUO_ANCHOR_LAYOUT_VERSION : localizedLanguage(source.source_ref) ? LOCALIZED_REELSHORT_PARSER_VERSION : GENERIC_CATALOG_PARSER_VERSION,
         items: observations.length,
         field_coverage: {
           title: { present: observations.length, total: observations.length },
@@ -372,7 +393,9 @@ export async function ingestCatalog(db: RadarDb, input: {
           ? [`Genre labels come from the page's own structure (${HONGGUO_ANCHOR_LAYOUT_VERSION} work anchors or inherited section headings), never from keyword guesses over titles or plots.`]
           : []),
         ...(parsed.skipped.no_work_identity > 0
-          ? [`Skipped same-host links were non-work pages (${formatAttribution(parsed.skip_attribution.no_work_identity)}); no work link was rejected.`]
+          ? [localizedLanguage(source.source_ref)
+            ? `Skipped same-host links outside this localized work URL contract (${formatAttribution(parsed.skip_attribution.no_work_identity)}); other language routes and player pages are excluded.`
+            : `Skipped same-host links were non-work pages (${formatAttribution(parsed.skip_attribution.no_work_identity)}); no work link was rejected.`]
           : []),
         ...(parsed.skipped.foreign_or_unsafe_link > 0
           ? [`Skipped links failed the catalog safety boundary (${formatAttribution(parsed.skip_attribution.foreign_or_unsafe_link)}); full URLs are never echoed.`]

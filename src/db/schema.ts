@@ -362,3 +362,9 @@ export const decisionCancellations = sqliteTable("decision_cancellations", {
   requestDigest: text("request_digest").notNull(),
   payload: text("payload", { mode: "json" }).$type<DecisionCancellation>().notNull(),
 });
+
+export const marketTitleTranslations = sqliteTable("market_title_translations", {
+  workRef: text("work_ref").notNull(), targetLocale: text("target_locale").notNull(), revision: integer("revision").notNull(),
+  key: text("key").notNull().unique(), requestDigest: text("request_digest").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../market/translation.ts").TitleTranslation>().notNull(),
+}, t => [primaryKey({ columns: [t.workRef, t.targetLocale, t.revision] })]);

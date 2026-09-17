@@ -63,3 +63,24 @@ test.each(["topic", "work"] as const)("current policy protects %s watch lists, r
     expect(watchReceipt(db, "blocked-resume")).toBeNull();
   } finally { db.$client.close(); }
 });
+
+test("personal JP and KR watches remain independent and do not fabricate feedback", () => {
+  const db = openDb(":memory:");
+  try {
+    initializeMarket(db);
+    const added = ["JP", "KR"].map(target => {
+      const reader = readReader(db);
+      return mutateWatch(db, { action: "add", key: `personal-${target}`, revision: reader.revision,
+        policy_revision: reader.policy_revision, kind: "market", target });
+    });
+    expect(new Set(added.map(r => r.watch.watch_ref)).size).toBe(2);
+    const current = readReader(db);
+    mutateWatch(db, { action: "pause", key: "pause-jp-only", revision: current.revision,
+      policy_revision: current.policy_revision, watch: added[0]!.watch.watch_ref });
+    const watches = listWatches(db);
+    expect(watches.find(w => w.target_ref === "JP")!.state).toBe("paused");
+    expect(watches.find(w => w.target_ref === "KR")!.state).toBe("active");
+    expect(db.select().from(preferenceFeedback).all()).toEqual([]);
+    expect(db.select().from(marketReadMarks).all()).toEqual([]);
+  } finally { db.$client.close(); }
+});

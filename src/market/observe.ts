@@ -32,8 +32,8 @@ interface ScrapeResponse {
 }
 
 export async function observeCatalog(db: RadarDb, input: ObserveInput) {
-  if (input.source !== HONGUO_LIVE_SOURCE) {
-    throw new MarketStoreError("source_unsupported", "Live observation in this slice is only enabled for hongguo.");
+  if (![HONGUO_LIVE_SOURCE, "reelshort-ja", "reelshort-ko"].includes(input.source)) {
+    throw new MarketStoreError("source_unsupported", "Live observation is enabled for hongguo, reelshort-ja and reelshort-ko.");
   }
   if (input.mode !== "verify-sample" && input.mode !== "production") {
     throw new MarketStoreError("mode_invalid", "mode must be verify-sample or production.");
@@ -64,8 +64,8 @@ export async function observeCatalog(db: RadarDb, input: ObserveInput) {
   if (input.fixture) {
     const dir = input.fixtureDir ?? process.env.RADAR_FIXTURE_DIR;
     if (!dir) throw new MarketStoreError("input_unavailable", "Fixture observe requires RADAR_FIXTURE_DIR or an explicit fixture directory.");
-    try { html = readFileSync(join(dir, "market/hongguo-fields.html"), "utf8"); }
-    catch { throw new MarketStoreError("input_unavailable", "Hongguo fixture catalog could not be read."); }
+    try { html = readFileSync(join(dir, `market/${input.source}-fields.html`), "utf8"); }
+    catch { throw new MarketStoreError("input_unavailable", "Fixture catalog could not be read."); }
   } else {
     html = await scrapeCatalogHtml(sampleUrl, input.firecrawlBaseUrl ?? defaultConfig.firecrawlBaseUrl,
       input.fetchImpl ?? fetch, MARKET_OBSERVE_POLICY.source_timeout_ms);
@@ -84,7 +84,7 @@ export async function observeCatalog(db: RadarDb, input: ObserveInput) {
     source_ref: source.source_ref,
     source_revision: source.revision,
     mode: input.mode,
-    sample_url: input.fixture ? "fixture://hongguo-fields.html" : sampleUrl,
+    sample_url: input.fixture ? `fixture://${input.source}-fields.html` : sampleUrl,
     readiness_unchanged: source.readiness,
     ...receipt,
     limitations: [
@@ -111,7 +111,7 @@ async function scrapeCatalogHtml(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    throw new MarketStoreError("source_unavailable", `Catalog scrape failed: ${(err as Error).message}`);
+    throw new MarketStoreError("source_unavailable", "Catalog scrape failed; check provider availability and retry the explicit sample.");
   }
   if (!res.ok) throw new MarketStoreError("source_unavailable", `Catalog scrape HTTP ${res.status}.`);
   let body: ScrapeResponse;

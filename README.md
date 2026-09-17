@@ -1,5 +1,7 @@
 # short-drama-radar
 
+当前方向（2026-09-17）：面向中国大陆、香港、台湾、日本、韩国及欧美的**个人自用 Radar**，重点是发现、比较、收藏与回顾；不招募受众。见[当前计划](docs/product/personal-radar.md)。下文为已有能力说明，不要求全部启用。
+
 新增本地决策闭环：`radar decision help`。通过 CLI 管理候选证据、显式基线、实验锁定、小样哈希绑定、取消、准备检查、本地工作包导出和人工结果回顾；见[完整操作指南](docs/product/greenlight-pilot/cli-guide.md)。该能力不自动采集、生成或招募，fixture 与真实观测保持区别。
 
 [国内外市场变化 Radar](docs/product/global-market-radar.md)的本地软件面已按 OpenSpec 交付：来源/观测/资格存储与 CLI、可比信号与更正、每日简报、补看/已读/关注、跨市场对照、周度回顾、question context 与文件回执；读取性能在 100k 观测夹具下 p95<100ms。红果公共目录现已支持显式 live 验证采样：`radar market observe --source hongguo --mode verify-sample --confirm-live`。生产 observe 仍要求 `sample_verified` 或 `qualified`。`radar assignment create` 把个人 Edition 变成不可变生产任务；`radar assignment submit --auctra-path <project>` 调用 Auctra `text proposal from-radar`，成功后才写 `used`。Auctra accept 之后 `radar assignment produce --scaena-path <project>` 建 Scaena 骨架，不分镜、不生成。其余来源资格、14 天试用与发布/付费决定仍是独立外部门。

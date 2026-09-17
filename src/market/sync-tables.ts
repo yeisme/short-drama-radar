@@ -125,6 +125,7 @@ export const MARKET_SYNC_TABLES: readonly SyncTableDef[] = [
 // Ingestion-gate tables are SQLite-local in radar-market-pg-sync-v1 (frozen
 // 12-table allowlist); a later change can archive them without rewriting rows.
 export const MARKET_SYNC_EXCLUDED_TABLES = [
+  "market_title_translations",
   "decision_packs", "decision_experiments", "decision_results", "decision_cancellations",
   "market_readers", "market_read_marks", "market_reader_receipts",
   "market_watches", "market_watch_receipts", "market_settings",

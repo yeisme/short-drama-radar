@@ -1,3 +1,4 @@
+import { chineseLocale, listChineseReading, readTitleTranslation, recordTitleTranslation, type TitleTranslation } from "./translation.ts";
 import type { RadarDb } from "../db/client.ts";
 import type { CommandResult } from "../output/envelope.ts";
 import { initializeMarket, listSources, readSettings, registerSourceCandidate, updateSettings, updateSource } from "./sources.ts";
@@ -251,6 +252,19 @@ export async function marketCommand(command: string[], flags: Map<string, string
     }
     if (!Object.keys(patch).length) throw new MarketStoreError("value_required", "Provide at least one market setting.");
     data = updateSettings(db, revision(), patch);
+  } else if (group === "translation" && action === "add") {
+    checkFlags(["work", "work-revision", "revision", "language", "text", "method", "translator", "key", "reason"]);
+    data = recordTitleTranslation(db, { work_ref: value("work"), work_revision: Number(value("work-revision")),
+      revision: Number(value("revision")), target_locale: chineseLocale(value("language")), translated_title: value("text"),
+      method: value("method") as TitleTranslation["method"], translator_ref: value("translator"), key: value("key"),
+      ...(flags.has("reason") ? { reason: value("reason") } : {}) });
+  } else if (group === "translation" && action === "show") {
+    checkFlags(["work", "language", "revision"]);
+    data = readTitleTranslation(db, value("work"), chineseLocale(value("language")), flags.has("revision") ? revision() : undefined);
+  } else if (group === "reading" && action === "list") {
+    checkFlags(["language", "source", "limit"]);
+    data = listChineseReading(db, { language: chineseLocale(flags.has("language") ? value("language") : "zh-Hans"),
+      ...(flags.has("source") ? { source: value("source") } : {}), ...(flags.has("limit") ? { limit: Number(value("limit")) } : {}) });
   } else if (group === "work" && action === "list") {
     checkFlags(["status"]);
     let status: "candidate" | "verified" | undefined;
@@ -426,7 +440,29 @@ export async function marketCommand(command: string[], flags: Map<string, string
   } else if (group === "schedule" && !action) {
     throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: init, import-legacy, import-catalog, work list/show/review/gate show|report|decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe, sync.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: translation add/show, reading list, init, import-legacy, import-catalog, work list/show/review/gate show|report|decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe, sync.");
+  }
+  if (group === "reading" && action === "list") {
+    const reading = data as ReturnType<typeof listChineseReading>;
+    const result: CommandResult = { command: id, status: "success", summary: reading.items.length
+      ? reading.items.slice(0, 5).map(i => `${i.original_title} -> ${i.display_title} [${i.status}; ${i.status === "current" ? "unreviewed" : "original"}]`).join("; ")
+      : "No readable works match this source.", data,
+      facts: { external_collection: false, entries: reading.items.length, language: reading.language, truncated: reading.truncated,
+        missing: reading.items.filter(i => i.status === "missing").length, stale: reading.items.filter(i => i.status === "stale").length },
+      actions: [{ name: "inspect", command: `radar market reading list --language ${reading.language} --json` }], exitCode: 0 };
+    events?.end("success", { command: id, ...result.facts });
+    return result;
+  }
+  if (group === "translation") {
+    const record = data as { translation: TitleTranslation | null; reused?: boolean; source_current?: boolean; status?: string };
+    const facts = { external_collection: false, revision: record.translation?.revision ?? 0,
+      source_current: record.source_current ?? (record.status === "current"), review_status: record.translation?.review_status ?? "missing" };
+    const summary = action !== "add" ? "Translation record inspected; reading aid only, no model call."
+      : record.reused ? "Translation replay returned the original receipt; reading aid only, no model call."
+      : record.source_current === false ? "Translation recorded, but its source has changed; it stays a stale reading aid."
+      : "Translation recorded as an unreviewed reading aid; no model call.";
+    events?.end("success", { command: id, ...facts });
+    return { command: id, status: "success", summary, data, facts, exitCode: 0 };
   }
   events?.end("success", { command: id });
   const live = !!data && typeof data === "object" && "origin" in data && (data as { origin?: string }).origin === "live";

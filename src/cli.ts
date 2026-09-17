@@ -734,9 +734,15 @@ Market foundation (local only):
   market analyze (without windows: previous complete local day)
   market schedule show                 Market pipeline schedule description (planned vs schedulable)
   market schedule install [--print]    Write (or print) market-only systemd user units; never enables timers
-  market observe --source hongguo --mode verify-sample|production [--confirm-live|--fixture] [--observed-at UTC]
+  market observe --source hongguo|reelshort-ja|reelshort-ko --mode verify-sample|production [--confirm-live|--fixture] [--observed-at UTC]
   market sync --to pg [--verify] [--chunk-size N] [--reset-cursor --confirm-reset] [--allow-target-change]
                                    Archive market tables to PostgreSQL (append-only, resumable); RADAR_PG_URL or config pgArchive.url
+  market translation add --work <ref> --work-revision <n> --revision <n> --language zh-Hans|zh-Hant
+    --text <translated-title> --method agent|human --translator <ref> --key <key> [--reason <text>]
+    First translation uses --revision 0. Corrections append a revision and require --reason.
+  market translation show --work <ref> --language zh-Hans|zh-Hant [--revision <n>]
+  market reading list [--language zh-Hans|zh-Hant] [--source <ref>] [--limit 1-100]
+    Reading aids only; original titles and market evidence remain unchanged. No model call.
   market work list [--status candidate|verified]
   market work show --work <ref> [--revision <n>]
   market work review --work <ref> --revision <n> --canonical <ref> --evidence <ref>

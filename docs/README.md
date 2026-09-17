@@ -1,5 +1,7 @@
 # short-drama-radar docs
 
+当前产品入口：[个人自用 Radar](product/personal-radar.md)。用户已取消招募流程，旧 G1／实验 DAG 留作历史参考。
+
 本子项目的产品、设计、运行时与实施文档目录（子项目文档归属规则：root 不重复保存）。
 
 本地 [`radar decision` 操作指南](product/greenlight-pilot/cli-guide.md)提供决策包、证据／候选、基线、实验锁定、结果更正、取消、小样版本绑定、准备检查、本地工作包导出和回顾的完整 CLI 演练。软件状态与真实受众验证分别报告。
@@ -40,3 +42,9 @@
 后续交付见[推进 DAG 与 Goal](product/greenlight-pilot/delivery-dag.md)：软件收口、真实观看、来源资格和十四天使用验证分别验收。任务声明与测试证据通过 `bun run scripts/delivery-status.ts` 检查。
 
 首轮实验准备新增[G1 补证](product/greenlight-pilot/g1-evidence-update.md)和[访谈、询价与制作交接草案](product/greenlight-pilot/g1-execution-pack.md)。原始基线 missing，未执行真实招募；研究预算不设预定上限。
+
+新增[日韩个人使用场景](product/personal-jp-kr.md)：共享来源和关注合同，保留地区、语言、形式与采样范围的区别。
+
+[日韩语言目录真实采样](runtime/reelshort-ja-ko-sampling.md)：已完成一次真实采集、作品列表与简报读回，保留 planned／unknown 和 degraded 边界。
+
+[中文标题阅读机制](runtime/chinese-reading.md)：支持简繁译文、原文绑定、修订及过期回退；已有真实日韩样本的未审核中文对照。
