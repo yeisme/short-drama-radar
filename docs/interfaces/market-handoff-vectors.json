@@ -1,6 +1,6 @@
 {
   "spec": "radar.market.handoff.vectors.v1",
-  "generated": "2026-09-14",
+  "generated": "2026-09-17",
   "owner": "cli/short-drama-radar",
   "regenerate": "bun run scripts/generate-market-handoff-vectors.ts",
   "notes": [
@@ -30,8 +30,8 @@
         ],
         "data": {
           "spec": "radar.market_brief.v1",
-          "brief_ref": "market-brief-cd8e9434889c624eb40e789dc2069026",
-          "digest": "sha256:cd8e9434889c624eb40e789dc2069026b1019899df099be43651b0849bbc627f",
+          "brief_ref": "market-brief-b4453a2a8da74e38d9f1df8a6ab30862",
+          "digest": "sha256:b4453a2a8da74e38d9f1df8a6ab3086286b9712b0d7572bd8834808874fad797",
           "supersedes": null,
           "generated_at": "2026-09-12T09:00:00.000Z",
           "timezone": "UTC",
@@ -200,7 +200,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Discussion, reposts, works and metrics are not yet separated by a verified entry point.",
+                  "Propagation samples must not masquerade as consumption rankings.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -505,7 +507,8 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Official site extraction failed during the entry review; no public alternative or permission dependency is verified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -657,7 +660,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "App store listing verifies product identity only; the introduction page is not work-level observation data.",
+                  "Animation format must not imply AI production; production_method stays unknown until per-work evidence is provided.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -733,7 +738,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "App store listing verifies product identity only; new-release calendar and ranking descriptions are not collection receipts.",
+                  "New-release, catalog and ranking surfaces each lack a verified public work-level entry point.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -809,7 +816,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Work entries and propagation entries are not yet separated by a verified entry point.",
+                  "Login and anti-automation restrictions apply; qualification must not bypass account walls or risk control.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -885,7 +894,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the India store listing; App introduction is not trend data.",
+                  "Local-language works, work-level data and India market evidence are unverified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -961,7 +972,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the Indonesia store listing; store availability is not audience heat.",
+                  "Work-level fields and Indonesia market evidence are unverified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -1037,7 +1050,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable; Spanish/Portuguese content must not be mapped to MX/BR audience markets.",
+                  "Region-level work performance data is unavailable; market stays unknown until work-level evidence.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -1113,7 +1128,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the Indonesia store listing.",
+                  "Publisher-group declaration (douyin-group) still requires independent verification; an independent entry point never counts as independent corroboration.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -1189,7 +1206,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the India store listing.",
+                  "Stable work identity, topic basis and sampling range are unverified; denominators stay separate from other sources.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -1494,7 +1513,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the store listing, but the store introduction is not work-level observation.",
+                  "Stable work identity basis and catalog sampling range are unverified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               }
             ],
@@ -1599,7 +1620,7 @@
           ]
         }
       },
-      "digest": "sha256:a22c6d1b08a31f875cf4977408b2f0b3edadbd775eb632d3195c255627d14326"
+      "digest": "sha256:b284a654e78cf7a381a602f6dfa3249e2e1859f8f979a23109d230fa4b889198"
     },
     {
       "name": "empty",
@@ -1622,8 +1643,8 @@
         ],
         "data": {
           "spec": "radar.market_brief.v1",
-          "brief_ref": "market-brief-c71fd82125ffdbbb6344a348f393d780",
-          "digest": "sha256:c71fd82125ffdbbb6344a348f393d7804aa3f72b380e52cf4af61c850ba4ea10",
+          "brief_ref": "market-brief-3145502c17fae19ef662f2ca0dc9a2df",
+          "digest": "sha256:3145502c17fae19ef662f2ca0dc9a2df3b96a339fcb8feb8504ce63cbacc0ace",
           "supersedes": null,
           "generated_at": "2026-09-02T09:00:00.000Z",
           "timezone": "UTC",
@@ -1718,7 +1739,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Discussion, reposts, works and metrics are not yet separated by a verified entry point.",
+                  "Propagation samples must not masquerade as consumption rankings.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2023,7 +2046,8 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Official site extraction failed during the entry review; no public alternative or permission dependency is verified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2175,7 +2199,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "App store listing verifies product identity only; the introduction page is not work-level observation data.",
+                  "Animation format must not imply AI production; production_method stays unknown until per-work evidence is provided.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2251,7 +2277,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "App store listing verifies product identity only; new-release calendar and ranking descriptions are not collection receipts.",
+                  "New-release, catalog and ranking surfaces each lack a verified public work-level entry point.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2327,7 +2355,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Work entries and propagation entries are not yet separated by a verified entry point.",
+                  "Login and anti-automation restrictions apply; qualification must not bypass account walls or risk control.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2403,7 +2433,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the India store listing; App introduction is not trend data.",
+                  "Local-language works, work-level data and India market evidence are unverified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2479,7 +2511,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the Indonesia store listing; store availability is not audience heat.",
+                  "Work-level fields and Indonesia market evidence are unverified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2555,7 +2589,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable; Spanish/Portuguese content must not be mapped to MX/BR audience markets.",
+                  "Region-level work performance data is unavailable; market stays unknown until work-level evidence.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2631,7 +2667,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the Indonesia store listing.",
+                  "Publisher-group declaration (douyin-group) still requires independent verification; an independent entry point never counts as independent corroboration.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -2707,7 +2745,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the India store listing.",
+                  "Stable work identity, topic basis and sampling range are unverified; denominators stay separate from other sources.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               },
               {
@@ -3012,7 +3052,9 @@
                   "sample_review_required"
                 ],
                 "limitations": [
-                  "No verified observation sample or continuous collection evidence."
+                  "Product identity is verifiable via the store listing, but the store introduction is not work-level observation.",
+                  "Stable work identity basis and catalog sampling range are unverified.",
+                  "As of the 2026-09-11 entry review no public work-level collection path exists; owner manual import and continuous qualification (task 5.4) remain the accepted paths."
                 ]
               }
             ],
@@ -3116,7 +3158,7 @@
           ]
         }
       },
-      "digest": "sha256:166e1430c52e18f2843fda53901b0f264a8f903b3df7c7b1fe8f3c5ad5530941"
+      "digest": "sha256:d2cc71ae2d6bc9eaf611edacaf68d317823f28d7552d08eb5abfcddd608b74c1"
     },
     {
       "name": "ready",
