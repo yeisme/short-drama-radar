@@ -13,8 +13,8 @@
 
 - [国内外市场变化 Radar](product/global-market-radar.md)：软件面已交付；红果 live 验证采样与 assignment 见 [radar-hongguo-live-assignment-v1](../openspec/changes/archive/2026-09-16-radar-hongguo-live-assignment-v1/)。
 - [OpenSpec: radar-hongguo-catalog-parsing-v1](../openspec/changes/radar-hongguo-catalog-parsing-v1/)：红果目录解析清洗（标题/标签拆分、类目映射扩条目、字段覆盖率修复）；已交付。
-- [OpenSpec: radar-market-pg-sync-v1](../openspec/changes/radar-market-pg-sync-v1/)：`radar market sync --to pg`，Drizzle 双方言把市场域数据幂等归档到用户提供的 PostgreSQL（SQLite 真源、PG 归档+分析副本）；已交付。
-- [OpenSpec: radar-work-ingestion-gate-v1](../openspec/changes/radar-work-ingestion-gate-v1/)：candidate → canonical 正式入库门（审核、批量 review、拒绝原因、质量指标入 health）；已交付。`radar market canary report` 仍为 planned。
+- [OpenSpec: radar-market-pg-sync-v1](../openspec/changes/archive/2026-09-16-radar-market-pg-sync-v1/)：`radar market sync --to pg`，Drizzle 双方言把市场域数据幂等归档到用户提供的 PostgreSQL（SQLite 真源、PG 归档+分析副本）；已交付。
+- [OpenSpec: radar-work-ingestion-gate-v1](../openspec/changes/archive/2026-09-16-radar-work-ingestion-gate-v1/)：candidate → canonical 正式入库门（审核、批量 review、拒绝原因、质量指标入 health）；已交付。`radar market canary report` 仍为 planned。
 - [AGENTS.md](../AGENTS.md)：技术栈、架构边界、禁止事项、测试命令、14 天验证标准。
 - [product/personal-drama-radar.md](product/personal-drama-radar.md)：既有个人化循环、Morning Edition、Hermes/DSH 与验证门；独立 Workbench 段落只保留历史背景。
 - [hermes/radar-personal-brief-skill.md](hermes/radar-personal-brief-skill.md)：Hermes 用户级本地 Skill 草案（reader lane 只读简报；4.2 canary 前不发布公共 Skill）。

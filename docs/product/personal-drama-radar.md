@@ -144,5 +144,5 @@ V1 明确不做：
 ## 实施真源
 
 - 子项目 OpenSpec：[`personalized-radar-agent-experience-v1`](../../openspec/changes/archive/2026-09-03-personalized-radar-agent-experience-v1/)
-- CLI/MCP 接口：[`mcp-cli-interaction.md`](../interfaces/mcp-cli-interaction.md)
+- CLI/MCP 接口：[`mcp-cli-interaction.md`](../interfaces/agent-cli-consumption.md)
 - 跨项目 Workbench/DSH handoff：[`personalized-short-drama-radar-experience-v1`](../../../../openspec/changes/archive/2026-09-02-personalized-short-drama-radar-experience-v1/)

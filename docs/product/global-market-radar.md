@@ -64,8 +64,8 @@ bun run src/cli.ts market source set --source hongguo --revision 1 --sampling-sc
 对应三个 OpenSpec 变更（引用以 change id 为准）：
 
 - [`radar-hongguo-catalog-parsing-v1`](../../openspec/changes/radar-hongguo-catalog-parsing-v1/)：红果目录解析清洗（标题/标签拆分、类目映射扩条目、字段覆盖率修复）；已交付。
-- [`radar-market-pg-sync-v1`](../../openspec/changes/radar-market-pg-sync-v1/)：L1 的 PG 归档同步（已交付）。
-- [`radar-work-ingestion-gate-v1`](../../openspec/changes/radar-work-ingestion-gate-v1/)：L2 的 candidate → canonical 入库门（已交付软件面）。
+- [`radar-market-pg-sync-v1`](../../openspec/changes/archive/2026-09-16-radar-market-pg-sync-v1/)：L1 的 PG 归档同步（已交付）。
+- [`radar-work-ingestion-gate-v1`](../../openspec/changes/archive/2026-09-16-radar-work-ingestion-gate-v1/)：L2 的 candidate → canonical 入库门（已交付软件面）。
 
 ## L1 PG 归档同步（radar-market-pg-sync-v1，已交付）
 
