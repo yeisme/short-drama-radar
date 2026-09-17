@@ -2,16 +2,6 @@
 name: Integration CI
 
 on:
-  pull_request:
-    paths:
-      - 'test/integration/**'
-      - 'tests/integration/**'
-      - 'tests/component/**'
-      - 'tests/system/**'
-      - 'tests/e2e/**'
-      - 'scripts/*integration*'
-      - 'docker-compose*.yml'
-      - 'deploy/**'
   workflow_dispatch:
   schedule:
     - cron: '17 3 * * 1'
