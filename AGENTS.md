@@ -37,6 +37,17 @@
 - 不让 MCP/Profile suggestion、Hermes memory 或客户端 cache 直接覆盖 Profile 真源；Profile mutation 只走 Radar CLI/application service。
 - 不在未完成 canary 前把 remote endpoint、A2A、公共 Hermes Skill 或多用户能力标为 ready。
 
+## 本域 Skills
+
+Active skills 由仓库根 `.skills/profiles/targets/cli/short-drama-radar.txt` 分配，用 `scripts/skills.sh sync-target cli/short-drama-radar` 生成运行副本。不要手改 `.agents/skills/` 或 `.claude/skills/`。对照见 [子项目 Skill Profile](../../docs/skills/subproject-skill-profiles.md)。
+
+- 实现、调试、测试、重构：`yeisme-coding-execution-driver`。
+- CLI `--json` / `--agent` / 证据：`ai-native-cli-output-contract`、`project-integration-test-evidence`。
+- 市场页、公开资料、竞品页面：`internet-access`；不要伪造播放量或绕过平台风控。
+- 稳定合同字段、卡片 schema：`yeisme-evolutionary-change-policy`。
+- 完成前：`review`、`health`；凭据/cookie/代理路径加 `cso`。
+- 没有独立 radar Skill。Hermes/DSH 只消费 CLI 投影；领域真源留在本仓。
+
 ## 测试与验证
 
 ```bash

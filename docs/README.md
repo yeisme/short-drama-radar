@@ -48,3 +48,10 @@
 [日韩语言目录真实采样](runtime/reelshort-ja-ko-sampling.md)：已完成一次真实采集、作品列表与简报读回，保留 planned／unknown 和 degraded 边界。
 
 [中文标题阅读机制](runtime/chinese-reading.md)：支持简繁译文、原文绑定、修订及过期回退；已有真实日韩样本的未审核中文对照。
+
+## Agent Skills
+
+本项目会话的 active skills 由仓库根 `.skills/profiles/targets/cli/short-drama-radar.txt` 分配，用 `scripts/skills.sh sync-target cli/short-drama-radar` 生成 `.agents/skills/` 与 `.claude/skills/`。不要手改运行副本。
+
+完整对照、缺口与下一波优化见 [子项目 Skill Profile](../../../docs/skills/subproject-skill-profiles.md)。
+
