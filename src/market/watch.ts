@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, lt } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { marketBatches, marketReaders, marketSignals, marketWatches, marketWatchReceipts } from "../db/schema.ts";
-import { isMarketInstant } from "./domain.ts";
+import { isMarketInstant, OBSERVATION_MARKETS } from "./domain.ts";
 import { readReader } from "./reader.ts";
 import { marketDigest, MarketStoreError } from "./repository.ts";
 import { listSources } from "./sources.ts";
@@ -82,7 +82,7 @@ export function mutateWatch(db: RadarDb, input: {
       const topics = ["revenge", "sweet_romance", "suspense", "fantasy", "urban_power", "family_conflict"];
       if (input.kind === "topic" && (!topics.includes(target) || marketReadPolicy(tx).blocked_topics.includes(target))) throw new MarketStoreError("target_unavailable", "Topic is unknown or blocked.");
       if (input.kind === "platform" && !listSources(tx).some(s => s.platform === target)) throw new MarketStoreError("target_unavailable", "Platform is not registered.");
-      if (input.kind === "market" && !["CN", "US", "MX", "BR", "ID", "IN", "TH", "PH", "JP", "KR", "GB", "DE", "FR"].includes(target)) throw new MarketStoreError("target_unavailable", "Market is not in the observation registry.");
+      if (input.kind === "market" && !OBSERVATION_MARKETS.includes(target)) throw new MarketStoreError("target_unavailable", "Market is not in the observation registry.");
       if (input.kind === "work") {
         // Resolve only existing observed subject refs; never accept a free
         // string as a canonical work identity.

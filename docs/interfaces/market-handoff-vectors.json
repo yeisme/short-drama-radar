@@ -1,6 +1,6 @@
 {
   "spec": "radar.market.handoff.vectors.v1",
-  "generated": "2026-09-17",
+  "generated": "2026-09-18",
   "owner": "cli/short-drama-radar",
   "regenerate": "bun run scripts/generate-market-handoff-vectors.ts",
   "notes": [
@@ -30,8 +30,8 @@
         ],
         "data": {
           "spec": "radar.market_brief.v1",
-          "brief_ref": "market-brief-b4453a2a8da74e38d9f1df8a6ab30862",
-          "digest": "sha256:b4453a2a8da74e38d9f1df8a6ab3086286b9712b0d7572bd8834808874fad797",
+          "brief_ref": "market-brief-325cf62581501be6ba17cdbad35cc364",
+          "digest": "sha256:325cf62581501be6ba17cdbad35cc36481ec3d7a3317bbf8c08c6992bc8f0860",
           "supersedes": null,
           "generated_at": "2026-09-12T09:00:00.000Z",
           "timezone": "UTC",
@@ -1611,6 +1611,20 @@
                 "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "HK",
+                "declared_sources": [],
+                "verified_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "TW",
+                "declared_sources": [],
+                "verified_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               }
             ]
           },
@@ -1620,7 +1634,7 @@
           ]
         }
       },
-      "digest": "sha256:b284a654e78cf7a381a602f6dfa3249e2e1859f8f979a23109d230fa4b889198"
+      "digest": "sha256:6f9166d94a49ddd112b269860fec886b1f3b86b6c48b2fd50a342dc7bf1ab307"
     },
     {
       "name": "empty",
@@ -1643,8 +1657,8 @@
         ],
         "data": {
           "spec": "radar.market_brief.v1",
-          "brief_ref": "market-brief-3145502c17fae19ef662f2ca0dc9a2df",
-          "digest": "sha256:3145502c17fae19ef662f2ca0dc9a2df3b96a339fcb8feb8504ce63cbacc0ace",
+          "brief_ref": "market-brief-7063721b3d8c3827c4835f685c87cefd",
+          "digest": "sha256:7063721b3d8c3827c4835f685c87cefd888067487299bc1d34f683dfe2c55185",
           "supersedes": null,
           "generated_at": "2026-09-02T09:00:00.000Z",
           "timezone": "UTC",
@@ -3150,6 +3164,20 @@
                 "verified_sources": [],
                 "status": "coverage_unverified",
                 "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "HK",
+                "declared_sources": [],
+                "verified_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
+              },
+              {
+                "market": "TW",
+                "declared_sources": [],
+                "verified_sources": [],
+                "status": "coverage_unverified",
+                "reason": "Source declarations and App availability do not prove audience or complete market coverage."
               }
             ]
           },
@@ -3158,7 +3186,7 @@
           ]
         }
       },
-      "digest": "sha256:d2cc71ae2d6bc9eaf611edacaf68d317823f28d7552d08eb5abfcddd608b74c1"
+      "digest": "sha256:1bee009d0f5b621edb64cc2b4ad2cc35875b872657b499267625de9bd3175bff"
     },
     {
       "name": "ready",

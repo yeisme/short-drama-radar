@@ -100,7 +100,7 @@ test("agents can register regional candidates; the gap matrix stays honest", () 
     const gaps = sourceGaps(db, NOW);
     expect(gaps.candidate_entry).toBe("radar market source register-candidate");
     const markets = gaps.markets.map(market => market.market);
-    expect(markets).toEqual(["CN", "US", "MX", "BR", "ID", "IN", "TH", "PH", "JP", "KR", "GB", "DE", "FR"]);
+    expect(markets).toEqual(["CN", "US", "MX", "BR", "ID", "IN", "TH", "PH", "JP", "KR", "GB", "DE", "FR", "HK", "TW"]);
     const th = gaps.markets.find(market => market.market === "TH")!;
     expect(th.declared_sources).toContain("th-short-portal");
     expect(th.verified_sources).toEqual([]);

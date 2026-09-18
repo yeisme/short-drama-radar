@@ -4,6 +4,10 @@ export const MARKET_OBSERVATION_SPEC = "radar.market_observation.v1" as const;
 export const MARKET_SOURCE_SPEC = "radar.market_source.v1" as const;
 
 export type Market = "global" | "unknown" | Uppercase<string>;
+// Shared observation region registry: source gaps and market watches bind to
+// one list so regions cannot drift between surfaces. Regions are additive
+// only; removing one is a contract change that needs an OpenSpec gate.
+export const OBSERVATION_MARKETS: readonly string[] = ["CN", "US", "MX", "BR", "ID", "IN", "TH", "PH", "JP", "KR", "GB", "DE", "FR", "HK", "TW"];
 export type ContentFormat = "live_action" | "animation" | "mixed" | "unknown";
 export type ProductionMethod = "ai" | "non_ai" | "mixed" | "unknown";
 export type SourceReadiness = "planned" | "identity_verified" | "sample_verified" | "qualified" | "blocked";

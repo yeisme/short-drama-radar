@@ -2,6 +2,7 @@ import { and, eq, gte, lt, inArray } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { marketBatches, marketEvidence, marketSamplingChecks, marketQualificationRecords } from "../db/schema.ts";
 import { marketDigest, MarketStoreError, sourceByRef } from "./repository.ts";
+import { OBSERVATION_MARKETS } from "./domain.ts";
 import { listSources } from "./sources.ts";
 import { samplingPlan } from "./sampling.ts";
 
@@ -109,7 +110,7 @@ export function sourceGaps(db: RadarDb, now = new Date()) {
     platform: source.platform, declared_markets: source.market_scope,
     ...qualificationReport(db, source.source_ref, now),
   }));
-  const targets = ["CN", "US", "MX", "BR", "ID", "IN", "TH", "PH", "JP", "KR", "GB", "DE", "FR"];
+  const targets = OBSERVATION_MARKETS;
   return {
     spec: "radar.market_source_gaps.v1", as_of: now.toISOString(), sources,
     // Fixed region matrix: breadth is preserved without claiming coverage.

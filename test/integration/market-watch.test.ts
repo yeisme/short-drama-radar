@@ -7,6 +7,7 @@ import { analyzeMarket, signalByRef } from "../../src/market/signals.ts";
 import { readFileSync } from "node:fs";
 import { readReader } from "../../src/market/reader.ts";
 import { listWatches, mutateWatch, watchReceipt } from "../../src/market/watch.ts";
+import { sourceGaps } from "../../src/market/qualification.ts";
 
 test("watch lifecycle and replay do not mutate creative feedback or read marks", () => {
   const db = openDb(":memory:");
@@ -82,5 +83,23 @@ test("personal JP and KR watches remain independent and do not fabricate feedbac
     expect(watches.find(w => w.target_ref === "KR")!.state).toBe("active");
     expect(db.select().from(preferenceFeedback).all()).toEqual([]);
     expect(db.select().from(marketReadMarks).all()).toEqual([]);
+  } finally { db.$client.close(); }
+});
+
+test("HK and TW share the region registry for watches and source gaps", () => {
+  const db = openDb(":memory:");
+  try {
+    initializeMarket(db);
+    const added = (["HK", "TW"] as const).map(target => {
+      const reader = readReader(db);
+      return mutateWatch(db, { action: "add", key: `region-${target}`, revision: reader.revision,
+        policy_revision: reader.policy_revision, kind: "market", target });
+    });
+    expect(new Set(added.map(r => r.watch.watch_ref)).size).toBe(2);
+    const gaps = sourceGaps(db, new Date("2026-09-18T00:00:00Z"));
+    const registry = gaps.markets.map(market => market.market);
+    expect(registry).toContain("HK");
+    expect(registry).toContain("TW");
+    expect(gaps.markets.every(market => market.status === "coverage_unverified")).toBe(true);
   } finally { db.$client.close(); }
 });
