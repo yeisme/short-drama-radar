@@ -108,7 +108,7 @@ radar health 14 --json
 - observe / import-catalog 与批次同事务写 `radar.observation_quality.v1`；`radar health` 增加市场质量段，覆盖率下降超 10 个百分点标 `regression_flagged`（告警，不是失败门）。历史无记录批次显式 `quality_unavailable`，不回填。
 - `radar market canary report` 仍以 `capability_unavailable` 拒绝；落地时必须消费质量记录。入库门不改变来源 readiness，不自动晋级。
 
-已知限制（2026-09-16 验证）：红果 live 验证采样已抓到 24 部作品，origin=live，但 readiness 仍 planned，全部作品 mapping_status=candidate。当批样本标题存在「标题重复两遍+标签串」粘连、category 字段覆盖 0/24；解析清洗已由 `radar-hongguo-catalog-parsing-v1` 交付（`hongguo-anchor-layout.v1` 拆分 anchor 卡片结构、标签经 `market-label-mapping.v1` zh 表消费、跳过归因入回执 limitations），脱敏夹具回放 category 覆盖 6/7（唯一缺口为结构性无标签的纯文本 anchor），同页真实结构离线回放达 24/24。存量 24 条 live 观测与证据不可变、仍带粘连标题；owner 显式 `--confirm-live` 重采样生成新 batch 前，旧红果样本仍不可作为 canonical 数据消费，也不能据此宣称类目观察已覆盖。
+已知限制（2026-09-16 验证）：红果 live 验证采样已抓到 24 部作品，origin=live，但 readiness 仍 planned，全部作品 mapping_status=candidate。当批样本标题存在「标题重复两遍+标签串」粘连、category 字段覆盖 0/24；解析清洗已由 `radar-hongguo-catalog-parsing-v1` 交付（`hongguo-anchor-layout.v1` 拆分 anchor 卡片结构、标签经 `market-label-mapping.v1` zh 表消费、跳过归因入回执 limitations），脱敏夹具回放 category 覆盖 6/7（唯一缺口为结构性无标签的纯文本 anchor），同页真实结构离线回放达 24/24。存量 24 部作品的旧 live 观测与证据不可变、仍带粘连标题，不可作为 canonical 数据消费。2026-09-18 owner 显式 `--confirm-live` 重采样已生成新 batch：标题全部无粘连、category 与 episode_count 覆盖 24/24、每作品 mapping 新增 revision 且旧证据逐字节未改写（change radar-hongguo-catalog-parsing-v1 任务 4.2）；readiness 仍 planned、作品仍 candidate，类目观察覆盖仍不可据此宣称完成。
 
 ## 使用体验
 
@@ -132,7 +132,7 @@ radar health 14 --json
 
 | 地区／场景 | 候选平台 | 优先级 | 主要观测 | 已核实与缺口 |
 |---|---|---|---|---|
-| 国内真人作品 | 红果短剧 | P0 | 作品目录、题材、集数、展示变化 | 开发者官网一次读取可见上述内容；live 验证采样已通（origin=live），但解析清洗未完成（标题粘连、category 0/24），连续性/完整榜单/热度待验证 |
+| 国内真人作品 | 红果短剧 | P0 | 作品目录、题材、集数、展示变化 | 开发者官网一次读取可见上述内容；live 验证采样已通（origin=live），解析清洗已在 2026-09-18 真实重采样验证（标题无粘连、category 24/24），连续性/完整榜单/热度待验证 |
 | 国内漫剧 | 红果漫剧、火龙漫剧 | P0 | 漫剧作品、上新、形式 | 官方商店介绍可核对身份与产品功能；作品采样和 AI 制作标签待验证 |
 | 国内补充样本 | 快手、喜番短剧 | P1 | 作品供给与差异样本 | 喜番身份可核对；本次未完成快手作品级入口资格验证 |
 | 国内传播/讨论 | 抖音、小红书、B站 | P1 | 关联作品的传播与评论样本 | 前两者已有 Radar 适配器；实际 live 健康需另查；B站待资格化 |

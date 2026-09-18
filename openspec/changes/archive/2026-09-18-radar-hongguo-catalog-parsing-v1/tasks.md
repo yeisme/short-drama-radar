@@ -22,7 +22,7 @@
 ## 4. 文档与全量门（lane D：final-gate）
 
 - [x] 4.1 运行全量门并同步文档；owner=radar；scope=docs/product/global-market-radar.md 已知限制段与本 change；依赖=3.2；lane=D；验收=`bun run typecheck`、`bun test`、`bun run test:integration`、`openspec validate radar-hongguo-catalog-parsing-v1 --strict --no-interactive` 全部退出 0；已知限制段更新为修复后状态（仍声明 readiness=planned、重采样前旧样本不作 canonical 消费）；验证=上述四条命令；预期=全绿；失败复查=先归因 introduced/pre-existing/concurrent，只修本变更引入项。
-- [ ] 4.2（可选外部验证）owner 显式重采样；owner=radar-operator；scope=`radar market observe --source hongguo --mode verify-sample --confirm-live`；依赖=4.1、owner 授权；lane=D；验收=新 batch 标题无粘连、category 覆盖率显著提升、candidate mapping 生成新 revision 且旧 24 条证据未改写；验证=执行命令并核对回执 `field_coverage`/`skipped_links` 与 work list；预期=清洗效果在真实页面复现；失败复查=页面改版则回到 1.1 复核结构，不强行调规则凑数。该任务不阻塞软件门，执行与否单独报告。
+- [x] 4.2（可选外部验证）owner 显式重采样；owner=radar-operator；scope=`radar market observe --source hongguo --mode verify-sample --confirm-live`；依赖=4.1、owner 授权；lane=D；验收=新 batch 标题无粘连、category 覆盖率显著提升、candidate mapping 生成新 revision 且旧 24 条证据未改写；验证=执行命令并核对回执 `field_coverage`/`skipped_links` 与 work list；预期=清洗效果在真实页面复现；失败复查=页面改版则回到 1.1 复核结构，不强行调规则凑数。该任务不阻塞软件门，执行与否单独报告。
 
 ## 5. 完成证据（2026-09-16）
 
@@ -32,4 +32,4 @@
 - 2.x 解析：真实页面结构离线回放 `field_coverage.category` 由 0/24 修复为 24/24，`episode_count` 24/24；脱敏夹具回放 6/7（唯一缺口为结构性无标签的纯文本 anchor，符合口径）。规则对 NUL 填充文本与空白分裂标题做确定性剥离，结构不匹配回退原文且不产标签。
 - 3.x 验证：`test/unit/market-hongguo-anchor.test.ts` 8 个用例全绿；integration 证据 run `temp/integration-test-runs/2026-09-16T08-07-06-459Z-x0321z`（exit 0）。
 - 4.1 全量门：`openspec validate radar-hongguo-catalog-parsing-v1 --strict --no-interactive` 通过；`bun test` 301/301 全绿；`bun run test:integration` 91/91 全绿、exit 0（证据 `temp/integration-test-runs/2026-09-16T08-10-38-093Z-ijxyiw`）；`bun run typecheck` 在本变更全部文件零错误，但整仓退出码 2，剩余错误仅位于并行变更 radar-market-pg-sync-v1 的未跟踪文件（`src/db/pg-schema.ts`、`test/unit/market-pg-schema.test.ts`），归因 concurrent，不属本变更修复范围。文档已同步 `docs/product/global-market-radar.md` 已知限制段。
-- 4.2（可选 owner 重采样）：未执行，不阻塞软件门。
+- 4.2（owner 重采样，2026-09-18）：`radar market observe --source hongguo --mode verify-sample --confirm-live` 对真实库执行，回执 origin=live、items=24、field_coverage category 24/24、episode_count 24/24、parser_version=hongguo-anchor-layout.v1（quality 表首条红果记录）、skipped_links no_work_identity 32（category_or_genre_filter x29、pagination x3）+ foreign 2，无 title_invalid。新 24 条标题全部无粘连并携带 category_label（如 `好雨知时节`，对照旧 `好雨知时节好雨知时节爱情都市爱情日久生情`）；mapping 行 48→72（每作品新增 revision）；旧 48 条证据逐字节未改写（sha256 指纹比对一致）。readiness 仍 planned，作品仍 candidate，未启用任何定时器。
