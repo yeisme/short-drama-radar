@@ -31,6 +31,7 @@ import { normalizeChunkSize } from "./sync-plan.ts";
 import type { EventWriter } from "../output/events.ts";
 import { buildMarketScheduleUnits, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_SYNC_HOOK, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
 import { observeCatalog } from "./observe.ts";
+import { marketHostServe, MARKET_HOST_FRAME_SPEC } from "./host-serve.ts";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { systemdUserDir } from "../schedule.ts";
@@ -57,7 +58,14 @@ export async function marketCommand(command: string[], flags: Map<string, string
     if ([...flags.keys()].some(k => !allowed.includes(k))) throw new MarketStoreError("flag_invalid", "Unsupported market command flag.");
   };
   let data: unknown;
-  if (group === "init" && !action) {
+  if (group === "host-serve" && !action) {
+    checkFlags([]);
+    // Local stdio host seam (radar-market-host-seam-v1): frames are the whole
+    // stdout; the loop ends on shutdown or stdin close. The CLI entry skips
+    // the normal envelope render for this command.
+    const outcome = await marketHostServe(db, { input: process.stdin, output: process.stdout, diagnostics: process.stderr });
+    data = { spec: MARKET_HOST_FRAME_SPEC, frames: outcome.processed };
+  } else if (group === "init" && !action) {
     checkFlags([]);
     data = initializeMarket(db);
   } else if (group === "import-legacy" && !action) {
@@ -440,7 +448,7 @@ export async function marketCommand(command: string[], flags: Map<string, string
   } else if (group === "schedule" && !action) {
     throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: translation add/show, reading list, init, import-legacy, import-catalog, work list/show/review/gate show|report|decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe, sync.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: translation add/show, reading list, init, import-legacy, import-catalog, work list/show/review/gate show|report/decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe, sync, host-serve.");
   }
   if (group === "reading" && action === "list") {
     const reading = data as ReturnType<typeof listChineseReading>;

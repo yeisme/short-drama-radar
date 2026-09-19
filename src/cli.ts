@@ -98,6 +98,9 @@ async function main(): Promise<void> {
     const db = openDb(cfg.dbPath);
     const profiles = new ProfileService(db);
     const result = await dispatch(args, cfg, db, profiles);
+    // The stdio host seam owns stdout for its whole lifetime: frames were the
+    // only output, so no envelope is rendered after the loop ends.
+    if (args.command[0] === "market" && args.command[1] === "host-serve") process.exit(result.exitCode);
     emit(result, args);
     process.exit(result.exitCode);
   } catch (err) {
@@ -737,6 +740,7 @@ Market foundation (local only):
   market observe --source hongguo|reelshort-ja|reelshort-ko --mode verify-sample|production [--confirm-live|--fixture] [--observed-at UTC]
   market sync --to pg [--verify] [--chunk-size N] [--reset-cursor --confirm-reset] [--allow-target-change]
                                    Archive market tables to PostgreSQL (append-only, resumable); RADAR_PG_URL or config pgArchive.url
+  market host-serve                  Local stdio host seam for DSH market clients (NDJSON frames; see docs/interfaces/market-host-seam.md)
   market translation add --work <ref> --work-revision <n> --revision <n> --language zh-Hans|zh-Hant
     --text <translated-title> --method agent|human --translator <ref> --key <key> [--reason <text>]
     First translation uses --revision 0. Corrections append a revision and require --reason.
