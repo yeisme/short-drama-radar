@@ -6,13 +6,13 @@
 
 方案日期：2026-09-11。目标是替代用户在多个平台/榜单间反复切换的部分工作：每日 3–5 分钟掌握值得注意的变化，再由 Agent 和 DSH 深看证据。内容变化为主，行业背景为辅；真人短剧与漫剧分别观察，AI 制作方式另有证据标签。
 
-这是已确认方向的设计文档。本地软件面（2026-09-13 OpenSpec radar-market-observation-and-brief-v1 软件门）已交付：观测输入校验、来源/观测/资格存储、来源/配置/资格 CLI、七类命题可比分析、信号修订与更正/恢复、每日简报（supersedes/ready-degraded-empty）、时区/截止/迟到规则、市场调度单元描述（market schedule，写单元不启用）、显式已读/补看/观察清单（含暂停期变化与 source_gap）、跨市场对照、周度回顾、禁区全出口、question context 与回答引用验证、summary/json/agent/events/explain 输出合同、MCP 只读 view/curator/operator 动作/资源（含列表 view）、市场 handoff 向量与读取性能验证（100k 观测下 latest brief 与 20 条补看 p95 均远低于 1s）。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。真实门仍未完成且必须分别报告：已授权来源的持续资格验证（任务 5.4，须真实来源与权限）、14 天真实观察与用户对照（5.5，须 DSH 真实连接）、付费补缺与发布决定（5.6，须用户授权）；`radar market observe --source hongguo --mode verify-sample --confirm-live` 已接通红果公共目录验证采样（固定页 `https://novelquickapp.com/category`，origin=live，不自动晋级 qualified）。其他来源 observe 仍拒绝。`market canary report` 仍以 capability_unavailable 拒绝。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
+这是已确认方向的设计文档。本地软件面（2026-09-13 OpenSpec radar-market-observation-and-brief-v1 软件门）已交付：观测输入校验、来源/观测/资格存储、来源/配置/资格 CLI、七类命题可比分析、信号修订与更正/恢复、每日简报（supersedes/ready-degraded-empty）、时区/截止/迟到规则、市场调度单元描述（market schedule，写单元不启用）、显式已读/补看/观察清单（含暂停期变化与 source_gap）、跨市场对照、周度回顾、禁区全出口、question context 与回答引用验证、summary/json/agent/events/explain 输出合同、agent 侧 CLI 消费合同（doctor 引导；软件门曾交付的 MCP 只读/curator/operator 面已于 2026-09-15 随提交 5d8d78a 整体移除，现行外部交互合同为 [agent-cli-consumption](../interfaces/agent-cli-consumption.md)）、市场 handoff 向量与读取性能验证（100k 观测下 latest brief 与 20 条补看 p95 均远低于 1s）。既有个人 Profile、反馈、机会、Morning Edition 与 card.v1 保留。真实门仍未完成且必须分别报告：已授权来源的持续资格验证（任务 5.4，须真实来源与权限）、14 天真实观察与用户对照（5.5，须 DSH 真实连接）、付费补缺与发布决定（5.6，须用户授权）；`radar market observe --source hongguo --mode verify-sample --confirm-live` 已接通红果公共目录验证采样（固定页 `https://novelquickapp.com/category`，origin=live，不自动晋级 qualified）。其他来源 observe 仍拒绝。`market canary report` 仍以 capability_unavailable 拒绝。软件、真实来源和浏览器验收状态必须分别报告，不能由本页推断已上线。
 
 ### 当前可用的本地基础命令
 
 信号更正已支持market signal correct，必需 --signal、--revision、--reason、--evidence、--outcome（retracted或inconclusive）和--at。它是显式owner操作，追加修订不覆盖旧判断；缺失证据或陈旧revision拒绝。更正会重新进入补看并在新简报优先出现，旧版次保持原digest。周度回顾已支持 market review build/show（前一完整周、四种结果、cutoff 有界、重建幂等）；market signal restore 支持显式恢复审查。
 
-证据上下文入口：`bun run src/cli.ts market question context --signal <ref> --revision <n> --question "为什么这样判断？" --json`。它只提供已存证据和回答约束，不调用模型或发起研究；缺失/禁区证据报错。单条证据用market evidence show并提供同一signal/revision/evidence读取；不能拿其他信号的ref绕过当前策略。MCP 已暴露 market_question view 与 radar_market_brief prompt，回答引用验证（fact 必须引用上下文携带证据）由服务校验；DSH 真实会话接入仍属外部门。
+证据上下文入口：`bun run src/cli.ts market question context --signal <ref> --revision <n> --question "为什么这样判断？" --json`。它只提供已存证据和回答约束，不调用模型或发起研究；缺失/禁区证据报错。单条证据用market evidence show并提供同一signal/revision/evidence读取；不能拿其他信号的ref绕过当前策略。回答引用验证（fact 必须引用上下文携带证据）仍由服务在 question context 读取路径校验；原 MCP market_question view 与 radar_market_brief prompt 已随 MCP 面移除（2026-09-15，5d8d78a），Agent 改为执行 CLI 命令并解析标准输出（[agent-cli-consumption](../interfaces/agent-cli-consumption.md)）；DSH 真实会话接入仍属外部门。
 
 观察清单已有 watch add/list/pause/resume/remove/receipt。使用 `bun run src/cli.ts market watch list --json` 获取列表和reader状态；新增使用 `bun run src/cli.ts market watch add --kind platform --target hongguo --revision <n> --policy-revision <digest> --key <key> --json`。暂停/恢复/取消传 --watch，均要求当前revision与policy；这些动作不写原创作反馈或已读。暂停期与任意窗口的变化汇总已支持 market watch changes --watch <ref> [--since --until]（默认最近暂停期，否则30天；窗口内无采集的来源标 source_gap，不把缺数据当无变化）。
 
@@ -192,13 +192,13 @@ radar health 14 --json
 | S15 | 跨市场比较者 | comparison projection | 不同口径不共轴、不推因果 | market-cross-market.test.ts | compare→DSH |
 | S16 | 每周回顾者 | weekly review | 缺后续是 inconclusive | market-review.test.ts | review→Agent/DSH |
 | S17 | 追问依据的读者 | question context | 引用有效、拒绝无据断言 | market-question.test.ts | safe context→当前 Agent |
-| S18 | 无本机 CLI 的 Agent | MCP resources/actions | discovery/lane/receipt | market-mcp.integration.test.ts（集成） | MCP→consumer |
+| S18 | 执行 Radar CLI 的外部 Agent | CLI 输出合同与 doctor 引导 | envelope 解析/lane 边界/回执对账 | test/integration/cli-contract.test.ts（集成）＋[agent-cli-consumption](../interfaces/agent-cli-consumption.md) | CLI→consumer |
 | S19 | 原个人推荐用户 | 原 card/Profile/Edition | 原合同 golden 和旧行为 | 既有测试＋market-compat.test.ts | 原接口继续可用 |
 | S20 | 试用者与产品负责人 | 14 天真实报告、来源缺口 | 缺源/失败日纳入分母 | 真实试用任务 R5 | 脱敏报告→付费缺口决定 |
 
 ## 交付批次与衡量
 
-R1 来源及观测 → R2 可比信号与每日简报 → R3 阅读/关注/对照/回顾 → R4 CLI/MCP/问答证据 → R5 软件及真实验证。DSH 可用离线合同夹具先设计，但不能声称已经消费真实数据。全部五项扩展保留，不以首批完成消除后续任务。
+R1 来源及观测 → R2 可比信号与每日简报 → R3 阅读/关注/对照/回顾 → R4 CLI 消费/问答证据（原 MCP 面已移除） → R5 软件及真实验证。DSH 可用离线合同夹具先设计，但不能声称已经消费真实数据。全部五项扩展保留，不以首批完成消除后续任务。
 
 新市场试用报告衡量按时可读、覆盖缺口、阅读耗时、重要变化漏报、无变化旧闻重复、查证成本及更正；打开次数、收藏数只是辅助。首个 14 天窗口至少 10 天可审查，其余指标先收集可信基线再决定阈值。对照使用预先固定的来源样本，不要求用户先列出平台，不宣称计算全市场召回率。
 
@@ -213,15 +213,17 @@ openspec validate radar-market-observation-and-brief-v1 --strict --no-interactiv
 
 2026-09-13 软件最终门已通过：typecheck、全量 bun test、bun run test:integration（带证据）与 strict openspec validate 全部退出 0，具体结果及证据位于 change 的 tasks.md。真实 14 天试用与已授权来源资格仍属外部门，未由本页推断完成。
 
-本地回顾支持 `radar market review build --start <UTC时间> --end <UTC时间> --as-of <UTC截止时间>` 和 `radar market review show --review <回顾引用>`。回顾冻结原始与后续信号版本，缺少后续证据表示证据不足；读取旧回顾继续执行当前禁区。不指定窗口时，`radar market brief build` 采用配置时区的上一完整日，`radar market review build` 采用上一完整周（周一到周一），回顾截止默认为当前时间。日历计算覆盖夏令时的 23/25 小时日；不存在的本地日期明确报错，不按固定 24 小时猜测。自动定时触发以 market schedule install 生成的 systemd 单元为准（写入不启用，启用为 owner 动作）；本容器等无 systemd 环境只输出安装说明，不报告已调度。MCP operator 的构建参数仍要求显式窗口，以当前 tools/list 为准。
+本地回顾支持 `radar market review build --start <UTC时间> --end <UTC时间> --as-of <UTC截止时间>` 和 `radar market review show --review <回顾引用>`。回顾冻结原始与后续信号版本，缺少后续证据表示证据不足；读取旧回顾继续执行当前禁区。不指定窗口时，`radar market brief build` 采用配置时区的上一完整日，`radar market review build` 采用上一完整周（周一到周一），回顾截止默认为当前时间。日历计算覆盖夏令时的 23/25 小时日；不存在的本地日期明确报错，不按固定 24 小时猜测。自动定时触发以 market schedule install 生成的 systemd 单元为准（写入不启用，启用为 owner 动作）；本容器等无 systemd 环境只输出安装说明，不报告已调度。operator 侧本地构建（market analyze / market brief build / market review build）参数仍要求显式窗口，以命令 `--help` 为准。
 
-本地跨市场对照支持 `radar market compare --left <信号引用> --left-revision <版本> --right <信号引用> --right-revision <版本>`。两侧保留各自原名、地区依据、采样范围、时间及指标口径，不合成跨平台热度。候选同作映射只表示待核实，任一侧触发当前禁区时整个请求拒绝。当前已验证目录夹具与安全读取，并暴露 MCP 读取入口；已验证同作的评审流程和 DSH 展示仍待接入。
+本地跨市场对照支持 `radar market compare --left <信号引用> --left-revision <版本> --right <信号引用> --right-revision <版本>`。两侧保留各自原名、地区依据、采样范围、时间及指标口径，不合成跨平台热度。候选同作映射只表示待核实，任一侧触发当前禁区时整个请求拒绝。当前已验证目录夹具与安全读取（`radar market compare` CLI 入口）；已验证同作的评审流程和 DSH 展示仍待接入。
 
-### MCP 市场读取入口
+### 市场读取入口与消费边界（CLI）
 
-来源审查通过 owner CLI `radar market source review --source <ref> --revision <n> --stage <identity|sample|blocked> --reason <理由> --key <key>`；identity/sample 需提供 `--evidence <ref>`，sample 还需 `--batch <ref>`。证据必须已存、同源、非 fixture 且不晚于审查时间；样本晋级要求身份已通过、当前版本非空样本及完整 ID/口径检查和失败样本引用。操作者负责判断证据内容是否真正证明身份或失败处理，引用存在本身不能证明事实。审查追加来源版本、保留原记录；`radar market source review-receipt --key <key>` 支持原键对账。新版本需重新登记采样计划。正式 qualified 状态晋级仍待实现，以上审查不触发外部采集，不开放 MCP 写入。
+MCP 面（`radar.search`/`radar.execute` 工具、tools/list、`radar://` 资源）已于 2026-09-15 随提交 5d8d78a 整体移除，不再作为现状能力。现行外部交互合同是 [agent-cli-consumption](../interfaces/agent-cli-consumption.md)：Agent 执行 radar 命令、解析标准输出，lane 边界语义保留但载体改为 CLI。
 
-资格报告可由 owner 使用 `radar market source record-qualification --source hongguo --revision 1` 冻结，实际 revision 以来源查询为准。`radar market source qualification --record <ref>`、MCP `market_qualification` view 或 `radar://market/qualifications/{ref}` 读取同一不可变记录。记录包括判定规则版本、来源版本、截止时间、窗口和缺口，不自动修改 readiness；来源后续更新不会覆盖旧记录。人工样本审查与正式状态晋级仍需完成。
+来源审查通过 owner CLI `radar market source review --source <ref> --revision <n> --stage <identity|sample|blocked> --reason <理由> --key <key>`；identity/sample 需提供 `--evidence <ref>`，sample 还需 `--batch <ref>`。证据必须已存、同源、非 fixture 且不晚于审查时间；样本晋级要求身份已通过、当前版本非空样本及完整 ID/口径检查和失败样本引用。操作者负责判断证据内容是否真正证明身份或失败处理，引用存在本身不能证明事实。审查追加来源版本、保留原记录；`radar market source review-receipt --key <key>` 支持原键对账。新版本需重新登记采样计划。正式 qualified 状态晋级仍待实现，以上审查不触发外部采集，不向外部消费端开放写入。
+
+资格报告可由 owner 使用 `radar market source record-qualification --source hongguo --revision 1` 冻结，实际 revision 以来源查询为准。`radar market source qualification --record <ref>` 读取同一不可变记录。记录包括判定规则版本、来源版本、截止时间、窗口和缺口，不自动修改 readiness；来源后续更新不会覆盖旧记录。人工样本审查与正式状态晋级仍需完成。
 
 来源资格报告已检查采样质量回执：七个完整 UTC 日须有共同固定时点、完整样本及稳定 ID/口径检查，并满足身份和样本审查前置。操作者在 owner host 使用 `radar market source check-sample` 记录批次检查，参数见 CLI help；记录不改变原观测的 fixture/manual/live 类型，资格读取也不自动升级来源 readiness。当前正例来自合成数据库测试，不能据此声称任何真实平台已覆盖七天。人工样本审查入口与资格决定持久化仍待完成。
 
@@ -229,30 +231,29 @@ openspec validate radar-market-observation-and-brief-v1 --strict --no-interactiv
 
 关注清单及历史回执按当前禁区重新投影。被禁止题材或当前分类未知/受限的作品不会出现在清单中；按旧 key 查询或重放也返回 `content_blocked`，不复述目标内容、不新增回执或推进阅读版本。底层历史保持不变，解除禁区后可再次读取原记录。
 
-显式撤回或证据不足更正后，自动分析不会恢复原判断；旧观测重放与同一信号的新指标输入返回 `correction_review_required`。观测继续保存，不能把跳过该信号解释为市场没有新变化。操作者可在 owner host 使用 `radar market signal restore --signal <引用> --revision <更正版本> --observation <新观测引用> --reason <理由> --at <UTC审查时间>` 明确重新审查。新观测须晚于更正、早于或等于审查时间，属于同一来源、作品、市场和数据真实性类别；指标必须仍满足原可比口径。恢复追加修订、保留旧更正并重新进入未读；相同审查重放返回原修订，陈旧或同版本不同审查拒绝。该 owner 审查操作不自动向 MCP 开放。
+显式撤回或证据不足更正后，自动分析不会恢复原判断；旧观测重放与同一信号的新指标输入返回 `correction_review_required`。观测继续保存，不能把跳过该信号解释为市场没有新变化。操作者可在 owner host 使用 `radar market signal restore --signal <引用> --revision <更正版本> --observation <新观测引用> --reason <理由> --at <UTC审查时间>` 明确重新审查。新观测须晚于更正、早于或等于审查时间，属于同一来源、作品、市场和数据真实性类别；指标必须仍满足原可比口径。恢复追加修订、保留旧更正并重新进入未读；相同审查重放返回原修订，陈旧或同版本不同审查拒绝。该 owner 审查操作不向外部消费端开放。
 
-市场只读投影现已接入既有 `radar.search`，仍保持 `radar.search` / `radar.execute` 两个工具名称。已连接客户端先读取 `tools/list`，按 inputSchema 中对应 view 分支提供参数；无需本机安装 Radar，也不访问 owner 的 SQLite 或文件路径。
+市场读取经由 `radar` CLI 完成：外部 Agent 执行 radar 命令并解析标准输出，参数发现来自命令 `--help` 与 `radar doctor --json` 的 `actions[].command`；消费端不访问 owner 的 SQLite、用户配置或文件路径，也无需理解已移除的 MCP view/resource 命名。
 
-| 读取目标 | view / resource |
+| 读取目标 | CLI 命令 |
 |---|---|
-| 能力与恢复位置 | `radar://market/capabilities` |
-| 来源与覆盖缺口 | `market_sources`、`market_coverage`；`radar://market/sources`、`radar://market/coverage` |
-| 最新/指定简报 | `market_brief`；`radar://market/briefs/latest`、`radar://market/briefs/{ref}` |
-| 历史信号 | `market_signal`（signal、revision 必填）；`radar://market/signals/{ref}/revisions/{revision}` |
-| 阅读、补看、关注 | `market_reader`、`market_catchup`、`market_watches` |
-| 原键对账 | `market_reader_receipt`、`market_watch_receipt`；`radar://market/reader/receipts/{key}`、`radar://market/watch/receipts/{key}` |
-| 回顾与对照 | `market_review`、`market_compare`；`radar://market/reviews/{ref}` |
-| 证据与问答上下文 | `market_evidence`、`market_question`；`radar://market/signals/{ref}/revisions/{revision}/evidence/{evidence}` |
+| 能力与恢复位置 | `radar doctor --json`（`actions[].command` 引导下一步） |
+| 来源与覆盖缺口 | `radar market source list/show`、`radar market source gaps` |
+| 最新/指定简报 | `radar market brief show [--brief <ref>]` |
+| 历史信号 | `radar market signal show --signal <ref> --revision <n>` |
+| 阅读、补看、关注 | `radar market reader show`、`radar market reader catchup`、`radar market watch list`、`radar market watch changes` |
+| 原键对账 | `radar market reader receipt --key <key>`、`radar market watch receipt --key <key>` |
+| 回顾与对照 | `radar market review show --review <回顾引用>`、`radar market compare --left <信号引用> --left-revision <版本> --right <信号引用> --right-revision <版本>` |
+| 证据与问答上下文 | `radar market evidence show --signal <ref> --revision <n> --evidence <ref>`、`radar market question context --signal <ref> --revision <n> --question <text>` |
 
-`radar_market_brief` prompt 引导先读覆盖缺口，再读已存简报和明确修订的证据，区分事实、推断与未知。读取不触发采集、模型调用或已读写入。需要配置或补采时，由操作者在 **Radar owner host** 执行对应 CLI，不能要求未安装 CLI 的消费端执行本地命令。DSH 的真实接入仍待完成。
+简报阅读路径（承接原 radar_market_brief prompt 语义）引导先读覆盖缺口，再读已存简报和明确修订的证据，区分事实、推断与未知。读取不触发采集、模型调用或已读写入。需要配置或补采时，由操作者在 **Radar owner host** 执行对应 CLI；外部 Agent 只转述 doctor 给出的命令建议，不猜测渠道命令。DSH 的真实接入仍待完成。
 
-显式写入通过 `radar.execute`，可用动作及完整 inputSchema 随连接 lane 返回：
+lane 边界语义保留、载体改为 CLI；curator/operator 写命令仅在外部 Agent 获得用户明确确认后执行：
 
-| lane | 市场动作 | 输入与恢复 |
+| lane | 市场动作（CLI） | 输入与恢复 |
 |---|---|---|
-| reader | 无写入动作 | 尝试写入返回 action_denied，不提升权限 |
-| curator | market_reader_mark / market_reader_unread | key、revision、policy_revision、signals（1–100 个明确 ref/revision）；只提交用户选中的修订 |
-| curator | market_watch_add / pause / resume / remove | key、revision、policy_revision，加 kind/target 或 watch；保留暂停与取消状态 |
-| operator | 继承 curator，加 market_analyze / market_brief_build / market_review_build | start/end，回顾另需 as_of；只处理已存本地观测，不触发采集 |
+| reader | 只读命令：brief/signal/evidence/question/compare/review 读取、reader show/catchup、watch list/changes | 无写入动作；读取零副作用，不推进 reader revision |
+| curator | `market reader mark/unread`、`market watch add/pause/resume/remove` | key、revision、policy_revision，mark 另带 signals（1–100 个明确 ref/revision）；只提交用户选中的修订；保留暂停与取消状态 |
+| operator | 本地 `market analyze`、`market brief build`、`market review build` | start/end，回顾另需 as_of；只处理已存本地观测，不触发采集 |
 
-读者与关注动作共用 reader revision；先读 `radar://market/reader`，再显式操作。同键同参返回原回执，同键异参为 idempotency_conflict，陈旧 reader/policy 为 state_conflict。断线导致结果未知时先查询原 key 的 receipt，不换 key 重试；确认未提交且重读当前状态后才能发起新动作。capabilities 中的 mutations/actions 反映当前连接权限。来源、配置、Profile、qualification 与 observe 均不进入市场可执行 discovery。
+读者与关注动作共用 reader revision；先读 `radar market reader show`，再显式操作。同键同参返回原回执，同键异参为 idempotency_conflict，陈旧 reader/policy 为 state_conflict。断线导致结果未知时先查询原 key 的 receipt，不换 key 重试；确认未提交且重读当前状态后才能发起新动作。来源、配置、Profile、qualification 与 observe 均留在 owner CLI，不进入外部可执行动作。

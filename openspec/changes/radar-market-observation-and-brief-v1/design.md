@@ -4,14 +4,14 @@
 
 以公开证据为基础，帮助单一本地用户在 3–5 分钟内掌握国内外短剧变化，并按需追踪、查证。内容变化为主，平台/公司/投放信息只作独立背景，不混排成“全球热度分”。来源矩阵、调研日期与局限见 [产品文档](../../../docs/product/global-market-radar.md)。
 
-现状：card.trends 为空；现有 score 按平台/当天样本归一化且单次采集回退累计互动，不能直接跨日比较；RawItem/Adapter 只允许两平台；schedule 只执行 collect/score/card；市场功能尚未实现。复用既有 snapshots、application actions、Drizzle、幂等回执、MCP lane 及证据 runner，避免复制一套采集服务。
+现状：card.trends 为空；现有 score 按平台/当天样本归一化且单次采集回退累计互动，不能直接跨日比较；RawItem/Adapter 只允许两平台；schedule 只执行 collect/score/card；市场功能尚未实现。复用既有 snapshots、application actions、Drizzle、幂等回执、lane 边界语义（现承载于 CLI 消费合同）及证据 runner，避免复制一套采集服务。
 
 | 能力 | Owner／入口 | 实现组 | 验收锚点 | 状态 |
 |---|---|---|---|---|
 | 国内外、多地区、主动发现与红果核心观察 | Radar／CLI、Agent、DSH | R1 | S01–S04 | retained |
 | 真人/漫剧及 AI 制作证据区分 | Radar／分类投影 | R1 | S05 | retained |
 | 可比变化、可信/待观察分层、每日简报 | Radar／Agent、DSH | R2 | S06–S11 | retained |
-| 阅读补看、观察清单 | Radar／显式 CLI/MCP 动作 | R3 | S12–S14 | retained |
+| 阅读补看、观察清单 | Radar／显式 CLI 动作 | R3 | S12–S14 | retained |
 | 跨市场对照、周度判断回顾 | Radar／Agent、DSH | R3 | S15–S16 | retained |
 | 有出处问答与无本机 CLI 消费 | Radar 证据／外部 Agent 解释 | R4 | S17–S18 | moved behind contract |
 | 原 Profile/反馈/个人推荐/提案/card/Edition | 原 owner 和入口 | 全程 | S19 | retained |
@@ -31,7 +31,7 @@ flowchart LR
   S --> B[(不可变市场简报／周度回顾)]
   P[(阅读／关注／禁区)] --> Q[安全读取投影]
   B --> Q
-  Q --> M[CLI／MCP]
+  Q --> M[CLI]
   M --> D[Agent／DSH]
 ```
 
@@ -166,13 +166,13 @@ radar.market_brief.v1 保存 brief_ref、revision/digest、timezone、window_sta
 
 机器字段使用英文。默认 CLI summary/help/errors 与代码注释用英文；简报领域正文可为中文。JSON/agent/events/explain 复用现有 envelope/renderers，长 observe/analyze/build 有阶段事件与最终 error/end，日志和私密参数不进入 stdout。
 
-继续使用两个 MCP 工具 radar.search/radar.execute：search 增加 market_briefs/market_signals/market_evidence/market_sources/market_reviews/market_watches 视图；execute 增加 market_analyze、market_brief_build、market_review_build（operator）及 market_reader_mark、market_reader_unread、market_watch_add/pause/resume/remove（curator）。只有已实现且 lane 允许的动作出现在 tools/list/inputSchema，不复制命令 flag 猜参数。Profile/config/source qualification/observe 不进入 MCP。
+外部消费不使用 MCP：MCP 面（radar.search/radar.execute、tools/list、radar:// 资源）曾随 2026-09-13 软件门交付，已于 2026-09-15 随提交 5d8d78a 整体移除。市场读取与写入通过 CLI 命令完成并保持 lane 边界语义：reader＝只读命令（brief/signal/evidence/question/compare/review 读取、reader show/catchup、watch list/changes）；curator＝用户明确确认后的 `market reader mark/unread` 与 `market watch add/pause/resume/remove`；operator＝本地 `market analyze/brief build/review build`（显式窗口）。参数发现来自命令 `--help` 与 `radar doctor --json` 的 `actions[].command`，不从 tools/list inputSchema 获取。Profile/config/source qualification/observe 留在 owner CLI。外部交互合同见 docs/interfaces/agent-cli-consumption.md。
 
-新增可读资源 radar://market/capabilities、radar://market/briefs/latest、radar://market/briefs/{ref}、radar://market/signals/{ref}、radar://market/signals/{ref}/revisions/{revision}、radar://market/evidence/{ref}、radar://market/coverage、radar://market/reader、radar://market/reviews/{ref}、radar://market/receipts/{idempotency_key}。不带 revision 的 signal 资源是显式“最新”读取；brief/review/question 的下钻必须绑定 revision，找不到旧修订返回 not_found，不退回最新。evidence refs 本身不可变；内容受当前 policy 重新过滤。
+只读 CLI 覆盖：能力（doctor actions）、覆盖（source gaps/list/show）、最新/指定简报（brief show [--brief]）、信号修订（signal show --revision）、证据（evidence show）、读者与补看（reader show/catchup）、回顾（review show）与幂等回执（reader/watch receipt --key）。signal 读取绑定明确 revision，缺失修订返回 not_found、不回退最新；brief/review/question 的下钻同样绑定 revision，找不到旧修订返回 not_found。evidence refs 本身不可变；内容受当前 policy 重新过滤。
 
 问答上下文返回 question、claim/ref/revision、最多 10 条证据安全摘要（每条最多 500 字符）、coverage、limitations、policy_revision 与可下钻 refs；超过范围显式 truncated。Agent 回答区分 fact/inference/unknown 并带引用；无据问题返回 evidence_insufficient。新外部研究属于单独动作，不因问答或重连自动进行。记录脱敏 conclusion/evidence/risk/next_action，不保存完整思维链、raw prompts 或 provider payload。
 
-新市场能力使用独立 capability/schema；旧 MCP views/resources、card payload、旧 Profile 和个人 Edition 不改字段及语义。reader 无权限时仍可看自己可访问的公开简报，按钮带 disabled reason。无 CLI 的已连接客户端通过 resources 和 receipt 完成恢复；需要 source 配置时说明必须由 owner host 操作。
+新市场能力使用独立 capability/schema；card payload、旧 Profile 和个人 Edition 不改字段及语义（已移除的 MCP views/resources 不再构成兼容义务）。reader 无权限时仍可看自己可访问的公开简报，按钮带 disabled reason。外部 Agent 通过 CLI 读取与回执命令完成恢复；需要 source 配置时说明必须由 owner host 操作。
 
 ## 8. 错误与恢复注册表
 
@@ -212,7 +212,7 @@ radar.market_brief.v1 保存 brief_ref、revision/digest、timezone、window_sta
 ```mermaid
 flowchart LR
   M[增量 schema＋旧合同回归] --> O[离线来源与信号回放]
-  O --> B[市场简报与 MCP probe]
+  O --> B[市场简报与 CLI 消费 probe]
   B --> D[DSH 对接验证]
   D --> L[显式配置真实来源和调度]
   L --> C[14 天观察]
