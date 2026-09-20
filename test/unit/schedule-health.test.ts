@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,7 +9,21 @@ import { buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir } from "../../s
 import { defaultConfig } from "../../src/config.ts";
 
 describe("schedule units (task: systemd wiring)", () => {
-  const units = buildScheduleUnits(defaultConfig, "/usr/local/bin/bun /opt/radar/src/cli.ts");
+  // Unit content embeds the ambient PATH, which is machine-specific: an
+  // interactive shell can accumulate arbitrary directory names (e.g. temp
+  // "*-token-usage" worktrees) that would trip the strict secret-leak regex
+  // without any generator change. Pin a clean PATH so the golden assertions
+  // are hermetic; real installs still embed the owner's runtime PATH. The
+  // ambient PATH is restored once the describe completes.
+  const ambientPath = process.env.PATH;
+  let units: ReturnType<typeof buildScheduleUnits>;
+  beforeAll(() => {
+    process.env.PATH = "/usr/local/bin:/usr/bin:/bin";
+    units = buildScheduleUnits(defaultConfig, "/usr/local/bin/bun /opt/radar/src/cli.ts");
+  });
+  afterAll(() => {
+    process.env.PATH = ambientPath;
+  });
 
   test("collect timer wires both morning passes", () => {
     expect(units["short-drama-radar-collect.timer"]).toContain("OnCalendar=*-*-* 08:10:00");

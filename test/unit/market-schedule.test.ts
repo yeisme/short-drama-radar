@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   buildMarketScheduleUnits, MARKET_OBSERVE_POLICY, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_TIMES,
   marketRetryDecision, planMarketObservationRun, resolveMarketRunFreeze,
@@ -15,7 +15,20 @@ function flags(entries: Record<string, string[]> = {}): Map<string, string[]> {
 const EXEC = "/usr/local/bin/bun /opt/radar/src/cli.ts";
 
 describe("market schedule units (task 2.6)", () => {
-  const units = buildMarketScheduleUnits(EXEC);
+  // Same hermeticity pin as schedule-health: generated units embed the
+  // ambient PATH, which is machine-specific and can carry arbitrary
+  // directory names that would trip the secret-leak regex without any
+  // generator change. Deterministic re-runs inside this describe stay
+  // comparable; the ambient PATH is restored once it completes.
+  const ambientPath = process.env.PATH;
+  let units: ReturnType<typeof buildMarketScheduleUnits>;
+  beforeAll(() => {
+    process.env.PATH = "/usr/local/bin:/usr/bin:/bin";
+    units = buildMarketScheduleUnits(EXEC);
+  });
+  afterAll(() => {
+    process.env.PATH = ambientPath;
+  });
 
   test("generates an independent market unit set; legacy timers are untouched", () => {
     expect(Object.keys(units).sort()).toEqual([
