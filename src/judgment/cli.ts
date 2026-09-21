@@ -1,3 +1,4 @@
+import { createSDKHTTPTransport } from "./sdk-http.ts";
 import type { RadarDb } from "../db/client.ts";
 import type { CommandResult } from "../output/envelope.ts";
 import type { ChineseLocale } from "../market/translation.ts";
@@ -20,7 +21,7 @@ export function judgmentStatusCommand(db: RadarDb): CommandResult {
     facts: {
       default_mode: "off",
       readiness: "exploratory",
-      wired_transports: [FIXTURE_TRANSPORT_NAME],
+      wired_transports: [FIXTURE_TRANSPORT_NAME, "http"],
       model_calls_this_command: 0,
       stored_attempts: attempts.length,
     },
@@ -29,7 +30,7 @@ export function judgmentStatusCommand(db: RadarDb): CommandResult {
       policy: policyRef(),
       modes: ["off (default)", "shadow (comparison only; no adoption)", "assist (advisory suggestions; adoption still gated)"],
       calibration: READING_JUDGMENT_CALIBRATION,
-      note: "Public SDK HTTP/stdio transports attach through the injected transport seam once the SDK package ships; nothing auto-enables them.",
+      note: "Public SDK HTTP transport requires explicit endpoint, model and adapter token environment name; nothing auto-enables it.",
     },
     actions: [{ name: "evaluate", command: "radar judgment evaluate --target edition --mode assist --transport fixture" }],
     exitCode: 0,
@@ -45,7 +46,7 @@ export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, st
     return values[0];
   };
   for (const key of flags.keys()) {
-    if (!["mode", "target", "transport", "edition", "language", "profile", "fresh", "scenario"].includes(key)) {
+    if (!["mode", "target", "transport", "edition", "language", "profile", "fresh", "scenario", "endpoint", "model", "auth-env"].includes(key)) {
       throw new JudgmentConsumerError("flag_invalid", "Unsupported judgment flag.");
     }
   }
@@ -58,10 +59,10 @@ export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, st
     );
   }
   const transportName = flags.has("transport") ? value("transport") : FIXTURE_TRANSPORT_NAME;
-  if (transportName !== FIXTURE_TRANSPORT_NAME && transportName !== "fixture") {
+  if (transportName !== FIXTURE_TRANSPORT_NAME && transportName !== "fixture" && transportName !== "http") {
     throw new JudgmentConsumerError(
       "transport_unavailable",
-      `Only the offline '${FIXTURE_TRANSPORT_NAME}' transport is wired; HTTP/stdio adapters arrive with the public SDK package and are never enabled implicitly.`,
+      "Use fixture or explicitly configured http transport.",
     );
   }
   let scenario: FixtureScenario = "answered";
@@ -84,7 +85,17 @@ export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, st
     throw new JudgmentConsumerError("flag_invalid", "Use --fresh without a value.");
   }
 
-  const transport = createFixtureTransport({ scenario });
+  let transport;
+  if (transportName === "http") {
+    if(flags.has("scenario")) throw new JudgmentConsumerError("flag_invalid", "--scenario is fixture-only.");
+    const endpoint=value("endpoint"), model=value("model"), authEnv=value("auth-env");
+    if(!/^[A-Za-z_][A-Za-z0-9_]*$/.test(authEnv)) throw new JudgmentConsumerError("flag_invalid","--auth-env must name an environment variable.");
+    try {transport=createSDKHTTPTransport({endpoint,model,token:process.env[authEnv]??""});}
+    catch {throw new JudgmentConsumerError("transport_config_invalid","Provide HTTPS or loopback endpoint, explicit model, and a configured adapter-token environment variable.");}
+  } else {
+    if(["endpoint","model","auth-env"].some(k=>flags.has(k))) throw new JudgmentConsumerError("flag_invalid","HTTP configuration requires --transport http.");
+    transport=createFixtureTransport({scenario});
+  }
   const outcome = await evaluateReadingJudgment(db, {
     mode,
     transport,
@@ -170,6 +181,7 @@ function sanitizeForOutput(record: ReadingJudgmentRecord): Record<string, unknow
     policy: record.policy,
     model: record.model,
     input_digest: record.input_digest,
+    ...(record.sdk_input_digest ? {sdk_input_digest:record.sdk_input_digest} : {}),
     bindings: {
       authorization: record.bindings.authorization,
       edition_digest: record.bindings.edition_digest ?? null,

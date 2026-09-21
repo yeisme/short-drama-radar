@@ -11,9 +11,8 @@ import {
 } from "./contract.ts";
 import type { PrimitiveKind } from "./questionset.ts";
 
-// Injected transport seam. Production transports come from the public SDK
-// package (HTTP / stdio to an authorized adapter) once it ships; until then
-// the fixture transport is the only wired implementation. Transports never
+// Injected transport seam. The SDK HTTP bridge is an explicit optional path; fixture remains the default.
+// Domain seam shapes are mapped at that bridge, not treated as SDK wire. Transports never
 // receive credentials from this repo and never auto-retry.
 
 export interface JudgmentTransportCapabilities {
@@ -42,6 +41,8 @@ export interface JudgmentTransportCapabilities {
 }
 
 export interface JudgmentTransport {
+  readonly cacheBinding?: string;
+  readonly requestedModel?: string;
   readonly transport: string;
   readonly ops: readonly string[];
   describeCapabilities(): Promise<JudgmentTransportCapabilities>;

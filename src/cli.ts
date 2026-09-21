@@ -813,7 +813,10 @@ Advisory reading judgments (radar-reading-judgment-v1; default OFF, exploratory)
   judgment evaluate --mode shadow|assist --transport fixture [--target edition|reading]
     [--edition <ref>] [--language zh-Hans|zh-Hant] [--profile <ref>] [--fresh] [--scenario <fixture scenario>]
     Explicit opt-in only; shadow compares against the baseline order, assist adds advisory
-    suggestions. Offline fixture transport only; suggestions never rewrite canonical state.
+    suggestions. Fixture is offline; HTTP is explicit and may incur provider charges.
+  judgment evaluate --mode shadow|assist --transport http --endpoint <url> --model <id> --auth-env <name>
+    Use an authenticated judgment adapter; the environment variable holds its access token, not a provider key.
+    Suggestions never rewrite canonical state.
   judgment show --attempt <key>      Zero-network replay of stored judgment evidence
   judgment accept --attempt <key> --candidate <id> --kind saved|used|dismissed|not_relevant|too_risky|already_seen
     Adopt through the ORIGINAL feedback flow after freshness/permission re-checks; stale or

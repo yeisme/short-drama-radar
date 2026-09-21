@@ -1,7 +1,9 @@
 import { marketDigest } from "../market/repository.ts";
 import type { QuestionPrimitive } from "./questionset.ts";
 
-// Frozen wire contract of the public structured-judgment SDK
+// Historical Radar domain seam; sdk-http.ts maps it to the public SDK.
+// This is NOT the public structured-judgment SDK wire contract.
+// Original design reference:
 // (aigora-structured-judgment-sdk-v1): snake_case UTF-8 JSON,
 // schema_version "1.0", ops DescribeCapabilities / Evaluate, primitives
 // choice / ordinal_score / binary, and the stable error code set with
@@ -103,6 +105,7 @@ export interface JudgmentResultItem {
 }
 
 export interface JudgmentResult {
+  sdk_input_digest?: string;
   schema_version: string;
   request_id: string;
   attempt_id: string;

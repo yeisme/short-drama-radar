@@ -14,6 +14,7 @@
     "test:integration": "bun run scripts/integration-test-run.ts -- bun test test/integration --timeout 30000"
   },
   "dependencies": {
+    "@yeisme/judgment-sdk": "./vendor/yeisme-judgment-sdk-0.1.0-review2.tgz",
     "drizzle-orm": "^0.44.2",
     "playwright": "^1.63.0",
     "postgres": "^3.4.5"

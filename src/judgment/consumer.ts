@@ -100,6 +100,7 @@ export interface ReadingJudgmentRecord {
   policy: { id: string; version: string; digest: string };
   model: { transport: string; requested_model: string | null; resolved_model: string | null; adapter: string | null };
   input_digest: string;
+  sdk_input_digest?: string;
   wire_input_bytes: number;
   bindings: {
     authorization: ReadingProjection["authorization"];
@@ -166,9 +167,13 @@ export async function evaluateReadingJudgment(
   }
 
   const request = buildWireRequest(projection, admitted);
+  if (input.transport.cacheBinding) {
+    request.model = {transport_provider:input.transport.transport,model_provider:"capability-bound",requested_model:input.transport.requestedModel!};
+    request.extensions = {"radar.transport_binding":input.transport.cacheBinding};
+  }
   const inputDigest = requestInputDigest(request);
   const baseKey = `rj-${projection.target}-${inputDigest.slice(7, 25)}`;
-  const prior = priorAttempts(db, baseKey).filter((row) => row.payload.input_digest === inputDigest);
+  const prior = priorAttempts(db, baseKey).filter((row) => row.payload.input_digest === inputDigest && row.payload.mode === input.mode);
   if (!input.fresh && prior.length > 0) {
     // Zero-network replay of already-saved evidence, including failed and
     // unknown attempts — a fresh attempt must be requested explicitly.
@@ -182,6 +187,8 @@ export async function evaluateReadingJudgment(
   if (problems.length > 0) throw new JudgmentConsumerError("request_invalid", problems.join("; "));
 
   const base = { ...baseRecord(projection, input.mode, now), attempt_key: `${baseKey}-a${attemptNo}`, request_id: requestId, attempt_id: attemptId, input_digest: inputDigest, wire_input_bytes: JSON.stringify(requestWithIds).length };
+
+  base.model.transport = input.transport.transport;
 
   // Capability precheck happens before any evaluate: unsupported schema,
   // modality or primitive is rejected here, pointing back at the domain flow.
@@ -225,6 +232,7 @@ export async function evaluateReadingJudgment(
     items,
     suggestions,
     baseline,
+    ...(result.sdk_input_digest ? {sdk_input_digest:result.sdk_input_digest} : {}),
     usage: result.usage ?? null,
     latency_ms: result.latency_ms ?? null,
     provider_request_id: result.provider_request_id ?? null,

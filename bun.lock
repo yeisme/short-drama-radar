@@ -5,6 +5,7 @@
     "": {
       "name": "@yeisme/short-drama-radar",
       "dependencies": {
+        "@yeisme/judgment-sdk": "./vendor/yeisme-judgment-sdk-0.1.0-review2.tgz",
         "drizzle-orm": "^0.44.2",
         "playwright": "^1.63.0",
         "postgres": "^3.4.5",
@@ -59,6 +60,8 @@
     "@types/ssh2": ["@types/ssh2@0.5.52", "", { "dependencies": { "@types/node": "*", "@types/ssh2-streams": "*" } }, "sha512-lbLLlXxdCZOSJMCInKH2+9V/77ET2J6NPQHpFI0kda61Dd1KglJs+fPQBchizmzYSOJBgdTajhPqBO1xxLywvg=="],
 
     "@types/ssh2-streams": ["@types/ssh2-streams@0.1.13", "", { "dependencies": { "@types/node": "*" } }, "sha512-faHyY3brO9oLEA0QlcO8N2wT7R0+1sHWZvQ+y3rMLwdY1ZyS1z0W3t65j9PqT4HmQ6ALzNe7RZlNuCNE0wBSWA=="],
+
+    "@yeisme/judgment-sdk": ["@yeisme/judgment-sdk@./vendor/yeisme-judgment-sdk-0.1.0-review2.tgz", {}, "sha512-p3Oc6qMLknOdL+ixhZnR93E2zoQi7EAc8w8Il6Upq4CiwXIA61I4jgtioQ2aUpV7wJ4isbRmlSKGu8vY47SQng=="],
 
     "abort-controller": ["abort-controller@3.0.0", "", { "dependencies": { "event-target-shim": "^5.0.0" } }, "sha512-h8lQ8tacZYnR3vNQTgibj+tODHI5/+l06Au2Pcriv/Gmet0eaj4TwWH41sO9wnHDiQsEj19q0drzdWdeAHtweg=="],
 
