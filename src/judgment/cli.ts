@@ -4,6 +4,7 @@ import type { ChineseLocale } from "../market/translation.ts";
 import { JudgmentConsumerError, evaluateReadingJudgment, listReadingJudgmentKeys, parseJudgmentMode, showReadingJudgment, type JudgmentMode, type ReadingJudgmentRecord } from "./consumer.ts";
 import { policyRef, questionSetRef } from "./questionset.ts";
 import { FIXTURE_TRANSPORT_NAME, createFixtureTransport, FIXTURE_SCENARIOS, type FixtureScenario } from "./transport.ts";
+import { acceptReadingSuggestion, readingJudgmentEvidence } from "./evidence.ts";
 
 // CLI surface for the optional reading-judgment consumer. Every command is
 // local; `evaluate` is the only one that can reach a transport and it
@@ -187,4 +188,65 @@ function sanitizeForOutput(record: ReadingJudgmentRecord): Record<string, unknow
     limitations: record.limitations,
     accepted: record.accepted,
   })) as Record<string, unknown>;
+}
+
+export function judgmentAcceptCommand(db: RadarDb, flags: Map<string, string[]>): CommandResult {
+  const value = (name: string): string => {
+    const values = flags.get(name);
+    if (!values || values.length !== 1 || values[0] === "true" || values[0] === "") {
+      throw new JudgmentConsumerError("value_required", "Provide one value for --" + name + ".");
+    }
+    return values[0];
+  };
+  for (const key of flags.keys()) {
+    if (!["attempt", "candidate", "kind", "key"].includes(key)) {
+      throw new JudgmentConsumerError("flag_invalid", "Unsupported judgment flag.");
+    }
+  }
+  const outcome = acceptReadingSuggestion(db, {
+    attempt_key: value("attempt"),
+    candidate_id: value("candidate"),
+    kind: value("kind"),
+    ...(flags.has("key") ? { idempotency_key: value("key") } : {}),
+  });
+  if (outcome.executed) {
+    return {
+      command: "radar.judgment.accept",
+      status: "success",
+      summary: `Suggestion adopted through the original feedback flow: '${outcome.kind}' recorded${outcome.already_accepted ? " (idempotent replay)" : ""} for ${outcome.receipt.opportunityRef}.`,
+      facts: {
+        executed: true,
+        surface: outcome.surface,
+        kind: outcome.kind,
+        feedback_id: outcome.receipt.id,
+        opportunity_ref: outcome.receipt.opportunityRef,
+        network_calls: 0,
+      },
+      evidence: outcome.review_refs,
+      actions: [{ name: "rebuild", command: "radar edition build" }],
+      exitCode: 0,
+    };
+  }
+  return {
+    command: "radar.judgment.accept",
+    status: "partial",
+    summary: `Suggestion handed back to the original ${outcome.surface} flow; no business mutation was executed by the judgment module.`,
+    facts: { executed: false, surface: outcome.surface, network_calls: 0 },
+    data: { reason: outcome.reason, handoff: outcome.handoff.commands },
+    actions: outcome.handoff.commands.map((command, i) => ({ name: `handoff-${i + 1}`, command })),
+    exitCode: 0,
+  };
+}
+
+export function judgmentEvidenceCommand(db: RadarDb, attemptKey: string | undefined): CommandResult {
+  if (!attemptKey) throw new JudgmentConsumerError("attempt_required", "judgment evidence requires --attempt <key>.");
+  const evidence = readingJudgmentEvidence(db, attemptKey);
+  return {
+    command: "radar.judgment.evidence",
+    status: "success",
+    summary: `Sanitized evidence for ${evidence.attempt.attempt_key} (${evidence.attempt.mode}, ${evidence.execution.status}); refs and digests only, zero network.`,
+    facts: { attempt_key: evidence.attempt.attempt_key, execution_status: evidence.execution.status, network_calls: 0 },
+    data: evidence as unknown as Record<string, unknown>,
+    exitCode: 0,
+  };
 }

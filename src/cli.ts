@@ -34,7 +34,8 @@ import { MarketStoreError } from "./market/repository.ts";
 import { MarketValidationError } from "./market/domain.ts";
 import { JudgmentConsumerError } from "./judgment/consumer.ts";
 import { JudgmentProjectionError } from "./judgment/projection.ts";
-import { judgmentEvaluateCommand, judgmentShowCommand, judgmentStatusCommand } from "./judgment/cli.ts";
+import { JudgmentAdoptionError } from "./judgment/evidence.ts";
+import { judgmentAcceptCommand, judgmentEvaluateCommand, judgmentEvidenceCommand, judgmentShowCommand, judgmentStatusCommand } from "./judgment/cli.ts";
 import { assignmentByRef, createAssignment, produceAssignment, rejectAssignment, submitAssignment } from "./pipeline/assignment.ts";
 import { decisionCommand, decisionCommandId } from "./decision/cli.ts";
 
@@ -160,7 +161,9 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
       if (sub === "status") return judgmentStatusCommand(db);
       if (sub === "evaluate") return judgmentEvaluateCommand(db, args.flags);
       if (sub === "show") return judgmentShowCommand(db, first(args, "attempt"));
-      throw new CliError("unknown_command", "usage: radar judgment status | evaluate --mode shadow|assist --transport fixture [--target edition|reading] | show --attempt <key>");
+      if (sub === "accept") return judgmentAcceptCommand(db, args.flags);
+      if (sub === "evidence") return judgmentEvidenceCommand(db, first(args, "attempt"));
+      throw new CliError("unknown_command", "usage: radar judgment status | evaluate --mode shadow|assist --transport fixture [--target edition|reading] | show --attempt <key> | accept --attempt <key> --candidate <id> --kind <kind> | evidence --attempt <key>");
     }
     case "profile":
       return profileCommand(sub, args, profiles);
@@ -677,7 +680,7 @@ function errorResult(command: string, err: unknown): CommandResult {
   if (err instanceof ProfileError || err instanceof FeedbackError) {
     return fail(command, err.code, err.message);
   }
-  if (err instanceof JudgmentConsumerError || err instanceof JudgmentProjectionError) {
+  if (err instanceof JudgmentConsumerError || err instanceof JudgmentProjectionError || err instanceof JudgmentAdoptionError) {
     return fail(command, err.code, err.message);
   }
   if (err instanceof ConfigError) {
@@ -812,6 +815,10 @@ Advisory reading judgments (radar-reading-judgment-v1; default OFF, exploratory)
     Explicit opt-in only; shadow compares against the baseline order, assist adds advisory
     suggestions. Offline fixture transport only; suggestions never rewrite canonical state.
   judgment show --attempt <key>      Zero-network replay of stored judgment evidence
+  judgment accept --attempt <key> --candidate <id> --kind saved|used|dismissed|not_relevant|too_risky|already_seen
+    Adopt through the ORIGINAL feedback flow after freshness/permission re-checks; stale or
+    permission-revoked suggestions are rejected; reading-list suggestions hand back to their surface
+  judgment evidence --attempt <key>  Sanitized evidence view (refs, digests, review state; zero network)
 
 Diagnostics:
   doctor                           Probe firecrawl / agent-reach / cookie env / playwright / schedule
