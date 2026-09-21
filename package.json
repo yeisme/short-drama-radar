@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@yeisme/judgment-sdk": "./vendor/yeisme-judgment-sdk-0.1.0-review2.tgz",
-    "drizzle-orm": "^0.44.2",
+    "drizzle-orm": "^0.45.3",
     "playwright": "^1.63.0",
     "postgres": "^3.4.5"
   },
