@@ -32,6 +32,9 @@ import { join } from "node:path";
 import { marketCommand } from "./market/cli.ts";
 import { MarketStoreError } from "./market/repository.ts";
 import { MarketValidationError } from "./market/domain.ts";
+import { JudgmentConsumerError } from "./judgment/consumer.ts";
+import { JudgmentProjectionError } from "./judgment/projection.ts";
+import { judgmentEvaluateCommand, judgmentShowCommand, judgmentStatusCommand } from "./judgment/cli.ts";
 import { assignmentByRef, createAssignment, produceAssignment, rejectAssignment, submitAssignment } from "./pipeline/assignment.ts";
 import { decisionCommand, decisionCommandId } from "./decision/cli.ts";
 
@@ -150,6 +153,14 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
       // Long market builds stream staged events; reads render normally.
       const events = args.mode === "events" ? new EventWriter(`market-${new Date().toISOString()}`) : undefined;
       return marketCommand(args.command, args.flags, db, events);
+    }
+    case "judgment": {
+      // Optional advisory reading judgments (radar-reading-judgment-v1).
+      // Default off; evaluate requires an explicit --mode shadow|assist.
+      if (sub === "status") return judgmentStatusCommand(db);
+      if (sub === "evaluate") return judgmentEvaluateCommand(db, args.flags);
+      if (sub === "show") return judgmentShowCommand(db, first(args, "attempt"));
+      throw new CliError("unknown_command", "usage: radar judgment status | evaluate --mode shadow|assist --transport fixture [--target edition|reading] | show --attempt <key>");
     }
     case "profile":
       return profileCommand(sub, args, profiles);
@@ -666,6 +677,9 @@ function errorResult(command: string, err: unknown): CommandResult {
   if (err instanceof ProfileError || err instanceof FeedbackError) {
     return fail(command, err.code, err.message);
   }
+  if (err instanceof JudgmentConsumerError || err instanceof JudgmentProjectionError) {
+    return fail(command, err.code, err.message);
+  }
   if (err instanceof ConfigError) {
     return fail(command, "config_invalid", err.message);
   }
@@ -790,6 +804,14 @@ Market foundation (local only):
   assignment submit --assignment <ref> --auctra-path <project> [--auctra-bin <bin>]
   assignment produce --assignment <ref> --scaena-path <project> [--auctra-bin <bin>] [--scaena-bin <bin>]
   assignment reject --assignment <ref> --kind too_risky|not_relevant [--key <key>]
+
+Advisory reading judgments (radar-reading-judgment-v1; default OFF, exploratory):
+  judgment status                    Show modes, transports and stored attempts; zero model calls
+  judgment evaluate --mode shadow|assist --transport fixture [--target edition|reading]
+    [--edition <ref>] [--language zh-Hans|zh-Hant] [--profile <ref>] [--fresh] [--scenario <fixture scenario>]
+    Explicit opt-in only; shadow compares against the baseline order, assist adds advisory
+    suggestions. Offline fixture transport only; suggestions never rewrite canonical state.
+  judgment show --attempt <key>      Zero-network replay of stored judgment evidence
 
 Diagnostics:
   doctor                           Probe firecrawl / agent-reach / cookie env / playwright / schedule

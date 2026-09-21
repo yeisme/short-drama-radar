@@ -368,3 +368,12 @@ export const marketTitleTranslations = sqliteTable("market_title_translations", 
   key: text("key").notNull().unique(), requestDigest: text("request_digest").notNull(),
   payload: text("payload", { mode: "json" }).$type<import("../market/translation.ts").TitleTranslation>().notNull(),
 }, t => [primaryKey({ columns: [t.workRef, t.targetLocale, t.revision] })]);
+
+export const readingJudgments = sqliteTable("reading_judgments", {
+  attemptKey: text("attempt_key").primaryKey(),
+  requestId: text("request_id").notNull(),
+  attemptId: text("attempt_id").notNull(),
+  target: text("target").notNull(),
+  createdAt: text("created_at").notNull(),
+  payload: text("payload", { mode: "json" }).$type<import("../judgment/consumer.ts").ReadingJudgmentRecord>().notNull(),
+});

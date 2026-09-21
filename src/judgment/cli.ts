@@ -1,0 +1,190 @@
+import type { RadarDb } from "../db/client.ts";
+import type { CommandResult } from "../output/envelope.ts";
+import type { ChineseLocale } from "../market/translation.ts";
+import { JudgmentConsumerError, evaluateReadingJudgment, listReadingJudgmentKeys, parseJudgmentMode, showReadingJudgment, type JudgmentMode, type ReadingJudgmentRecord } from "./consumer.ts";
+import { policyRef, questionSetRef } from "./questionset.ts";
+import { FIXTURE_TRANSPORT_NAME, createFixtureTransport, FIXTURE_SCENARIOS, type FixtureScenario } from "./transport.ts";
+
+// CLI surface for the optional reading-judgment consumer. Every command is
+// local; `evaluate` is the only one that can reach a transport and it
+// requires an explicit shadow/assist opt-in. Default everywhere is off.
+
+export function judgmentStatusCommand(db: RadarDb): CommandResult {
+  const attempts = listReadingJudgmentKeys(db, 5);
+  return {
+    command: "radar.judgment.status",
+    status: "success",
+    summary: `Reading judgment is OFF by default (exploratory; explicit opt-in required); ${attempts.length} stored attempt(s).`,
+    facts: {
+      default_mode: "off",
+      readiness: "exploratory",
+      wired_transports: [FIXTURE_TRANSPORT_NAME],
+      model_calls_this_command: 0,
+      stored_attempts: attempts.length,
+    },
+    data: {
+      question_set: questionSetRef(),
+      policy: policyRef(),
+      modes: ["off (default)", "shadow (comparison only; no adoption)", "assist (advisory suggestions; adoption still gated)"],
+      note: "Public SDK HTTP/stdio transports attach through the injected transport seam once the SDK package ships; nothing auto-enables them.",
+    },
+    actions: [{ name: "evaluate", command: "radar judgment evaluate --target edition --mode assist --transport fixture" }],
+    exitCode: 0,
+  };
+}
+
+export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, string[]>): Promise<CommandResult> {
+  const value = (name: string): string => {
+    const values = flags.get(name);
+    if (!values || values.length !== 1 || values[0] === "true" || values[0] === "") {
+      throw new JudgmentConsumerError("value_required", "Provide one value for --" + name + ".");
+    }
+    return values[0];
+  };
+  for (const key of flags.keys()) {
+    if (!["mode", "target", "transport", "edition", "language", "profile", "fresh", "scenario"].includes(key)) {
+      throw new JudgmentConsumerError("flag_invalid", "Unsupported judgment flag.");
+    }
+  }
+  const rawMode = flags.has("mode") ? value("mode") : undefined;
+  const mode = parseJudgmentMode(rawMode);
+  if (mode !== "shadow" && mode !== "assist") {
+    throw new JudgmentConsumerError(
+      "mode_required",
+      "Judgment is off by default; pass --mode shadow (comparison only) or --mode assist (advisory suggestions) to opt in explicitly.",
+    );
+  }
+  const transportName = flags.has("transport") ? value("transport") : FIXTURE_TRANSPORT_NAME;
+  if (transportName !== FIXTURE_TRANSPORT_NAME && transportName !== "fixture") {
+    throw new JudgmentConsumerError(
+      "transport_unavailable",
+      `Only the offline '${FIXTURE_TRANSPORT_NAME}' transport is wired; HTTP/stdio adapters arrive with the public SDK package and are never enabled implicitly.`,
+    );
+  }
+  let scenario: FixtureScenario = "answered";
+  if (flags.has("scenario")) {
+    const raw = value("scenario");
+    if (!FIXTURE_SCENARIOS.includes(raw as FixtureScenario)) {
+      throw new JudgmentConsumerError("scenario_invalid", `--scenario must be one of ${FIXTURE_SCENARIOS.join("|")} (fixture transport only).`);
+    }
+    scenario = raw as FixtureScenario;
+  }
+  const targetKind = flags.has("target") ? value("target") : "edition";
+  if (targetKind !== "edition" && targetKind !== "reading") {
+    throw new JudgmentConsumerError("target_invalid", "--target must be edition or reading.");
+  }
+  const language = flags.has("language") ? value("language") : "zh-Hans";
+  if (language !== "zh-Hans" && language !== "zh-Hant") {
+    throw new JudgmentConsumerError("language_invalid", "--language must be zh-Hans or zh-Hant.");
+  }
+  if (flags.has("fresh") && flags.get("fresh")?.join() !== "true") {
+    throw new JudgmentConsumerError("flag_invalid", "Use --fresh without a value.");
+  }
+
+  const transport = createFixtureTransport({ scenario });
+  const outcome = await evaluateReadingJudgment(db, {
+    mode,
+    transport,
+    target: targetKind === "edition"
+      ? { kind: "edition", ...(flags.has("edition") ? { editionRef: value("edition") } : {}), ...(flags.has("profile") ? { profileRef: value("profile") } : {}) }
+      : { kind: "reading", language: language as ChineseLocale },
+    fresh: flags.has("fresh"),
+  });
+  if (outcome.outcome === "off") {
+    return {
+      command: "radar.judgment.evaluate",
+      status: "success",
+      summary: "Judgment mode is off; nothing was projected, called or written.",
+      facts: { mode: "off", transport_calls: 0 },
+      exitCode: 0,
+    };
+  }
+  const record = outcome.record!;
+  const suggestionCount = record.suggestions.length;
+  const adoptable = record.suggestions.filter((s) => s.adoptable).length;
+  const summary = outcome.reused
+    ? `Replayed stored judgment ${record.attempt_key} with zero transport calls (${record.execution_status}).`
+    : record.execution_status === "succeeded" || record.execution_status === "partial"
+      ? `Judgment attempt ${record.attempt_key} (${record.mode}, ${record.execution_status}) produced ${suggestionCount} advisory suggestion(s), ${adoptable} adoptable; original flow unchanged.`
+      : `Judgment attempt ${record.attempt_key} ended '${record.execution_status}'${record.error ? ` (${record.error.code}, ${record.error.retry_class})` : ""}; original flow unchanged.`;
+  return {
+    command: "radar.judgment.evaluate",
+    status: record.execution_status === "succeeded" ? "success" : "partial",
+    summary,
+    facts: {
+      mode: record.mode,
+      execution_status: record.execution_status,
+      attempt_key: record.attempt_key,
+      reused: outcome.reused,
+      transport_evaluate_calls: outcome.transport_evaluate_calls,
+      transport_describe_calls: transport.calls.describe,
+      suggestions: suggestionCount,
+      adoptable,
+      advisory_only: true,
+    },
+    evidence: [`attempt_key=${record.attempt_key}`, `input_digest=${record.input_digest}`],
+    data: { record: sanitizeForOutput(record), transport_calls: transport.calls },
+    actions: [{ name: "show", command: `radar judgment show --attempt ${record.attempt_key}` }],
+    exitCode: 0,
+  };
+}
+
+export function judgmentShowCommand(db: RadarDb, attemptKey: string | undefined): CommandResult {
+  if (!attemptKey) throw new JudgmentConsumerError("attempt_required", "judgment show requires --attempt <key>.");
+  const record = showReadingJudgment(db, attemptKey);
+  if (!record) throw new JudgmentConsumerError("attempt_not_found", `No stored judgment attempt '${attemptKey}'.`);
+  return {
+    command: "radar.judgment.show",
+    status: "success",
+    summary: `Judgment ${record.attempt_key} (${record.mode}, ${record.execution_status}) replayed with zero network calls.`,
+    facts: {
+      attempt_key: record.attempt_key,
+      execution_status: record.execution_status,
+      network_calls: 0,
+      suggestions: record.suggestions.length,
+      advisory_only: true,
+    },
+    evidence: [`attempt_key=${record.attempt_key}`, `input_digest=${record.input_digest}`],
+    data: sanitizeForOutput(record),
+    actions: record.suggestions.filter((s) => s.adoptable && s.binding_kind === "edition_entry").slice(0, 3)
+      .map((s) => ({ name: "review", command: `radar feedback add --opportunity ${s.ref} --kind <kind>` })),
+    exitCode: 0,
+  };
+}
+
+// Records shown through the CLI never carry inline source texts — only
+// digests, bindings and sanitized answers.
+function sanitizeForOutput(record: ReadingJudgmentRecord): Record<string, unknown> {
+  return JSON.parse(JSON.stringify({
+    spec: record.spec,
+    attempt_key: record.attempt_key,
+    request_id: record.request_id,
+    attempt_id: record.attempt_id,
+    mode: record.mode,
+    target: record.target,
+    created_at: record.created_at,
+    question_set: record.question_set,
+    policy: record.policy,
+    model: record.model,
+    input_digest: record.input_digest,
+    bindings: {
+      authorization: record.bindings.authorization,
+      edition_digest: record.bindings.edition_digest ?? null,
+      candidates: record.bindings.candidates.map((c) => ({
+        candidate_id: c.candidate_id,
+        binding: c.binding,
+        deterministic: c.deterministic,
+      })),
+    },
+    execution_status: record.execution_status,
+    items: record.items,
+    suggestions: record.suggestions,
+    baseline: record.baseline,
+    usage: record.usage,
+    latency_ms: record.latency_ms,
+    provider_request_id: record.provider_request_id,
+    error: record.error,
+    limitations: record.limitations,
+    accepted: record.accepted,
+  })) as Record<string, unknown>;
+}

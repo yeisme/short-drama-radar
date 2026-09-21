@@ -310,6 +310,14 @@ CREATE TABLE IF NOT EXISTS market_sync_state (
   rows_synced INTEGER NOT NULL DEFAULT 0,
   last_synced_at TEXT NOT NULL DEFAULT ''
 );
+CREATE TABLE IF NOT EXISTS reading_judgments (
+  attempt_key TEXT PRIMARY KEY NOT NULL,
+  request_id TEXT NOT NULL,
+  attempt_id TEXT NOT NULL,
+  target TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  payload TEXT NOT NULL
+);
 `);
 	ensureMorningEditionEntryColumns(sqlite);
 	ensureDailyItemColumns(sqlite);

@@ -134,6 +134,7 @@ export const MARKET_SYNC_EXCLUDED_TABLES = [
   "opportunity_reviews", "radar_assignments", "runs",
   "raw_snapshots", "daily_items", "input_requests", "market_sync_state",
   "market_work_gate_decisions", "market_work_review_batch_receipts", "market_observation_quality",
+  "reading_judgments",
 ] as const;
 
 const SQLITE_TABLES: Record<string, SQLiteTable> = {
