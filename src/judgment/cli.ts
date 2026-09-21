@@ -5,6 +5,7 @@ import { JudgmentConsumerError, evaluateReadingJudgment, listReadingJudgmentKeys
 import { policyRef, questionSetRef } from "./questionset.ts";
 import { FIXTURE_TRANSPORT_NAME, createFixtureTransport, FIXTURE_SCENARIOS, type FixtureScenario } from "./transport.ts";
 import { acceptReadingSuggestion, readingJudgmentEvidence } from "./evidence.ts";
+import { READING_JUDGMENT_CALIBRATION } from "./calibration.ts";
 
 // CLI surface for the optional reading-judgment consumer. Every command is
 // local; `evaluate` is the only one that can reach a transport and it
@@ -27,6 +28,7 @@ export function judgmentStatusCommand(db: RadarDb): CommandResult {
       question_set: questionSetRef(),
       policy: policyRef(),
       modes: ["off (default)", "shadow (comparison only; no adoption)", "assist (advisory suggestions; adoption still gated)"],
+      calibration: READING_JUDGMENT_CALIBRATION,
       note: "Public SDK HTTP/stdio transports attach through the injected transport seam once the SDK package ships; nothing auto-enables them.",
     },
     actions: [{ name: "evaluate", command: "radar judgment evaluate --target edition --mode assist --transport fixture" }],
