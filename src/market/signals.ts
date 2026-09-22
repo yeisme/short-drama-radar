@@ -474,13 +474,24 @@ export function analyzeMarket(db: RadarDb, start: string, end: string) {
         touchedTopics.set(topic, list);
       }
     }
+    // The claim subject is the topic across all history before the window
+    // end, not only this window: regions observed earlier still form the
+    // two evidenced observation sets the claim is about. The identical
+    // full-history query used to run once PER touched topic inside this
+    // write transaction; load it once and bucket per topic (order from the
+    // orderBy is preserved per bucket).
+    const historyByTopic = new Map<string, MarketObservation[]>();
+    for (const o of tx.select().from(marketObservations).where(lt(marketObservations.observedAt, until))
+      .orderBy(marketObservations.observedAt, marketObservations.ref).all()
+      .map(row => row.payload).filter(o => /^[A-Z]{2}$/.test(o.market))) {
+      for (const topic of o.topics) {
+        const list = historyByTopic.get(topic) ?? [];
+        list.push(o);
+        historyByTopic.set(topic, list);
+      }
+    }
     for (const [topic, windowObservations] of [...touchedTopics.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-      // The claim subject is the topic across all history before the window
-      // end, not only this window: regions observed earlier still form the
-      // two evidenced observation sets the claim is about.
-      const history = tx.select().from(marketObservations).where(lt(marketObservations.observedAt, until))
-        .orderBy(marketObservations.observedAt, marketObservations.ref).all()
-        .map(row => row.payload).filter(o => /^[A-Z]{2}$/.test(o.market) && o.topics.includes(topic));
+      const history = historyByTopic.get(topic) ?? [];
       const markets = new Map<string, { observations: MarketObservation[]; sources: Map<string, NonNullable<ReturnType<typeof sourceByRef>>> }>();
       for (const o of history) {
         let side = markets.get(o.market);

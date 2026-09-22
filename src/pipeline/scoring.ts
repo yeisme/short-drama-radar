@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { dailyItems } from "../db/schema.ts";
 import { tagContent } from "./tags.ts";
@@ -91,14 +91,16 @@ export async function scoreDay(db: RadarDb, date: string): Promise<ScoreSummary>
 // Topic frequency: occurrences in the last 7 days STRICTLY BEFORE the scoring
 // day. Excluding today keeps the denominator independent of whether today's
 // rows were already tagged by a previous score run, so re-running score on
-// the same day is deterministic.
+// the same day is deterministic. The window is bounded in SQL — this used to
+// load the platform's entire daily_items history and filter in JS per score
+// run. (YYYY-MM-DD text compares lexicographically, and the gte bound also
+// excludes the empty-string sentinel.)
 function countTopicFrequencies(db: RadarDb, platform: string, date: string): Map<string, number> {
   const counts = new Map<string, number>();
   const recent = db.select().from(dailyItems)
-    .where(and(eq(dailyItems.platform, platform), ne(dailyItems.date, "")))
+    .where(and(eq(dailyItems.platform, platform), gte(dailyItems.date, shiftDate(date, -7)), lt(dailyItems.date, date)))
     .orderBy(desc(dailyItems.date))
-    .all()
-    .filter((r) => r.date < date && r.date >= shiftDate(date, -7));
+    .all();
   for (const row of recent) {
     try {
       const tags = JSON.parse(row.tagsJson) as { topics?: string[] };
