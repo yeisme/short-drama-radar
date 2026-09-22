@@ -477,6 +477,9 @@ async function scoreCommand(date: string | undefined, db: RadarDb, cfg: RadarCon
 }
 function cardCommand(date: string | undefined, db: RadarDb): CommandResult {
   const day = date ?? new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(new Date(`${day}T12:00:00Z`).getTime())) {
+    throw new CliError("invalid_date", `date must be YYYY-MM-DD, got '${day}'`);
+  }
   const card = buildCard(db, day);
   const id = `card-${new Date().toISOString()}`;
   recordRun(db, id, "card", card.sourceStatus.degraded ? "degraded" : "ok", { items: card.top.douyin.length + card.top.xiaohongshu.length });
@@ -499,7 +502,8 @@ function runsCommand(db: RadarDb): CommandResult {
 
 function healthCommand(windowArg: string | undefined, db: RadarDb, cfg: RadarConfig): CommandResult {
   const windowDays = windowArg ? Number(windowArg) : 14;
-  const requestedDays = Number.isFinite(windowDays) ? windowDays : 14;
+  if (!Number.isFinite(windowDays) || windowDays < 1) throw new CliError("window_invalid", "health window-days must be a positive number");
+  const requestedDays = windowDays;
   const report = buildHealthReport(db, requestedDays, new Date(), cfg.accountsPath);
   const status = report.daysWithAttempt < requestedDays || report.degradedDays > 0 ? "partial" : "success";
   return {
@@ -676,7 +680,7 @@ class CliError extends Error {
 }
 
 function errorResult(command: string, err: unknown): CommandResult {
-  if (err instanceof MarketStoreError || err instanceof MarketValidationError) {
+  if (err instanceof ActionError || err instanceof MarketStoreError || err instanceof MarketValidationError) {
     return fail(command, err.code, err.message);
   }
   if (err instanceof ProfileError || err instanceof FeedbackError) {

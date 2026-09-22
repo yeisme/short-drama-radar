@@ -138,11 +138,20 @@ export async function collectAction(deps: AppDeps, events?: EventWriter): Promis
   };
 }
 
+// Day keys are strict calendar days (YYYY-MM-DD). A malformed date used to
+// flow into score/cluster/edition as an empty-day query and come back
+// "honestly empty"; the CLI contract fails closed with a named error instead.
+function requireDayKey(day: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(new Date(`${day}T12:00:00Z`).getTime())) {
+    throw new ActionError("invalid_date", `date must be YYYY-MM-DD, got '${day}'`);
+  }
+  return day;
+}
+
 // Layer 3 manual CSV import. Runs the file through the shared collect()
 // pipeline so dedupe (authority order), raw receipts and metric deltas behave
 // exactly like every other layer; records its own kind="import" run receipt.
-export async function importAction(deps: AppDeps, csvPath: string, dateArg?: string, inputRunRef?: string): Promise<CommandResult> {
-  const now = dateArg ? new Date(`${dateArg}T12:00:00Z`) : new Date();
+export async function importAction(deps: AppDeps, csvPath: string, dateArg?: string, inputRunRef?: string): Promise<CommandResult> {  const now = dateArg ? new Date(`${dateArg}T12:00:00Z`) : new Date();
   if (dateArg && Number.isNaN(now.getTime())) {
     throw new ActionError("invalid_date", `--date must be YYYY-MM-DD, got '${dateArg}'`);
   }
@@ -166,7 +175,7 @@ export async function importAction(deps: AppDeps, csvPath: string, dateArg?: str
 }
 
 export async function scoreAction(deps: AppDeps, date?: string): Promise<CommandResult> {
-  const day = date ?? new Date().toISOString().slice(0, 10);
+  const day = requireDayKey(date ?? new Date().toISOString().slice(0, 10));
   const summary = await scoreDay(deps.db, day);
   // Deterministic run id over the resulting rows: same-day re-scoring of
   // unchanged data (scoreDay is deterministic) reuses one receipt instead of
@@ -191,7 +200,7 @@ export async function scoreAction(deps: AppDeps, date?: string): Promise<Command
 }
 
 export function clusterBuildAction(deps: AppDeps, date?: string): CommandResult {
-  const day = date ?? new Date().toISOString().slice(0, 10);
+  const day = requireDayKey(date ?? new Date().toISOString().slice(0, 10));
   const outcome = persistOpportunities(deps.db, day);
   // Deterministic per-day outcome: identical rebuilds reuse one receipt.
   const id = `cluster-${day}-${createHash("sha256").update(JSON.stringify(outcome)).digest("hex").slice(0, 8)}`;
@@ -209,14 +218,14 @@ export function clusterBuildAction(deps: AppDeps, date?: string): CommandResult 
 }
 
 export function editionBuildAction(deps: AppDeps, input: { date?: string; profileRef?: string; limit?: number; minimumFit?: number }): CommandResult {
-  const date = input.date ?? new Date().toISOString().slice(0, 10);
+  const date = requireDayKey(input.date ?? new Date().toISOString().slice(0, 10));
   const profile = deps.profiles.show(input.profileRef);
   const { edition, excluded, reused } = buildEdition(deps.db, profile, date, input.limit ?? DEFAULT_LIMIT, new Date(), input.minimumFit !== undefined ? { minimumFit: input.minimumFit } : {});
   return {
     command: "radar.edition.build",
     status: edition.status === "ready" ? "success" : "partial",
-    summary: edition.status === "empty"
-      ? `Edition for ${date} is honestly empty: ${edition.limitations.join("; ")}`
+    summary: edition.entries.length === 0
+      ? `Edition for ${date} is honestly empty (${edition.status}): ${edition.limitations.join("; ")}`
       : `Edition ${edition.editionRef} (${edition.status}) with ${edition.entries.length} entries for ${date}.`,
     facts: {
       edition_ref: edition.editionRef,

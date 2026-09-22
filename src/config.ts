@@ -123,8 +123,11 @@ export function loadConfig(): RadarConfig {
   // Minimal type validation: wrong-typed values used to surface much later
   // as cryptic crashes (e.g. schedule.collect1 breaking time.match()).
   for (const key of ["collect1", "collect2", "score", "freeze", "send"] as const) {
-    if (!/^\d{1,2}:\d{2}$/.test(merged.schedule[key])) {
-      throw new ConfigError(`config schedule.${key} must be HH:MM, got '${merged.schedule[key]}'`);
+    const [h, m] = merged.schedule[key].split(":").map(Number) as [number, number];
+    // Range matters: "25:00" passes the shape regex but emits an unparseable
+    // OnCalendar the moment the unit is installed.
+    if (!/^\d{1,2}:\d{2}$/.test(merged.schedule[key]) || h > 23 || m > 59) {
+      throw new ConfigError(`config schedule.${key} must be HH:MM (00:00-23:59), got '${merged.schedule[key]}'`);
     }
   }
   for (const key of ["firecrawlBaseUrl", "agentReachBin", "dbPath", "accountsPath"] as const) {
