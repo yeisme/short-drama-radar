@@ -49,26 +49,40 @@ describe("secret store bridge (Layer 2 unlock)", () => {
 describe("probeLayer2 readiness (Layer 2 unlock)", () => {
   test("every missing prerequisite produces a named reason; ready only when all present", async () => {
     const home = mkdtempSync(join(tmpdir(), "radar-l2-"));
+    // Restore afterwards: leaking RADAR_HOME shifts every later
+    // env-sensitive golden (schedule unit generation embeds it).
+    const saved = {
+      home: process.env.RADAR_HOME,
+      accounts: process.env.RADAR_ACCOUNTS_PATH,
+      secrets: process.env.RADAR_SECRETS_DIR,
+    };
     process.env.RADAR_HOME = home;
     process.env.RADAR_ACCOUNTS_PATH = join(home, "none.json");
     process.env.RADAR_SECRETS_DIR = join(home, "secrets");
-    const cfg = loadConfig();
-    const empty = await probeLayer2(cfg);
-    expect(empty.ok).toBe(false);
-    expect(empty.reasons.some((r) => r.includes("account pool"))).toBe(true);
+    try {
+      const cfg = loadConfig();
+      const empty = await probeLayer2(cfg);
+      expect(empty.ok).toBe(false);
+      expect(empty.reasons.some((r) => r.includes("account pool"))).toBe(true);
 
-    // Full provisioning except the chromium executable (never downloaded in
-    // test environments): the reason must name it, not fake readiness.
-    mkdirSync(join(home, "secrets"), { recursive: true });
-    writeFileSync(join(home, "accounts.json"), JSON.stringify({
-      version: 1,
-      accounts: [{ id: "xhs-01", platform: "xiaohongshu", handleMasked: "x***1", credentialRef: "xhs-01", status: "active", dailyUsed: 0 }],
-    }));
-    writeFileSync(join(home, "secrets", "xhs-01.json"), JSON.stringify({ cookies: [], origins: [] }), { mode: 0o600 });
-    const almost = await probeLayer2(cfg);
-    expect(almost.ok).toBe(false);
-    expect(almost.reasons.some((r) => r.includes("chromium executable not installed"))).toBe(true);
-    // No credential reason remains: the descriptor + secret file are complete.
-    expect(almost.reasons.some((r) => r.includes("credential"))).toBe(false);
+      // Full provisioning except the chromium executable (never downloaded in
+      // test environments): the reason must name it, not fake readiness.
+      mkdirSync(join(home, "secrets"), { recursive: true });
+      writeFileSync(join(home, "accounts.json"), JSON.stringify({
+        version: 1,
+        accounts: [{ id: "xhs-01", platform: "xiaohongshu", handleMasked: "x***1", credentialRef: "xhs-01", status: "active", dailyUsed: 0 }],
+      }));
+      writeFileSync(join(home, "secrets", "xhs-01.json"), JSON.stringify({ cookies: [], origins: [] }), { mode: 0o600 });
+      const almost = await probeLayer2(cfg);
+      expect(almost.ok).toBe(false);
+      expect(almost.reasons.some((r) => r.includes("chromium executable not installed"))).toBe(true);
+      // No credential reason remains: the descriptor + secret file are complete.
+      expect(almost.reasons.some((r) => r.includes("credential"))).toBe(false);
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
   });
 });

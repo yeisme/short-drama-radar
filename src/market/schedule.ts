@@ -1,4 +1,5 @@
 import type { SourceReadiness } from "./domain.ts";
+import { propagatedScheduleEnv, radarHomeEnvironmentLine, systemdEnvironmentLine, unitRadarHome } from "../schedule-plan.ts";
 
 // Owner schedule description for the market pipeline. Unit generation is
 // pure; installing/enabling timers is an explicit owner action and nothing
@@ -41,9 +42,11 @@ function onCalendar(time: string): string {
 // source passes qualification and the owner CLI exposes it; generating an
 // observe timer before that would schedule a command that must refuse to run.
 export function buildMarketScheduleUnits(execStart: string): MarketScheduleUnits {
+  const radarHome = unitRadarHome();
   const env = [
-    `Environment=RADAR_HOME=%h/.short-drama-radar`,
-    `Environment="PATH=${(process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin").replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%")}"`,
+    radarHomeEnvironmentLine(radarHome),
+    systemdEnvironmentLine("PATH", process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin"),
+    ...propagatedScheduleEnv(),
   ].join("\n");
   // Same flock discipline as the legacy units: market services share the
   // radar SQLite file and serialize on the existing lock instead of fighting.
@@ -53,7 +56,7 @@ Description=${description}${after.length > 0 ? `\n${after.map((u) => `After=${u}
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flock -w 600 %h/.short-drama-radar/radar.lock ${execStart} ${command} --json
+ExecStart=/usr/bin/flock -w 600 ${radarHome}/radar.lock ${execStart} ${command} --json
 ${env}
 # Output goes to the journal; the envelope carries no secrets.
 NoNewPrivileges=yes

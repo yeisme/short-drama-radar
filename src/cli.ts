@@ -631,7 +631,7 @@ function schedulePack(backend: ScheduleBackend, cfg: RadarConfig, execStart: str
   target: string;
   next: string[];
 } {
-  if (backend === "launchd") return { units: buildLaunchdUnits(cfg, execStart), target: launchdUserDir(home), next: LAUNCHD_NEXT_STEPS };
+  if (backend === "launchd") return { units: buildLaunchdUnits(cfg, execStart, home), target: launchdUserDir(home), next: LAUNCHD_NEXT_STEPS };
   if (backend === "windows") return { units: buildWindowsUnits(cfg, execStart), target: windowsTaskDir(home), next: WINDOWS_NEXT_STEPS };
   return { units: buildScheduleUnits(cfg, execStart), target: systemdUserDir(home), next: SCHEDULE_NEXT_STEPS };
 }

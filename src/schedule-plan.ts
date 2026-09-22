@@ -1,8 +1,41 @@
+import { join } from "node:path";
 import type { RadarConfig } from "./config.ts";
 
 // Keep in sync with MARKET_SCHEDULE_TIMES in market/schedule.ts without
 // importing that module (it already imports the systemd helpers).
 const MARKET_WALL_CLOCK = { analyze: "08:50", brief: "09:00" } as const;
+
+// The RADAR_HOME pinned into generated schedule units. `%h` keeps the
+// systemd default relocatable; an explicitly configured home is embedded
+// absolutely so scheduled services and interactive commands hit the same
+// database, lock and logs (a divergent home silently splits the store).
+// launchd/Windows get no specifier: pass home and the result is absolute.
+export function unitRadarHome(home?: string): string {
+  const explicit = process.env.RADAR_HOME ?? "";
+  if (explicit.length > 0) return explicit;
+  return home ? join(home, ".short-drama-radar") : "%h/.short-drama-radar";
+}
+
+// Values needing no escaping keep the bare form (RADAR_HOME=%h/... must stay
+// a specifier, not a literal); everything else is quoted and escaped.
+export function systemdEnvironmentLine(name: string, value: string): string {
+  const escaped = value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%");
+  return `Environment="${name}=${escaped}"`;
+}
+
+// Documented env overrides (see the CLI help "Env:" block) propagate into
+// generated units when set; without them a scheduled collect/score/card runs
+// against the default database while interactive commands use the
+// configured one. Secrets (cookies, tokens) are never in this list.
+export function propagatedScheduleEnv(): string[] {
+  return ["FIRECRAWL_BASE_URL", "RADAR_DB_PATH", "RADAR_CONFIG_PATH", "RADAR_ACCOUNTS_PATH", "AGENT_REACH_BIN"]
+    .filter((name) => (process.env[name] ?? "").length > 0)
+    .map((name) => systemdEnvironmentLine(name, process.env[name]!));
+}
+
+export function radarHomeEnvironmentLine(radarHome: string): string {
+  return radarHome.includes("%") ? `Environment=RADAR_HOME=${radarHome}` : systemdEnvironmentLine("RADAR_HOME", radarHome);
+}
 
 export type ScheduleBackend = "systemd" | "launchd" | "windows";
 export type SessionRuntime = "grok" | "claude" | "both";

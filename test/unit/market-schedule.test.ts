@@ -21,13 +21,19 @@ describe("market schedule units (task 2.6)", () => {
   // generator change. Deterministic re-runs inside this describe stay
   // comparable; the ambient PATH is restored once it completes.
   const ambientPath = process.env.PATH;
+  const ambientHome = process.env.RADAR_HOME;
   let units: ReturnType<typeof buildMarketScheduleUnits>;
   beforeAll(() => {
     process.env.PATH = "/usr/local/bin:/usr/bin:/bin";
+    // Units embed an explicitly configured RADAR_HOME absolutely; pin it away
+    // so the default `%h` shape stays the one under snapshot test.
+    delete process.env.RADAR_HOME;
     units = buildMarketScheduleUnits(EXEC);
   });
   afterAll(() => {
     process.env.PATH = ambientPath;
+    if (ambientHome === undefined) delete process.env.RADAR_HOME;
+    else process.env.RADAR_HOME = ambientHome;
   });
 
   test("generates an independent market unit set; legacy timers are untouched", () => {
@@ -62,6 +68,21 @@ describe("market schedule units (task 2.6)", () => {
     expect(units["short-drama-radar-market-brief.timer"]).toContain("Persistent=true");
     // Deterministic generation: the owner can diff re-runs safely.
     expect(buildMarketScheduleUnits(EXEC)).toEqual(units);
+  });
+
+  test("custom RADAR_HOME propagates into market units (M3)", () => {
+    const savedHome = process.env.RADAR_HOME;
+    process.env.RADAR_HOME = "/srv/radar-home";
+    try {
+      const custom = buildMarketScheduleUnits(EXEC);
+      const analyze = custom["short-drama-radar-market-analyze.service"]!;
+      expect(analyze).toContain('Environment="RADAR_HOME=/srv/radar-home"');
+      expect(analyze).toContain("/usr/bin/flock -w 600 /srv/radar-home/radar.lock");
+      expect(analyze).not.toContain("%h/");
+    } finally {
+      if (savedHome === undefined) delete process.env.RADAR_HOME;
+      else process.env.RADAR_HOME = savedHome;
+    }
   });
 
   test("install guidance is honest: nothing is reported as already scheduled", () => {

@@ -9,20 +9,25 @@ import { buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir } from "../../s
 import { defaultConfig } from "../../src/config.ts";
 
 describe("schedule units (task: systemd wiring)", () => {
-  // Unit content embeds the ambient PATH, which is machine-specific: an
+  // Unit content embeds the ambient PATH and any documented env overrides
+  // (RADAR_HOME first among them), which are machine-specific: an
   // interactive shell can accumulate arbitrary directory names (e.g. temp
   // "*-token-usage" worktrees) that would trip the strict secret-leak regex
-  // without any generator change. Pin a clean PATH so the golden assertions
-  // are hermetic; real installs still embed the owner's runtime PATH. The
-  // ambient PATH is restored once the describe completes.
+  // without any generator change. Pin a clean environment so the golden
+  // assertions are hermetic; real installs still embed the owner's runtime
+  // values. The ambient environment is restored once the describe completes.
   const ambientPath = process.env.PATH;
+  const ambientHome = process.env.RADAR_HOME;
   let units: ReturnType<typeof buildScheduleUnits>;
   beforeAll(() => {
     process.env.PATH = "/usr/local/bin:/usr/bin:/bin";
+    delete process.env.RADAR_HOME;
     units = buildScheduleUnits(defaultConfig, "/usr/local/bin/bun /opt/radar/src/cli.ts");
   });
   afterAll(() => {
     process.env.PATH = ambientPath;
+    if (ambientHome === undefined) delete process.env.RADAR_HOME;
+    else process.env.RADAR_HOME = ambientHome;
   });
 
   test("collect timer wires both morning passes", () => {

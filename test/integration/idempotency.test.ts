@@ -13,6 +13,15 @@ import { persistOpportunities, loadOpportunities } from "../../src/pipeline/oppo
 import { clusterBuildAction, editionBuildAction, scoreAction, feedbackAddAction } from "../../src/app/actions.ts";
 import type { AppDeps } from "../../src/app/actions.ts";
 import { loadConfig } from "../../src/config.ts";
+import { afterAll } from "bun:test";
+
+// seedDeps points RADAR_HOME at a temp dir; restore it afterwards so the
+// leak cannot shift later env-sensitive goldens (schedule units embed it).
+const ambientRadarHome = process.env.RADAR_HOME;
+afterAll(() => {
+  if (ambientRadarHome === undefined) delete process.env.RADAR_HOME;
+  else process.env.RADAR_HOME = ambientRadarHome;
+});
 
 // F2: MCP-visible mutations must be idempotent. Identical inputs return the
 // existing receipt (audited as reuse); changed inputs create a new one.

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { RadarConfig } from "./config.ts";
-import { buildSchedulePlan, execSpecFromStart, parseHHMM, xmlEscape, type ExecSpec, type ScheduleJob } from "./schedule-plan.ts";
+import { buildSchedulePlan, execSpecFromStart, parseHHMM, unitRadarHome, xmlEscape, type ExecSpec, type ScheduleJob } from "./schedule-plan.ts";
 
 export interface LaunchdUnits {
   [fileName: string]: string;
@@ -10,11 +10,16 @@ export function launchdUserDir(home: string): string {
   return join(home, "Library", "LaunchAgents");
 }
 
-export function buildLaunchdUnits(cfg: RadarConfig, execStart: string): LaunchdUnits {
+// launchd never expands `~` or `%h` and StandardOutPath/EnvironmentVariables
+// must be absolute: a literal `~` path either fails to write logs or points
+// the scheduled job at a different database than interactive runs. The
+// caller's home (or an explicit RADAR_HOME) is embedded absolutely.
+export function buildLaunchdUnits(cfg: RadarConfig, execStart: string, home: string): LaunchdUnits {
   const plan = buildSchedulePlan(cfg);
   const exec = execSpecFromStart(execStart);
+  const radarHome = unitRadarHome(home);
   const units: LaunchdUnits = {};
-  for (const job of plan.pipeline) units[plistName(job.id)] = renderPlist(job, exec);
+  for (const job of plan.pipeline) units[plistName(job.id)] = renderPlist(job, exec, radarHome);
   return units;
 }
 
@@ -29,7 +34,7 @@ function plistName(id: string): string {
   return `com.yeisme.short-drama-radar.${id}.plist`;
 }
 
-function renderPlist(job: ScheduleJob, exec: ExecSpec): string {
+function renderPlist(job: ScheduleJob, exec: ExecSpec, radarHome: string): string {
   const label = `com.yeisme.short-drama-radar.${job.id}`;
   const args = [exec.program, exec.script, ...job.command.split(" "), "--json"].filter((a) => a.length > 0);
   const intervals = job.local_times.map((t) => {
@@ -55,23 +60,15 @@ ${intervals.join("\n")}
   <key>KeepAlive</key>
   <false/>
   <key>StandardOutPath</key>
-  <string>${xmlEscape(`${homeRadarLogs()}/${job.id}.out.log`)}</string>
+  <string>${xmlEscape(`${join(radarHome, "logs")}/${job.id}.out.log`)}</string>
   <key>StandardErrorPath</key>
-  <string>${xmlEscape(`${homeRadarLogs()}/${job.id}.err.log`)}</string>
+  <string>${xmlEscape(`${join(radarHome, "logs")}/${job.id}.err.log`)}</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>RADAR_HOME</key>
-    <string>${xmlEscape(`${homeRadar()}`)}</string>
+    <string>${xmlEscape(radarHome)}</string>
   </dict>
 </dict>
 </plist>
 `;
-}
-
-function homeRadar(): string {
-  return "~/.short-drama-radar";
-}
-
-function homeRadarLogs(): string {
-  return "~/.short-drama-radar/logs";
 }

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { RadarConfig } from "./config.ts";
+import { radarHomeEnvironmentLine, propagatedScheduleEnv, systemdEnvironmentLine, unitRadarHome } from "./schedule-plan.ts";
 
 // Systemd user scheduler wiring. Three oneshot services cover the daily
 // cycle: collect runs twice (spread deltas need two passes), score once, and
@@ -18,10 +19,11 @@ function onCalendar(time: string): string {
 }
 
 export function buildScheduleUnits(cfg: RadarConfig, execStart: string): ScheduleUnits {
+  const radarHome = unitRadarHome();
   const env = [
-    `Environment=RADAR_HOME=%h/.short-drama-radar`,
-    systemdEnvironment("PATH", process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin"),
-    ...(process.env.FIRECRAWL_BASE_URL ? [systemdEnvironment("FIRECRAWL_BASE_URL", process.env.FIRECRAWL_BASE_URL)] : []),
+    radarHomeEnvironmentLine(radarHome),
+    systemdEnvironmentLine("PATH", process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin"),
+    ...propagatedScheduleEnv(),
   ].join("\n");
 
   // All pipeline services serialize on one lock: after a suspend/resume the
@@ -34,7 +36,7 @@ Description=${description}${after.length > 0 ? `\n${after.map((u) => `After=${u}
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/flock -w 600 %h/.short-drama-radar/radar.lock ${execStart} ${command} --json
+ExecStart=/usr/bin/flock -w 600 ${radarHome}/radar.lock ${execStart} ${command} --json
 ${env}
 # Output goes to the journal; the envelope carries no secrets.
 NoNewPrivileges=yes
@@ -79,8 +81,3 @@ export type { ScheduleBackend, SchedulePlan, SessionRuntime } from "./schedule-p
 export { buildLaunchdUnits, launchdUserDir, LAUNCHD_NEXT_STEPS } from "./schedule-launchd.ts";
 export { buildWindowsUnits, windowsTaskDir, WINDOWS_NEXT_STEPS } from "./schedule-windows.ts";
 export { buildSessionPlan, sessionPlanActions } from "./schedule-session.ts";
-
-function systemdEnvironment(name: string, value: string): string {
-  const escaped = value.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("%", "%%");
-  return `Environment="${name}=${escaped}"`;
-}
