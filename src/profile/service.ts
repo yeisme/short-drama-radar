@@ -67,6 +67,11 @@ export class ProfileService {
     const outcome = validateProfile(candidate);
     if (!outcome.ok) throw new ProfileError("profile_invalid", outcome.problems.join("; "));
     const digest = profileDigest(candidate);
+    // A no-op set must not mint a revision: content-identical profiles share
+    // a digest, and an extra revision would inflate the canary
+    // profileAdjustment metric and mark live editions/assignments stale
+    // although nothing changed.
+    if (digest === current.digest) return current;
     const nextRevision = current.headRevision + 1;
     const now = new Date().toISOString();
     this.db.transaction((tx) => {
