@@ -72,6 +72,37 @@ describe("spreadValue metric policy", () => {
     expect(spreadValue("douyin", { digg_delta: 250, digg_count: 15000 })).toBe(250);
     expect(spreadValue("xiaohongshu", { like_delta: 120, liked_count: 1320, collected_count: 360, comment_count: 100 })).toBe(120);
   });
+  test("a (platform, day) group scores on one scale — mixed days never mix deltas with cumulative counters (H1)", () => {
+    // Two-pass items carry increments; single-pass items carry cumulative
+    // counters 10^3-10^4x larger. On a delta day the no-delta item
+    // contributed no observed increment (0), never its counter — the old
+    // per-item fallback let one absolute counter monopolize the normalizer
+    // and invert the day's spread ranking regardless of real velocity.
+    expect(spreadValue("douyin", { digg_count: 15_000_000 }, true)).toBe(0);
+    expect(spreadValue("douyin", { digg_delta: 250 }, true)).toBe(250);
+    expect(spreadValue("xiaohongshu", { liked_count: 1200, collected_count: 340 }, true)).toBe(0);
+    expect(spreadValue("xiaohongshu", { like_delta: 120 }, true)).toBe(120);
+    // A pure single-pass day keeps absolute totals for everyone.
+    expect(spreadValue("douyin", { digg_count: 15_000_000 }, false)).toBe(15_000_000);
+    expect(spreadValue("xiaohongshu", { liked_count: 1200, collected_count: 340 }, false)).toBe(1540);
+  });
+  test("scoreDay keeps a mixed douyin day on the increment scale (H1 regression)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "radar-h1-"));
+    const db = openDb(join(dir, "t.db"));
+    const seed = (contentId: string, metrics: Record<string, number>) => db.insert(dailyItems).values({
+      date: "2026-09-21", platform: "douyin", contentId, title: `复仇 ${contentId}`, url: `https://x/${contentId}`,
+      metricsJson: JSON.stringify(metrics), confidence: 80, updatedAt: "2026-09-21T08:30:00.000Z",
+    }).run();
+    seed("h1-delta", { digg_delta: 250 });
+    seed("single-pass", { digg_count: 15_000_000 });
+    await scoreDay(db, "2026-09-21");
+    const scored = db.select().from(dailyItems).all();
+    expect(scored).toHaveLength(2);
+    const byId = new Map(scored.map((r) => [r.contentId, r]));
+    // Equal non-spread components: the only score difference is the spread
+    // term, so the increment item must win, not the cumulative counter.
+    expect(byId.get("h1-delta")!.score).toBeGreaterThan(byId.get("single-pass")!.score);
+  });
   test("weights sum to 1", () => {
     expect(WEIGHTS.spread + WEIGHTS.topic + WEIGHTS.hook + WEIGHTS.emotion).toBe(1);
   });

@@ -22,20 +22,26 @@ export interface ScoreSummary {
   lowConfidence: number;
 }
 
-export function spreadValue(platform: string, metrics: Record<string, number>): number {
-  // Engagement deltas between passes when this observation produced any
-  // (per-item basis: mixing delta and absolute terms would add inconsistent
-  // scales); a single-pass observation falls back to absolute totals. The
-  // normalizer writes comment_count (not comments_count) — the previous
-  // misspelling silently dropped all comment engagement from the spread.
-  // Play counts are never fabricated.
-  if (platform === "douyin") {
-    return metrics.digg_delta ?? metrics.digg_count ?? metrics.like_count ?? 0;
-  }
-  const hasDelta = metrics.like_delta !== undefined || metrics.collect_delta !== undefined || metrics.comment_delta !== undefined;
-  if (hasDelta) {
+// Does this observation carry pass-to-pass engagement deltas?
+export function hasSpreadDelta(platform: string, metrics: Record<string, number>): boolean {
+  if (platform === "douyin") return metrics.digg_delta !== undefined;
+  return metrics.like_delta !== undefined || metrics.collect_delta !== undefined || metrics.comment_delta !== undefined;
+}
+
+// deltaDay is decided once per (platform, day) group by scoreDay: when any
+// observation carries deltas, the whole group compares increments — an item
+// without a delta contributed no observed increment (0), never its
+// cumulative counter, because absolute counters sit 10^3-10^4x above
+// increments and would monopolize the within-day normalizer. Only a pure
+// single-pass day falls back to absolute totals. The default keeps the
+// standalone per-item policy for direct callers. The normalizer writes
+// comment_count (not comments_count); play counts are never fabricated.
+export function spreadValue(platform: string, metrics: Record<string, number>, deltaDay = hasSpreadDelta(platform, metrics)): number {
+  if (deltaDay) {
+    if (platform === "douyin") return metrics.digg_delta ?? 0;
     return (metrics.like_delta ?? 0) + (metrics.collect_delta ?? 0) + (metrics.comment_delta ?? 0);
   }
+  if (platform === "douyin") return metrics.digg_count ?? metrics.like_count ?? 0;
   return (metrics.liked_count ?? 0) + (metrics.collected_count ?? 0) + (metrics.comment_count ?? 0);
 }
 
@@ -50,7 +56,9 @@ export async function scoreDay(db: RadarDb, date: string): Promise<ScoreSummary>
 
   const summary: ScoreSummary = { date, scored: 0, lowConfidence: 0 };
   for (const [platform, list] of byPlatform) {
-    const spreads = list.map((r) => spreadValue(platform, JSON.parse(r.metricsJson)));
+    const metricsList = list.map((r) => JSON.parse(r.metricsJson) as Record<string, number>);
+    const deltaDay = metricsList.some((m) => hasSpreadDelta(platform, m));
+    const spreads = metricsList.map((m) => spreadValue(platform, m, deltaDay));
     const topicCounts = countTopicFrequencies(db, platform, date);
     const maxSpread = Math.max(1, ...spreads.map(Math.abs));
 
