@@ -28,6 +28,15 @@ export const PROJECTION_LIMITS = {
   tag_list_max: 40,
 } as const;
 
+// The public SDK enforces a request's max_input_bytes over the FULL
+// canonical wire (envelope + inline text), while the projection seal bounds
+// inline content to max_input_bytes. The declared wire cap adds this fixed
+// envelope allowance (source digests, question prompts, candidate bindings,
+// model identity — measured ~5.5k units at a full 8-candidate projection)
+// so an in-budget projection is not rejected by its own limit; outliers
+// still fail honestly in the sdk-http bridge preflight.
+export const WIRE_ENVELOPE_HEADROOM_BYTES = 8_000;
+
 export type ExclusionReason =
   | "blocked_topic"
   | "unclassified_against_policy"
@@ -132,8 +141,22 @@ export class JudgmentProjectionError extends Error {
   }
 }
 
+// Caps named *_bytes are enforced in true UTF-8 bytes: CJK content (this
+// product's core) occupies ~3 bytes per character, so counting UTF-16 code
+// units under-enforced every byte cap against any adapter that measures
+// bytes. Truncation never splits a multi-byte character.
+function truncateUtf8(value: string, maxBytes: number): string {
+  let out = value;
+  while (Buffer.byteLength(out, "utf8") > maxBytes) out = out.slice(0, -1);
+  return out;
+}
+
+function utf8Bytes(value: string): number {
+  return Buffer.byteLength(value, "utf8");
+}
+
 function sourceOf(lines: string[], meta: { source_id: string; revision: number; language: string }): ProjectionSource {
-  const inline_text = lines.filter((line) => line.length > 0).join("\n").slice(0, PROJECTION_LIMITS.max_source_bytes);
+  const inline_text = truncateUtf8(lines.filter((line) => line.length > 0).join("\n"), PROJECTION_LIMITS.max_source_bytes);
   return {
     source_id: meta.source_id,
     revision: meta.revision,
@@ -195,7 +218,7 @@ function seal(target: "edition" | "reading", scope: ReadingProjection["scope"], 
   let truncated = false;
   const totalBytes = () => {
     const live = new Set(candidates.slice(0, kept).flatMap((c) => c.source_ids));
-    return sources.filter((s) => live.has(s.source_id) || !isPrivate(s.source_id)).reduce((sum, s) => sum + s.inline_text.length, 0);
+    return sources.filter((s) => live.has(s.source_id) || !isPrivate(s.source_id)).reduce((sum, s) => sum + utf8Bytes(s.inline_text), 0);
   };
   while (kept > 0 && totalBytes() > PROJECTION_LIMITS.max_input_bytes) {
     kept -= 1;

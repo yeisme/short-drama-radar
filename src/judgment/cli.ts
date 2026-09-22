@@ -3,7 +3,7 @@ import type { RadarDb } from "../db/client.ts";
 import type { RadarJudgmentConfig } from "../config.ts";
 import type { CommandResult } from "../output/envelope.ts";
 import type { ChineseLocale } from "../market/translation.ts";
-import { JudgmentConsumerError, evaluateReadingJudgment, listReadingJudgmentKeys, parseJudgmentMode, showReadingJudgment, type JudgmentMode, type ReadingJudgmentRecord } from "./consumer.ts";
+import { JudgmentConsumerError, countReadingJudgments, evaluateReadingJudgment, parseJudgmentMode, showReadingJudgment, type JudgmentMode, type ReadingJudgmentRecord } from "./consumer.ts";
 import { policyRef, questionSetRef } from "./questionset.ts";
 import { FIXTURE_TRANSPORT_NAME, createFixtureTransport, FIXTURE_SCENARIOS, type FixtureScenario } from "./transport.ts";
 import { acceptReadingSuggestion, readingJudgmentEvidence } from "./evidence.ts";
@@ -30,10 +30,10 @@ function requireJudgmentEnabled(config: RadarJudgmentConfig): void {
 }
 
 export function judgmentStatusCommand(db: RadarDb, judgment: RadarJudgmentConfig): CommandResult {
-  const attempts = listReadingJudgmentKeys(db, 5);
+  const storedAttempts = countReadingJudgments(db);
   const summary = judgment.enabled
-    ? `Reading judgment is ENABLED (experimental); default mode '${judgment.mode}' from config, CLI --mode overrides; ${attempts.length} stored attempt(s).`
-    : `Reading judgment is DISABLED by default (experimental; opt in via config judgment.enabled=true); ${attempts.length} stored attempt(s) stay read-only.`;
+    ? `Reading judgment is ENABLED (experimental); default mode '${judgment.mode}' from config, CLI --mode overrides; ${storedAttempts} stored attempt(s).`
+    : `Reading judgment is DISABLED by default (experimental; opt in via config judgment.enabled=true); ${storedAttempts} stored attempt(s) stay read-only.`;
   return {
     command: "radar.judgment.status",
     status: "success",
@@ -44,7 +44,7 @@ export function judgmentStatusCommand(db: RadarDb, judgment: RadarJudgmentConfig
       readiness: "exploratory",
       wired_transports: [FIXTURE_TRANSPORT_NAME, "http"],
       model_calls_this_command: 0,
-      stored_attempts: attempts.length,
+      stored_attempts: storedAttempts,
     },
     data: {
       question_set: questionSetRef(),

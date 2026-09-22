@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { HttpTransport, JudgmentClient, JudgmentError as SDKError, parseRequest, type Capabilities, type ModelIdentity } from "@yeisme/judgment-sdk";
+import { canonicalJson, HttpTransport, JudgmentClient, JudgmentError as SDKError, parseRequest, parseTree, ValidationError, type Capabilities, type ModelIdentity } from "@yeisme/judgment-sdk";
 import { JudgmentError, requestInputDigest, type JudgmentRequest, type JudgmentResult } from "./contract.ts";
 import type { JudgmentTransport, JudgmentTransportCapabilities } from "./transport.ts";
 
@@ -10,23 +10,64 @@ export interface SDKHTTPOptions {
   fetchImpl?: typeof fetch;
 }
 
+// The SDK wire restricts every id to ASCII (ID_PATTERN); Radar's domain seam
+// may carry the owner's readable profile ref — CJK included. Non-conforming
+// ids travel as deterministic ASCII stand-ins and result ids are mapped back,
+// so the domain digest, stored evidence and replay keys keep the originals.
+const SDK_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+
+function sdkIdMap(prefix: string, values: readonly string[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const value of values) {
+    if (SDK_ID.test(value) || map.has(value)) continue;
+    map.set(value, `${prefix}-${createHash("sha256").update(value).digest("hex").slice(0, 24)}`);
+  }
+  return map;
+}
+
+function reverseIdMap(map: Map<string, string>): Map<string, string> {
+  return new Map([...map].map(([domain, sdk]) => [sdk, domain] as const));
+}
+
+export interface SdkWire {
+  wire: string;
+  // Size the SDK will enforce: canonicalJson over the full wire (envelope
+  // included), not just the inline payload.
+  canonicalSize: number;
+  reverseCandidates: Map<string, string>;
+  reverseQuestions: Map<string, string>;
+}
+
 // This bridge preserves Radar's persisted v1 domain projection. Only its
 // ephemeral transport wire becomes the public SDK's canonical contract.
-export function sdkRequest(request: JudgmentRequest, model: ModelIdentity) {
-  return parseRequest(JSON.stringify({
+export function buildSdkWire(request: JudgmentRequest, model: ModelIdentity): SdkWire {
+  const sourceIds = sdkIdMap("rsrc", request.sources.map((s) => s.source_id));
+  const candidateIds = sdkIdMap("rcand", request.candidates.map((c) => c.candidate_id));
+  const questionIds = sdkIdMap("rq", request.questions.map((q) => q.question_id));
+  const scopeId = (value: string) => (SDK_ID.test(value) ? value : `rscope-${createHash("sha256").update(value).digest("hex").slice(0, 24)}`);
+  const source = (id: string) => sourceIds.get(id) ?? id;
+  const candidate = (id: string) => candidateIds.get(id) ?? id;
+  const tree = {
     schema_version: "1.0", request_id: request.request_id, attempt_id: request.attempt_id,
-    scope: {owner_id: request.scope.owner, project_id: request.scope.project, principal_id: request.scope.principal, subject: null},
+    scope: {owner_id: scopeId(request.scope.owner), project_id: scopeId(request.scope.project), principal_id: scopeId(request.scope.principal), subject: null},
     model: {transport_provider:model.transportProvider, model_provider:model.modelProvider, requested_model:model.requestedModel,
       response_model:null, underlying_revision:model.underlyingRevision, pin_level:model.pinLevel, underlying_revision_verified:model.underlyingRevisionVerified},
     question_set: request.question_set, policy_ref: request.policy_ref,
-    sources: request.sources.map(s => ({...s, revision:String(s.revision), local_ref:null})),
-    candidates: request.candidates.map(c => ({candidate_id:c.candidate_id, source_bindings:c.source_ids.map(source_id=>({source_id}))})),
-    questions: request.questions.map(q => ({question_id:q.question_id, primitive:q.primitive.kind, prompt:q.question_text,
-      candidate_ids:q.candidate_ids, required:q.required,
+    sources: request.sources.map(s => ({...s, source_id: source(s.source_id), revision:String(s.revision), local_ref:null})),
+    candidates: request.candidates.map(c => ({candidate_id: candidate(c.candidate_id), source_bindings: c.source_ids.map(id => ({source_id: source(id)}))})),
+    questions: request.questions.map(q => ({question_id: questionIds.get(q.question_id) ?? q.question_id, primitive: q.primitive.kind, prompt: q.question_text,
+      candidate_ids:q.candidate_ids.map(candidate), required:q.required,
       answer_domain:q.primitive.kind === "choice" ? {options:q.primitive.options.map(option_id=>({option_id,label:option_id}))}
         : q.primitive.kind === "ordinal_score" ? {levels:q.primitive.levels.map(l=>({...l,label:l.level_id}))} : null})),
     limits:request.limits, extensions:[],
-  }));
+  };
+  const wire = JSON.stringify(tree);
+  return {
+    wire,
+    canonicalSize: canonicalJson(parseTree(wire)).length,
+    reverseCandidates: reverseIdMap(candidateIds),
+    reverseQuestions: reverseIdMap(questionIds),
+  };
 }
 
 export function createSDKHTTPTransport(options: SDKHTTPOptions): JudgmentTransport & {calls:{describe:number;evaluate:number}} {
@@ -60,12 +101,29 @@ export function createSDKHTTPTransport(options: SDKHTTPOptions): JudgmentTranspo
           max_batch_candidates:caps.maxCandidates,max_questions:caps.maxQuestions,max_input_bytes:caps.maxInlineTextBytes,max_output_bytes:64000,
           languages_note:caps.languages.join(","),probability_available:caps.probabilityAvailable,confidence_available:caps.confidenceAvailable,
           confidence_provenance:caps.confidenceProvenance,reconcile_supported:caps.supportsReconcile,cancel_supported:caps.supportsCancel,idempotency_note:"No implicit retry; owner replay only"};
-      } catch(e) {if(e instanceof JudgmentError)throw e;throw convert(e);}
+      } catch(e) {
+        if(e instanceof JudgmentError)throw e;
+        // Discovery happens strictly before any submission: a network hiccup
+        // here is unavailability, never an unknown submission state, and must
+        // not poison replay with reconcile_first.
+        if(e instanceof SDKError) throw new JudgmentError(e.code,"Judgment adapter discovery failed.",e.submissionState,e.retryClass,"sdk-http-discovery");
+        throw new JudgmentError("unavailable","Judgment adapter discovery failed before any submission.","not_submitted","safe_before_submit","sdk-http-discovery");
+      }
     },
     async evaluate(request:JudgmentRequest):Promise<JudgmentResult> {
       if(!caps)throw new JudgmentError("unsupported_capability","Discover capabilities before evaluation.","not_submitted","never","sdk-http");
+      let built;
+      try {built=buildSdkWire(request,caps.model);}
+      catch(e) {throw new JudgmentError("invalid_request",`Domain projection does not satisfy the SDK contract (${e instanceof ValidationError ? e.reason : "unknown"}).`,"not_submitted","never","sdk-http");}
+      // Honest preflight: the SDK enforces max_input_bytes over the full
+      // canonical wire (envelope included), not just the inline payload — a
+      // projection within Radar's inline budget can still be over the wire
+      // cap, and that deserves the real cause, not a generic contract error.
+      if(built.canonicalSize>request.limits.max_input_bytes) throw new JudgmentError("invalid_request",
+        `Projected judgment wire is ${built.canonicalSize} canonical units, over the declared ${request.limits.max_input_bytes}-unit max_input_bytes; shrink the projection (fewer candidates or shorter inline text).`,
+        "not_submitted","never","sdk-http-wire-cap");
       let parsed;
-      try {parsed=sdkRequest(request,caps.model);} catch {throw new JudgmentError("invalid_request","Domain projection does not satisfy the SDK contract.","not_submitted","never","sdk-http");}
+      try {parsed=parseRequest(built.wire);} catch(e) {throw new JudgmentError("invalid_request",`Domain projection does not satisfy the SDK contract (${e instanceof ValidationError ? `${e.reason}:${e.detail}` : "unknown"}).`,"not_submitted","never","sdk-http");}
       calls.evaluate++;
       try {
         const result=await client.evaluate(parsed);
@@ -73,7 +131,8 @@ export function createSDKHTTPTransport(options: SDKHTTPOptions): JudgmentTranspo
           sdk_input_digest:result.inputDigest,
           resolved_model:{transport_provider:result.resolvedModel.transportProvider,model_provider:result.resolvedModel.modelProvider??"unknown",model:result.resolvedModel.responseModel??result.resolvedModel.requestedModel},
           execution_status:result.executionStatus,
-          items:result.items.map(i=>({candidate_id:i.candidateId,question_id:i.questionId,answer_status:i.answerStatus,
+          items:result.items.map(i=>({candidate_id:built.reverseCandidates.get(i.candidateId)??i.candidateId,
+            question_id:built.reverseQuestions.get(i.questionId)??i.questionId,answer_status:i.answerStatus,
             value:i.value===null?null:i.value.optionId!==undefined?{option_id:i.value.optionId}:i.value.levelId!==undefined?{level_id:i.value.levelId}:{binary:i.value.binary!},
             distribution:i.distribution?{...i.distribution}:null,confidence:i.confidence,probability_true:i.probabilityTrue,reason_code:i.reasonCode})),
           usage:result.usage,latency_ms:result.latencyMs,provider_request_id:result.providerRequestId};

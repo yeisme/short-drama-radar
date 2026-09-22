@@ -203,9 +203,12 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
     const stdoutLog = readFileSync(join(run.directory, "stdout.log"), "utf8");
     expect(stdoutLog).not.toContain("sk-injectionsecret");
     // Nothing executed implicitly: adopting a reading suggestion only hands
-    // back to the original surface instead of mutating reader state.
+    // back to the original surface instead of mutating reader state. The
+    // candidate is taken from the record itself, not a hardcoded id, so a
+    // list reordering cannot flip this into candidate_not_found.
     const attempt = out.facts.attempt_key as string;
-    const accept = cli(home, ["judgment", "accept", "--attempt", attempt, "--candidate", "cand-1", "--kind", "already_seen", "--json"]);
+    const suggestion = (out.data.record.suggestions as Array<{ candidate_id: string }>)[0]!;
+    const accept = cli(home, ["judgment", "accept", "--attempt", attempt, "--candidate", suggestion.candidate_id, "--kind", "already_seen", "--json"]);
     expect(accept.exitCode).toBe(0);
     expect(JSON.parse(accept.stdout.toString()).facts.executed).toBe(false);
     expectSixArtifacts(run.directory);

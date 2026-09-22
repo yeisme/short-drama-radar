@@ -156,7 +156,7 @@ export function validateJudgmentRequest(request: JudgmentRequest): string[] {
   for (const [key, value] of Object.entries(limits)) {
     if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) problems.push(`limits.${key} must be a positive finite number`);
   }
-  if (request.sources.reduce((sum, s) => sum + s.inline_text.length, 0) > limits.max_input_bytes) problems.push("inline sources exceed max_input_bytes");
+  if (request.sources.reduce((sum, s) => sum + Buffer.byteLength(s.inline_text, "utf8"), 0) > limits.max_input_bytes) problems.push("inline sources exceed max_input_bytes");
   return problems;
 }
 

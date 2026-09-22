@@ -1,4 +1,4 @@
-import { eq, like } from "drizzle-orm";
+import { count, eq, like } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
 import { readingJudgments } from "../db/schema.ts";
 import { listChineseReading, type ChineseLocale } from "../market/translation.ts";
@@ -22,6 +22,7 @@ import {
 } from "./questionset.ts";
 import {
   PROJECTION_LIMITS,
+  WIRE_ENVELOPE_HEADROOM_BYTES,
   projectEditionForJudgment,
   projectReadingForJudgment,
   toReadingProjectionItems,
@@ -133,32 +134,61 @@ export interface EvaluateOutcome {
 
 const RELEVANCE_RANK: Record<string, number> = { relevant: 0, partially_relevant: 1, not_relevant: 2 };
 
-export async function evaluateReadingJudgment(
-  db: RadarDb,
-  input: {
-    mode: JudgmentMode;
-    transport: JudgmentTransport;
-    target: JudgmentTarget;
-    fresh?: boolean; // explicit new attempt; replays never happen implicitly the other way either
-    now?: Date;
-  },
-): Promise<EvaluateOutcome> {
+export interface EvaluateReadingJudgmentInput {
+  mode: JudgmentMode;
+  transport: JudgmentTransport;
+  target: JudgmentTarget;
+  fresh?: boolean; // explicit new attempt; replays never happen implicitly the other way either
+  now?: Date;
+}
+
+// Same-key evaluations serialize in-process: attempt numbering happens
+// before the transport awaits, so two concurrent evaluates of one target
+// would mint the same attempt key and the second persist would overwrite
+// the first evidence row. The CLI runs one evaluation per process; this
+// guards direct API consumers.
+const attemptQueues = new Map<string, Promise<unknown>>();
+
+export function evaluateReadingJudgment(db: RadarDb, input: EvaluateReadingJudgmentInput): Promise<EvaluateOutcome> {
   if (input.mode === "off") {
     // Off keeps commands, defaults, data and budget exactly as they were.
-    return { outcome: "off", mode: "off", record: null, reused: false, transport_evaluate_calls: 0 };
+    return Promise.resolve({ outcome: "off", mode: "off", record: null, reused: false, transport_evaluate_calls: 0 });
   }
+  const lockKey = input.target.kind === "edition"
+    ? `edition:${input.target.profileRef ?? ""}:${input.target.editionRef ?? ""}`
+    : `reading:${input.target.language}`;
+  const tail = attemptQueues.get(lockKey) ?? Promise.resolve();
+  const run = tail.then(() => evaluateReadingJudgmentLocked(db, input), () => evaluateReadingJudgmentLocked(db, input));
+  const nextTail = run.then(() => undefined, () => undefined);
+  attemptQueues.set(lockKey, nextTail);
+  void nextTail.then(() => {
+    if (attemptQueues.get(lockKey) === nextTail) attemptQueues.delete(lockKey);
+  });
+  return run;
+}
+
+async function evaluateReadingJudgmentLocked(db: RadarDb, input: EvaluateReadingJudgmentInput): Promise<EvaluateOutcome> {
   const now = input.now ?? new Date();
   const projection = projectTarget(db, input.target);
 
   const admitted = projection.candidates.filter((c) => c.deterministic.admitted);
   if (admitted.length === 0) {
+    const baseKey = `rj-${projection.target}-${projection.input_digest.slice(7, 25)}`;
+    // A repeated no-op stays a replay: deterministic pre-check rejections
+    // are pure functions of the projection, so re-evaluating the same
+    // all-excluded target must not mint a new evidence row per invocation.
+    const prior = priorAttempts(db, baseKey)
+      .filter((row) => row.payload.mode === input.mode && row.payload.execution_status === "precheck_rejected");
+    if (!input.fresh && prior.length > 0) {
+      return { outcome: "replayed", mode: input.mode, record: prior[0]!.payload, reused: true, transport_evaluate_calls: 0 };
+    }
     const base = baseRecord(projection, input.mode, now);
-    const attemptNo = priorAttempts(db, `rj-${projection.target}-${projection.input_digest.slice(7, 25)}`).length + 1;
+    const attemptNo = priorAttempts(db, baseKey).length + 1;
     const record = persist(db, {
       ...base,
-      attempt_key: `rj-${projection.target}-${projection.input_digest.slice(7, 25)}-a${attemptNo}`,
-      request_id: `rj-${projection.target}-${projection.input_digest.slice(7, 25)}`,
-      attempt_id: `rj-${projection.target}-${projection.input_digest.slice(7, 25)}-a${attemptNo}`,
+      attempt_key: `${baseKey}-a${attemptNo}`,
+      request_id: baseKey,
+      attempt_id: `${baseKey}-a${attemptNo}`,
       execution_status: "precheck_rejected",
       error: null,
       limitations: [...projection.context.limitations, "deterministic pre-checks rejected every candidate; no model call was made"],
@@ -186,7 +216,7 @@ export async function evaluateReadingJudgment(
   const problems = validateJudgmentRequest(requestWithIds);
   if (problems.length > 0) throw new JudgmentConsumerError("request_invalid", problems.join("; "));
 
-  const base = { ...baseRecord(projection, input.mode, now), attempt_key: `${baseKey}-a${attemptNo}`, request_id: requestId, attempt_id: attemptId, input_digest: inputDigest, wire_input_bytes: JSON.stringify(requestWithIds).length };
+  const base = { ...baseRecord(projection, input.mode, now), attempt_key: `${baseKey}-a${attemptNo}`, request_id: requestId, attempt_id: attemptId, input_digest: inputDigest, wire_input_bytes: Buffer.byteLength(JSON.stringify(requestWithIds), "utf8") };
 
   base.model.transport = input.transport.transport;
 
@@ -196,7 +226,17 @@ export async function evaluateReadingJudgment(
   try {
     capabilities = await input.transport.describeCapabilities();
   } catch (error) {
-    const classified = classifySubmissionFailure(error);
+    const raw = classifySubmissionFailure(error);
+    // Discovery precedes the only submission point, so whatever the
+    // transport reported, nothing was submitted: an "unknown" state here
+    // would misstate the evidence and poison replay with reconcile_first.
+    const classified = raw.submission_state === "unknown"
+      ? new JudgmentError(
+          raw.code === "outcome_unknown" ? "unavailable" : raw.code,
+          "Capability discovery failed before any submission; the original flow is unaffected.",
+          "not_submitted", "safe_before_submit", raw.diagnostic_ref,
+        )
+      : raw;
     return failed(db, base, input.transport, classified);
   }
   const selection = selectModel(capabilities, requestWithIds);
@@ -208,18 +248,23 @@ export async function evaluateReadingJudgment(
   base.model.resolved_model = selection.model!.model;
   base.model.adapter = capabilities.adapter;
 
+  // Counted at submit time: an attempt whose outcome is unknown may still
+  // have been executed — and billed — by the provider, so the evidence must
+  // not report zero transport calls for it.
+  let evaluateCalls = 0;
   let result: JudgmentResult;
   try {
+    evaluateCalls += 1;
     result = await input.transport.evaluate(requestWithIds);
   } catch (error) {
     const classified = classifySubmissionFailure(error);
-    return failed(db, base, input.transport, classified);
+    return failed(db, base, input.transport, classified, evaluateCalls);
   }
 
   const validation = validateJudgmentResult(requestWithIds, result, READING_JUDGMENT_POLICY.distribution_sum_tolerance);
   if (!validation.valid) {
     const classified = new JudgmentError("invalid_response", validation.problems.slice(0, 5).join("; "), "unknown", "never", "result-validation");
-    return failed(db, base, input.transport, classified);
+    return failed(db, base, input.transport, classified, evaluateCalls);
   }
 
   const items = sanitizeItems(result);
@@ -239,7 +284,7 @@ export async function evaluateReadingJudgment(
     error: null,
     limitations: [...projection.context.limitations, "advisory suggestions only; deterministic rules and human review stay authoritative"],
   });
-  return { outcome: "evaluated", mode: input.mode, record, reused: false, transport_evaluate_calls: 1 };
+  return { outcome: "evaluated", mode: input.mode, record, reused: false, transport_evaluate_calls: evaluateCalls };
 }
 
 function projectTarget(db: RadarDb, target: JudgmentTarget): ReadingProjection {
@@ -291,6 +336,7 @@ function failed(
   base: ReadingJudgmentRecord,
   transport: JudgmentTransport,
   classified: JudgmentError,
+  evaluateCalls = 0,
 ): EvaluateOutcome {
   const record = persist(db, {
     ...base,
@@ -299,7 +345,7 @@ function failed(
     error: { code: classified.code, submission_state: classified.submission_state, retry_class: classified.retry_class },
     limitations: [...base.limitations, "no adoptable suggestion was produced; the original flow is unaffected"],
   });
-  return { outcome: "failed", mode: base.mode, record, reused: false, transport_evaluate_calls: 0 };
+  return { outcome: "failed", mode: base.mode, record, reused: false, transport_evaluate_calls: evaluateCalls };
 }
 
 function selectModel(
@@ -313,7 +359,7 @@ function selectModel(
   if (!model) problems.push("no advertised model supports the required text primitives");
   if (request.candidates.length > capabilities.max_batch_candidates) problems.push("request exceeds the transport candidate batch cap");
   if (request.questions.length > capabilities.max_questions) problems.push("request exceeds the transport question cap");
-  if (request.sources.reduce((sum, s) => sum + s.inline_text.length, 0) > capabilities.max_input_bytes) problems.push("request exceeds the transport input byte cap");
+  if (request.sources.reduce((sum, s) => sum + Buffer.byteLength(s.inline_text, "utf8"), 0) > capabilities.max_input_bytes) problems.push("request exceeds the transport input byte cap");
   return { model, problems };
 }
 
@@ -340,7 +386,11 @@ function buildWireRequest(projection: ReadingProjection, admitted: ProjectionCan
       deadline_ms: 30_000,
       max_candidates: PROJECTION_LIMITS.max_candidates,
       max_questions: PROJECTION_LIMITS.max_questions,
-      max_input_bytes: PROJECTION_LIMITS.max_input_bytes,
+      // The public SDK enforces this cap over the FULL canonical wire
+      // (envelope + inline), while the projection seal bounds inline content
+      // to PROJECTION_LIMITS.max_input_bytes — the declared wire cap must
+      // cover the envelope or an in-budget projection fails its own limit.
+      max_input_bytes: PROJECTION_LIMITS.max_input_bytes + WIRE_ENVELOPE_HEADROOM_BYTES,
       max_output_bytes: 64_000,
     },
   };
@@ -450,8 +500,11 @@ export function showReadingJudgment(db: RadarDb, attemptKey: string): ReadingJud
   return db.select().from(readingJudgments).where(eq(readingJudgments.attemptKey, attemptKey)).get()?.payload ?? null;
 }
 
-export function listReadingJudgmentKeys(db: RadarDb, limit = 10): string[] {
-  return db.select({ key: readingJudgments.attemptKey }).from(readingJudgments).limit(limit).all().map((row) => row.key);
+// Total stored attempts, independent of any display limit — reporting a
+// truncated key list's length as the total understated the store once it
+// grew past the limit.
+export function countReadingJudgments(db: RadarDb): number {
+  return db.select({ n: count() }).from(readingJudgments).all()[0]?.n ?? 0;
 }
 
 export const JUDGMENT_EVALUATE_OP = EVALUATE_OP; // op name recorded for evidence traceability
