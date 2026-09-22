@@ -35,3 +35,26 @@ test("URL credentials, script URLs and similar hosts never become evidence", asy
   ].join("");
   expect((await parseCatalog("hongguo", html, "html")).items).toEqual([]);
 });
+
+test("nested anchor children never pollute localized titles; fully nested anchors keep theirs (M4)", async () => {
+  // HTMLRewriter delivers descendant text to the anchor handler too: genre
+  // <span>s and episode <p>s used to glue themselves onto ja/ko titles
+  // ("Title GenreA Episode free"). The anchor's own text wins; an anchor
+  // that nests its whole title still extracts it via the collected-text
+  // fallback (reelshort-style card layouts).
+  const html = `<html><body><h2>おすすめ</h2>
+<a href="/ja/movie/通常の物語-333333333333333333333333">直タイトル <span>ジャンルA</span><p>エピソード</p>無料</a>
+<a href="/ja/movie/全ネスト-444444444444444444444444"><span>全ネストの題名</span></a>
+<a href="/ja/movie/バッジ-555555555555555555555555">バッジ付き <b>全シリーズ</b></a>
+</body></html>`;
+  const result = await parseCatalog("reelshort-ja", html, "html");
+  expect(result.status).toBe("parsed");
+  expect(result.items).toHaveLength(3);
+  const titles = result.items.map((item) => item.title);
+  expect(titles).toContain("直タイトル 無料");
+  expect(titles).toContain("全ネストの題名");
+  // The nested suffix alone never carries a title, and nested badges never
+  // leak into any extracted title.
+  expect(titles.some((t) => t.includes("ジャンルA") || t.includes("エピソード"))).toBe(false);
+  expect(titles).toContain("バッジ付き");
+});

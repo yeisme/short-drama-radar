@@ -115,6 +115,13 @@ interface AnchorStructure {
   imgAlt: string | null;
   paragraphs: string[];
   spans: string[];
+  // Text belonging to the anchor's OWN text nodes (plus its aria-label), not
+  // to nested child elements. HTMLRewriter delivers descendant text to
+  // ancestor handlers too, so title/directText are collected separately:
+  // non-hongguo sources prefer directText (nested badges and genre labels
+  // must not pollute a title) and fall back to the full collected text when
+  // the anchor nests its whole content (reelshort-style card layouts).
+  directText: string;
 }
 
 // hongguo-anchor-layout.v1: a hongguo work card anchor repeats the title
@@ -178,6 +185,12 @@ export async function parseCatalog(source: string, content: string, format: "htm
     let activeSpan = -1;
     let heading: string | null = null;
     const commitHeading = () => { if (heading !== null) { const label = safeLabel(heading); if (label) category = label; heading = null; } };
+    // Depth of child elements inside the anchor currently being parsed.
+    // HTMLRewriter delivers descendant text chunks to ancestor handlers too,
+    // so `title` keeps accumulating everything (the hongguo structure-
+    // mismatch fallback and fully nested card layouts rely on it) while
+    // directText records only the anchor's own text nodes.
+    let anchorChildDepth = 0;
     const parser = new HTMLRewriter()
       .on("a", {
         element(el) {
@@ -188,14 +201,28 @@ export async function parseCatalog(source: string, content: string, format: "htm
           // fallback mutate it until the end tag, and the pushed entry must
           // observe those mutations.
           const entry = { href: el.getAttribute("href") ?? "", title: el.getAttribute("aria-label") ?? "", category,
-            imgAlt: null, paragraphs: [] as string[], spans: [] as string[] };
+            imgAlt: null, paragraphs: [] as string[], spans: [] as string[], directText: el.getAttribute("aria-label") ?? "" };
           active = entry;
           activeParagraph = -1;
           activeSpan = -1;
+          anchorChildDepth = 0;
           links.push(entry);
           el.onEndTag(() => { active = undefined; });
         },
-        text(chunk) { if (active) active.title += chunk.text; },
+        text(chunk) {
+          if (!active) return;
+          active.title += chunk.text;
+          if (anchorChildDepth === 0) active.directText += chunk.text;
+        },
+      })
+      .on("a *", {
+        element(el) {
+          // Void elements (img, br, ...) have no end tag and cannot wrap
+          // text — they need no depth slot and would throw on onEndTag.
+          if (!el.canHaveContent) return;
+          anchorChildDepth++;
+          el.onEndTag(() => { anchorChildDepth = Math.max(0, anchorChildDepth - 1); });
+        },
       })
       .on("a img", { element(el) {
         if (active) {
@@ -229,7 +256,7 @@ export async function parseCatalog(source: string, content: string, format: "htm
       const headingMatch = line.match(/^#{1,3}\s+(.+)$/);
       if (headingMatch) { const label = safeLabel(headingMatch[1]); if (label) category = label; continue; }
       for (const match of line.matchAll(/(?<!!)\[([^\[\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g)) {
-        links.push({ title: match[1], href: match[2], category, imgAlt: null, paragraphs: [], spans: [] });
+        links.push({ title: match[1], href: match[2], category, imgAlt: null, paragraphs: [], spans: [], directText: match[1] });
       }
     }
   }
@@ -266,13 +293,20 @@ export async function parseCatalog(source: string, content: string, format: "htm
     let anchorLabels: string[] = [];
     const layout = source === "hongguo" && format === "html" ? splitHongguoAnchor(link) : null;
     if (layout) ({ title, episode_count } = layout, anchorLabels = layout.labels);
-    else if (localizedLanguage(source)) {
-      // Only strip the observed Japanese navigation suffix, never infer a
-      // title from a plot, translation, URL slug or localized category.
-      title = link.title.replace(/\s+/g, " ").trim();
-      if (source === "reelshort-ja") title = title.replace(/\s+全シリーズ$/u, "");
-      episode_count = null;
-    } else ({ title, episode_count } = splitTitle(link.title));
+    else {
+      // Prefer the anchor's own text: nested cover badges, genre labels and
+      // layout text must not pollute a title. Fully nested anchors (card
+      // layouts that wrap the title in a child element) fall back to the
+      // complete collected text so no title is silently lost.
+      const anchorText = link.directText.trim() ? link.directText : link.title;
+      if (localizedLanguage(source)) {
+        // Only strip the observed Japanese navigation suffix, never infer a
+        // title from a plot, translation, URL slug or localized category.
+        title = anchorText.replace(/\s+/g, " ").trim();
+        if (source === "reelshort-ja") title = title.replace(/\s+全シリーズ$/u, "");
+        episode_count = null;
+      } else ({ title, episode_count } = splitTitle(anchorText));
+    }
     const headingLabel = localizedLanguage(source) || link.category === null ? null : safeLabel(link.category);
     // Anchor-own labels stay closer to the work than a section heading; when
     // both exist the anchor labels win, and with neither the genre stays null.
