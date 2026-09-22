@@ -1,5 +1,6 @@
 import { createSDKHTTPTransport } from "./sdk-http.ts";
 import type { RadarDb } from "../db/client.ts";
+import type { RadarJudgmentConfig } from "../config.ts";
 import type { CommandResult } from "../output/envelope.ts";
 import type { ChineseLocale } from "../market/translation.ts";
 import { JudgmentConsumerError, evaluateReadingJudgment, listReadingJudgmentKeys, parseJudgmentMode, showReadingJudgment, type JudgmentMode, type ReadingJudgmentRecord } from "./consumer.ts";
@@ -11,15 +12,35 @@ import { READING_JUDGMENT_CALIBRATION } from "./calibration.ts";
 // CLI surface for the optional reading-judgment consumer. Every command is
 // local; `evaluate` is the only one that can reach a transport and it
 // requires an explicit shadow/assist opt-in. Default everywhere is off.
+//
+// Task 2.1 adds the user-config experimental gate (config section
+// `judgment`: enabled default false, mode off/shadow/assist default off).
+// While enabled=false the operational commands (evaluate, accept) refuse to
+// run before any flag parsing, transport assembly or write: the capability
+// stays fully dormant. status/show/evidence remain available because they
+// are zero-call, zero-write read-only surfaces over already-stored evidence.
 
-export function judgmentStatusCommand(db: RadarDb): CommandResult {
+const JUDGMENT_DISABLED_MESSAGE =
+  "Experimental judgment capability is not enabled; set {\"judgment\": {\"enabled\": true, \"mode\": \"shadow\"}} " +
+  "(or mode assist) in the Radar config file to opt in. While disabled the judgment surface stays fully dormant: " +
+  "zero transport assembly, zero model calls, zero writes.";
+
+function requireJudgmentEnabled(config: RadarJudgmentConfig): void {
+  if (!config.enabled) throw new JudgmentConsumerError("capability_disabled", JUDGMENT_DISABLED_MESSAGE);
+}
+
+export function judgmentStatusCommand(db: RadarDb, judgment: RadarJudgmentConfig): CommandResult {
   const attempts = listReadingJudgmentKeys(db, 5);
+  const summary = judgment.enabled
+    ? `Reading judgment is ENABLED (experimental); default mode '${judgment.mode}' from config, CLI --mode overrides; ${attempts.length} stored attempt(s).`
+    : `Reading judgment is DISABLED by default (experimental; opt in via config judgment.enabled=true); ${attempts.length} stored attempt(s) stay read-only.`;
   return {
     command: "radar.judgment.status",
     status: "success",
-    summary: `Reading judgment is OFF by default (exploratory; explicit opt-in required); ${attempts.length} stored attempt(s).`,
+    summary,
     facts: {
-      default_mode: "off",
+      experimental_enabled: judgment.enabled,
+      default_mode: judgment.mode,
       readiness: "exploratory",
       wired_transports: [FIXTURE_TRANSPORT_NAME, "http"],
       model_calls_this_command: 0,
@@ -29,15 +50,21 @@ export function judgmentStatusCommand(db: RadarDb): CommandResult {
       question_set: questionSetRef(),
       policy: policyRef(),
       modes: ["off (default)", "shadow (comparison only; no adoption)", "assist (advisory suggestions; adoption still gated)"],
+      config: { enabled: judgment.enabled, mode: judgment.mode, note: "mode is the evaluate default once enabled; --mode overrides it per run; nothing but an explicit user config edit enables this capability" },
       calibration: READING_JUDGMENT_CALIBRATION,
       note: "Public SDK HTTP transport requires explicit endpoint, model and adapter token environment name; nothing auto-enables it.",
     },
-    actions: [{ name: "evaluate", command: "radar judgment evaluate --target edition --mode assist --transport fixture" }],
+    actions: judgment.enabled
+      ? [{ name: "evaluate", command: `radar judgment evaluate --target edition --mode ${judgment.mode === "assist" ? "assist" : "shadow"} --transport fixture` }]
+      : [{ name: "enable", command: "edit Radar config.json: judgment.enabled=true + judgment.mode shadow|assist (experimental)" }],
     exitCode: 0,
   };
 }
 
-export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, string[]>): Promise<CommandResult> {
+export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, string[]>, judgment: RadarJudgmentConfig): Promise<CommandResult> {
+  // Gate first: while the experimental config gate is closed, no flag is
+  // parsed, no transport is constructed and nothing is written.
+  requireJudgmentEnabled(judgment);
   const value = (name: string): string => {
     const values = flags.get(name);
     if (!values || values.length !== 1 || values[0] === "true" || values[0] === "") {
@@ -50,12 +77,14 @@ export async function judgmentEvaluateCommand(db: RadarDb, flags: Map<string, st
       throw new JudgmentConsumerError("flag_invalid", "Unsupported judgment flag.");
     }
   }
-  const rawMode = flags.has("mode") ? value("mode") : undefined;
+  // Config section `judgment.mode` is the default mode source once the
+  // capability is enabled; an explicit CLI --mode overrides it per run.
+  const rawMode = flags.has("mode") ? value("mode") : judgment.mode;
   const mode = parseJudgmentMode(rawMode);
   if (mode !== "shadow" && mode !== "assist") {
     throw new JudgmentConsumerError(
       "mode_required",
-      "Judgment is off by default; pass --mode shadow (comparison only) or --mode assist (advisory suggestions) to opt in explicitly.",
+      "Judgment default mode is off; pass --mode shadow (comparison only) or --mode assist (advisory suggestions), or set judgment.mode in the Radar config, to opt in explicitly.",
     );
   }
   const transportName = flags.has("transport") ? value("transport") : FIXTURE_TRANSPORT_NAME;
@@ -204,7 +233,10 @@ function sanitizeForOutput(record: ReadingJudgmentRecord): Record<string, unknow
   })) as Record<string, unknown>;
 }
 
-export function judgmentAcceptCommand(db: RadarDb, flags: Map<string, string[]>): CommandResult {
+export function judgmentAcceptCommand(db: RadarDb, flags: Map<string, string[]>, judgment: RadarJudgmentConfig): CommandResult {
+  // Adoption hands off to the original feedback flow (a real mutation), so
+  // it is gated behind the same experimental switch as evaluate.
+  requireJudgmentEnabled(judgment);
   const value = (name: string): string => {
     const values = flags.get(name);
     if (!values || values.length !== 1 || values[0] === "true" || values[0] === "") {

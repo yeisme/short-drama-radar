@@ -157,11 +157,13 @@ async function dispatch(args: Args, cfg: RadarConfig, db: RadarDb, profiles: Pro
     }
     case "judgment": {
       // Optional advisory reading judgments (radar-reading-judgment-v1).
-      // Default off; evaluate requires an explicit --mode shadow|assist.
-      if (sub === "status") return judgmentStatusCommand(db);
-      if (sub === "evaluate") return judgmentEvaluateCommand(db, args.flags);
+      // Experimental config gate: while judgment.enabled is false (default)
+      // evaluate/accept stay fully dormant; config judgment.mode is the
+      // default mode source and an explicit --mode shadow|assist overrides.
+      if (sub === "status") return judgmentStatusCommand(db, cfg.judgment);
+      if (sub === "evaluate") return judgmentEvaluateCommand(db, args.flags, cfg.judgment);
       if (sub === "show") return judgmentShowCommand(db, first(args, "attempt"));
-      if (sub === "accept") return judgmentAcceptCommand(db, args.flags);
+      if (sub === "accept") return judgmentAcceptCommand(db, args.flags, cfg.judgment);
       if (sub === "evidence") return judgmentEvidenceCommand(db, first(args, "attempt"));
       throw new CliError("unknown_command", "usage: radar judgment status | evaluate --mode shadow|assist --transport fixture [--target edition|reading] | show --attempt <key> | accept --attempt <key> --candidate <id> --kind <kind> | evidence --attempt <key>");
     }
@@ -808,19 +810,21 @@ Market foundation (local only):
   assignment produce --assignment <ref> --scaena-path <project> [--auctra-bin <bin>] [--scaena-bin <bin>]
   assignment reject --assignment <ref> --kind too_risky|not_relevant [--key <key>]
 
-Advisory reading judgments (radar-reading-judgment-v1; default OFF, exploratory):
-  judgment status                    Show modes, transports and stored attempts; zero model calls
-  judgment evaluate --mode shadow|assist --transport fixture [--target edition|reading]
+Advisory reading judgments (EXPERIMENTAL, radar-reading-judgment-v1; disabled unless the user
+enables config judgment {enabled=true, mode=off|shadow|assist}; default mode off, CLI --mode overrides):
+  judgment status                    Show config gate, modes, transports and stored attempts; zero model calls
+  judgment evaluate [--mode shadow|assist] --transport fixture [--target edition|reading]
     [--edition <ref>] [--language zh-Hans|zh-Hant] [--profile <ref>] [--fresh] [--scenario <fixture scenario>]
-    Explicit opt-in only; shadow compares against the baseline order, assist adds advisory
+    Requires judgment.enabled=true in the Radar config; config judgment.mode is the default source and
+    an explicit --mode overrides it. shadow compares against the baseline order, assist adds advisory
     suggestions. Fixture is offline; HTTP is explicit and may incur provider charges.
   judgment evaluate --mode shadow|assist --transport http --endpoint <url> --model <id> --auth-env <name>
     Use an authenticated judgment adapter; the environment variable holds its access token, not a provider key.
     Suggestions never rewrite canonical state.
-  judgment show --attempt <key>      Zero-network replay of stored judgment evidence
+  judgment show --attempt <key>      Zero-network replay of stored judgment evidence (read-only, works while disabled)
   judgment accept --attempt <key> --candidate <id> --kind saved|used|dismissed|not_relevant|too_risky|already_seen
-    Adopt through the ORIGINAL feedback flow after freshness/permission re-checks; stale or
-    permission-revoked suggestions are rejected; reading-list suggestions hand back to their surface
+    Requires judgment.enabled=true; adopt through the ORIGINAL feedback flow after freshness/permission re-checks;
+    stale or permission-revoked suggestions are rejected; reading-list suggestions hand back to their surface
   judgment evidence --attempt <key>  Sanitized evidence view (refs, digests, review state; zero network)
 
 Diagnostics:

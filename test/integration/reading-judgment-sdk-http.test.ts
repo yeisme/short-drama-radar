@@ -47,7 +47,7 @@ test.skipIf(!binary)("Radar CLI and SDK reach the real adapter with a network-fr
     process.env.RADAR_TEST_ADAPTER_ACCESS="fixture-adapter-only";
     try {
       const flags=new Map(Object.entries({mode:["assist"],transport:["http"],endpoint:[endpoint],model:["typesafe/jev-1.13"],"auth-env":["RADAR_TEST_ADAPTER_ACCESS"],fresh:["true"]}));
-      const output=await judgmentEvaluateCommand(db,flags);
+      const output=await judgmentEvaluateCommand(db,flags,{enabled:true,mode:"off"});
       expect(output.status).toBe("success");
       expect(JSON.stringify(output)).not.toContain("fixture-adapter-only");
       expect(JSON.stringify(output)).not.toContain("inline_text");

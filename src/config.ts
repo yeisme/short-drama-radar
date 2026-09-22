@@ -2,6 +2,21 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+// Experimental judgment gate (radar-reading-judgment-v1 task 2.1). The
+// capability ships fully dormant: enabled=false means the judgment CLI
+// operational commands refuse to run (zero transport assembly, zero model
+// calls, zero writes). mode is only consulted once enabled and acts as the
+// default source for `judgment evaluate`; an explicit CLI --mode overrides
+// it. A non-off mode with enabled=false stays dormant on purpose so that
+// disabling is always a single flip back to the pre-judgment flow.
+export type RadarJudgmentMode = "off" | "shadow" | "assist";
+export interface RadarJudgmentConfig {
+  enabled: boolean;
+  mode: RadarJudgmentMode;
+}
+
+export const JUDGMENT_MODES: readonly RadarJudgmentMode[] = ["off", "shadow", "assist"];
+
 // User-level config and DB stay outside the repository by default.
 // Credentials (cookies, proxy passwords) must never live here; only
 // endpoints, paths, and non-secret policy values.
@@ -33,6 +48,7 @@ export interface RadarConfig {
   pgArchive?: {
     url?: string;
   };
+  judgment: RadarJudgmentConfig;
 }
 
 // A literal "~" would create a directory named ~ in cwd; prefer the OS tmp root as the lesser evil and let doctor flag it.
@@ -58,6 +74,10 @@ export const defaultConfig: RadarConfig = {
     freeze: "08:55",
     send: "08:59",
   },
+  judgment: {
+    enabled: false,
+    mode: "off",
+  },
 };
 
 export class ConfigError extends Error {
@@ -65,6 +85,22 @@ export class ConfigError extends Error {
     super(message);
     this.name = "ConfigError";
   }
+}
+
+// Fail-fast validation for the experimental judgment section: wrong types or
+// an unknown mode surface here as ConfigError, never as a mid-command crash.
+function judgmentFromRaw(raw: unknown): RadarJudgmentConfig {
+  if (raw !== undefined && (typeof raw !== "object" || raw === null || Array.isArray(raw))) {
+    throw new ConfigError("config judgment must be an object");
+  }
+  const merged: RadarJudgmentConfig = { ...defaultConfig.judgment, ...((raw ?? {}) as Partial<RadarJudgmentConfig>) };
+  if (typeof merged.enabled !== "boolean") {
+    throw new ConfigError(`config judgment.enabled must be a boolean, got '${String(merged.enabled)}'`);
+  }
+  if (!JUDGMENT_MODES.includes(merged.mode)) {
+    throw new ConfigError(`config judgment.mode must be one of ${JUDGMENT_MODES.join("|")}, got '${String(merged.mode)}'`);
+  }
+  return merged;
 }
 
 export function loadConfig(): RadarConfig {
@@ -82,6 +118,7 @@ export function loadConfig(): RadarConfig {
     layer1: { ...defaultConfig.layer1, ...(raw.layer1 ?? {}) },
     accountPool: { ...defaultConfig.accountPool, ...(raw.accountPool ?? {}) },
     schedule: { ...defaultConfig.schedule, ...(raw.schedule ?? {}) },
+    judgment: judgmentFromRaw(raw.judgment),
   };
   // Minimal type validation: wrong-typed values used to surface much later
   // as cryptic crashes (e.g. schedule.collect1 breaking time.match()).

@@ -42,9 +42,13 @@ const INJECTION_HTML = `<html lang="ja"><body><h2>おすすめ</h2>
 <a href="/ja/movie/普通の物語-222222222222222222222222">普通の物語 全シリーズ</a>
 </body></html>`;
 
-async function setupHome(): Promise<string> {
+async function setupHome(judgment?: { enabled: boolean; mode: "off" | "shadow" | "assist" }): Promise<string> {
   const home = mkdtempSync(join(tmpdir(), "radar-reading-judgment-"));
   homes.push(home);
+  // Task 2.1: the experimental config gate is opt-in; scenarios that run
+  // evaluate/accept must enable it explicitly (config judgment.mode is the
+  // default mode source; CLI --mode still overrides it per run).
+  if (judgment) writeFileSync(join(home, "config.json"), JSON.stringify({ judgment }));
   // Fixture-fed daily pipeline + profile + edition.
   expect(cli(home, ["run", "--json"], true).exitCode).toBe(0);
   expect(cli(home, ["profile", "create", "--name", "integration", "--topic", "revenge:90", "--minimum-fit", "30", "--minimum-confidence", "30", "--json"]).exitCode).toBe(0);
@@ -67,13 +71,15 @@ function expectSixArtifacts(directory: string): void {
 
 describe("reading-judgment scenario matrix through the real CLI", () => {
   test("morning-relevance: assist evaluation is advisory and leaves the edition canonical", async () => {
-    const home = await setupHome();
+    const home = await setupHome({ enabled: true, mode: "assist" });
     const before = jsonOut(cli(home, ["edition", "show", "latest", "--json"]));
-    const run = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--mode", "assist", "--transport", "fixture", "--json"], "reading-judgment-morning-relevance");
+    // No --mode: the enabled config's judgment.mode=assist is the default source.
+    const run = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--transport", "fixture", "--json"], "reading-judgment-morning-relevance");
     expect(run.exitCode).toBe(0);
     expectSixArtifacts(run.directory);
     const out = JSON.parse(run.stdout);
     expect(validateEnvelope(out).ok).toBe(true);
+    expect(out.facts.mode).toBe("assist");
     expect(out.facts.transport_evaluate_calls).toBe(1);
     expect(out.facts.suggestions).toBeGreaterThan(0);
     expect(out.facts.advisory_only).toBe(true);
@@ -91,6 +97,7 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
     expect(status.exitCode).toBe(0);
     expectSixArtifacts(status.directory);
     const out = JSON.parse(status.stdout);
+    expect(out.facts.experimental_enabled).toBe(false);
     expect(out.facts.default_mode).toBe("off");
     expect(out.facts.model_calls_this_command).toBe(0);
     const reading = jsonOut(cli(home, ["market", "reading", "list", "--language", "zh-Hans", "--json"]));
@@ -100,8 +107,39 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
     expect(jsonOut(cli(home, ["judgment", "status", "--json"])).facts.stored_attempts).toBe(0);
   });
 
-  test("replay is zero-call through the CLI", async () => {
+  test("config gate: default disabled refuses evaluate; invalid config fails fast; one flip restores the old flow", async () => {
     const home = await setupHome();
+    // Default disabled: evaluate refuses before any transport assembly or write,
+    // even with an explicit opt-in --mode on the command line.
+    const denied = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--mode", "assist", "--transport", "fixture", "--json"], "reading-judgment-capability-disabled");
+    expect(denied.exitCode).not.toBe(0);
+    const deniedOut = JSON.parse(denied.stdout);
+    expect(deniedOut.error.code).toBe("capability_disabled");
+    expect(validateEnvelope(deniedOut).ok).toBe(true);
+    expectSixArtifacts(denied.directory);
+    expect(jsonOut(cli(home, ["judgment", "status", "--json"])).facts.stored_attempts).toBe(0);
+    // Invalid judgment config fails fast at load with a stable code.
+    writeFileSync(join(home, "config.json"), JSON.stringify({ judgment: { enabled: true, mode: "live" } }));
+    const invalid = cli(home, ["judgment", "status", "--json"]);
+    expect(invalid.exitCode).not.toBe(0);
+    expect(jsonOut(invalid).error.code).toBe("config_invalid");
+    // Enabling with a default mode lets evaluate run without --mode ...
+    writeFileSync(join(home, "config.json"), JSON.stringify({ judgment: { enabled: true, mode: "shadow" } }));
+    const enabled = cli(home, ["judgment", "evaluate", "--target", "edition", "--transport", "fixture", "--json"]);
+    expect(enabled.exitCode).toBe(0);
+    expect(jsonOut(enabled).facts.mode).toBe("shadow");
+    // ... and a single flip back disables it again: old flow restored, stored evidence still read-only.
+    const stored = jsonOut(cli(home, ["judgment", "status", "--json"])).facts.stored_attempts as number;
+    expect(stored).toBeGreaterThan(0);
+    writeFileSync(join(home, "config.json"), JSON.stringify({ judgment: { enabled: false, mode: "shadow" } }));
+    const deniedAgain = cli(home, ["judgment", "evaluate", "--target", "edition", "--mode", "assist", "--transport", "fixture", "--json"]);
+    expect(deniedAgain.exitCode).not.toBe(0);
+    expect(jsonOut(deniedAgain).error.code).toBe("capability_disabled");
+    expect(jsonOut(cli(home, ["judgment", "status", "--json"])).facts.stored_attempts).toBe(stored);
+  });
+
+  test("replay is zero-call through the CLI", async () => {
+    const home = await setupHome({ enabled: true, mode: "assist" });
     const first = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--mode", "assist", "--transport", "fixture", "--json"], "reading-judgment-replay-first");
     expect(first.exitCode).toBe(0);
     const second = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--mode", "assist", "--transport", "fixture", "--json"], "reading-judgment-replay-second");
@@ -115,7 +153,7 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
   });
 
   test("cross-market: language and market stay separate and missing bindings stay unknown", async () => {
-    const home = await setupHome();
+    const home = await setupHome({ enabled: true, mode: "assist" });
     const readingBefore = jsonOut(cli(home, ["market", "reading", "list", "--language", "zh-Hans", "--json"]));
     const run = evidenceCli(home, ["judgment", "evaluate", "--target", "reading", "--language", "zh-Hans", "--mode", "assist", "--transport", "fixture", "--json"], "reading-judgment-cross-market");
     expect(run.exitCode).toBe(0);
@@ -135,7 +173,7 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
   });
 
   test("unknown outcome does not auto-resend and cannot be adopted", async () => {
-    const home = await setupHome();
+    const home = await setupHome({ enabled: true, mode: "assist" });
     const first = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--mode", "assist", "--transport", "fixture", "--scenario", "unknown-outcome", "--json"], "reading-judgment-unknown-first");
     expect(first.exitCode).toBe(0);
     const firstOut = JSON.parse(first.stdout);
@@ -151,7 +189,7 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
   });
 
   test("injection-shaped titles stay untrusted: excluded or inert, never actions or leaks", async () => {
-    const home = await setupHome();
+    const home = await setupHome({ enabled: true, mode: "assist" });
     const run = evidenceCli(home, ["judgment", "evaluate", "--target", "reading", "--language", "zh-Hans", "--mode", "assist", "--transport", "fixture", "--json"], "reading-judgment-injection");
     expect(run.exitCode).toBe(0);
     const out = JSON.parse(run.stdout);
@@ -174,7 +212,8 @@ describe("reading-judgment scenario matrix through the real CLI", () => {
   });
 
   test("failure evidence keeps the exit code: evaluate without --mode fails closed", async () => {
-    const home = await setupHome();
+    // Enabled gate but mode off: an evaluation still needs an explicit --mode.
+    const home = await setupHome({ enabled: true, mode: "off" });
     const run = evidenceCli(home, ["judgment", "evaluate", "--target", "edition", "--transport", "fixture", "--json"], "reading-judgment-mode-required-failure");
     expect(run.exitCode).not.toBe(0);
     const summary = JSON.parse(readFileSync(join(run.directory, "summary.json"), "utf8"));

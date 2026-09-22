@@ -77,8 +77,8 @@ export const READING_JUDGMENT_CALIBRATION: ReadingJudgmentCalibrationPlan = {
     "Contract tests passing does not certify effectiveness; promotion beyond exploratory requires owner-reviewed calibration and holdout results recorded in docs/product/reading-judgment.md.",
   disable_and_restore: {
     default_mode: "off",
-    disable: "Judgment is off unless a command explicitly passes --mode shadow|assist; no config, schedule, timer or upgrade ever enables it.",
-    restore: "Turning it off is simply not passing --mode: every original command, output and canonical state remains unchanged; stored judgment evidence stays read-only history.",
+    disable: "Judgment ships disabled (config judgment.enabled=false with mode off); only an explicit user edit of the user-level config can enable it — no schedule, timer or upgrade ever enables it.",
+    restore: "Turning it off is a single config flip (judgment.enabled=false): every original command, output and canonical state remains unchanged; stored judgment evidence stays read-only history.",
     data: "Disabling or restoring deletes nothing: no user data, feedback, translations or credentials are removed by this capability.",
   },
   live_canary:

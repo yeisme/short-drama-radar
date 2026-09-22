@@ -4,22 +4,42 @@
 
 ## 定位
 
-辅助 Morning Edition 与中文阅读列表的相关性、重复性和待核实项判断。模型只出建议；确定性规则与人工审阅保持权威。判断置信度永不写入 `evidence_confidence`，语言永不等同受众地区，建议永不改写 canonical 排序。默认 `off`：不显式传 `--mode shadow|assist` 就没有任何模型调用。
+辅助 Morning Edition 与中文阅读列表的相关性、重复性和待核实项判断。模型只出建议；确定性规则与人工审阅保持权威。判断置信度永不写入 `evidence_confidence`，语言永不等同受众地区，建议永不改写 canonical 排序。默认**完全休眠**：实验性开关 `judgment.enabled` 默认 `false`，`evaluate`/`accept` 直接拒绝（`capability_disabled`），零 transport 装配、零模型调用、零写入。
 
 当前状态：**exploratory（探索期）**。离线合同测试通过不代表真实模型效果；没有任何自动 live 路径。
+
+## 实验性开关（radar-reading-judgment-v1 task 2.1）
+
+用户级配置文件（默认 `~/.short-drama-radar/config.json`，可用 `RADAR_CONFIG_PATH` 重定向）新增 `judgment` 节：
+
+```json
+{
+  "judgment": {
+    "enabled": true,
+    "mode": "shadow"
+  }
+}
+```
+
+- `enabled`（默认 `false`）：实验性能力总门。`false` 时 `judgment evaluate`/`accept` 返回 `capability_disabled`，不解析 flag、不装配 transport、不写库；`status`/`show`/`evidence` 仍可用（零调用零写入的只读面）。
+- `mode`（默认 `off`，可选 `off|shadow|assist`）：启用后的 `evaluate` 默认模式来源；命令行 `--mode` 显式传参时覆盖配置。`enabled=true` + `mode=off` 表示每次评估仍需显式 `--mode`。
+- 非法配置（`enabled` 非 boolean、`mode` 不在枚举内、`judgment` 非对象）在加载时 fail-fast（`config_invalid`）。
+- `enabled=false` 时即使残留 `mode=shadow|assist` 也保持休眠：关闭永远是单次配置翻转，立即恢复旧流程。
+- 没有任何 env、定时器、升级路径或默认值会启用该能力；只有用户显式改配置文件。
 
 ## 使用面（本地 CLI，无 MCP/server）
 
 ```bash
-radar judgment status                       # 模式/传输/已存 attempt；零模型调用
+radar judgment status                       # 配置门/模式/传输/已存 attempt；零模型调用
 radar judgment evaluate --target edition --mode assist --transport fixture
-radar judgment evaluate --target reading --language zh-Hans --mode shadow --transport fixture
+radar judgment evaluate --target reading --language zh-Hans --transport fixture   # 模式取自配置
 radar judgment show --attempt <key>         # 零网络重放
 radar judgment evidence --attempt <key>     # 脱敏证据视图（refs/digests/review 状态）
 radar judgment accept --attempt <key> --candidate <id> --kind <feedback kind>
 ```
 
-- `off`（默认）：零发现、零远程调用、零写入。
+- 未启用（默认）：`evaluate`/`accept` 拒绝并提示如何启用；零发现、零远程调用、零写入。
+- `off`：启用但默认模式为 off 时，`evaluate` 仍需显式 `--mode shadow|assist`。
 - `shadow`：只比较建议与基线，不能采纳。
 - `assist`：展示建议、缺失项与原审阅入口；采纳仍走原 feedback/阅读面流程并重新校验新鲜度与权限。
 
@@ -58,8 +78,8 @@ radar judgment accept --attempt <key> --candidate <id> --kind <feedback kind>
 
 ## 关闭与恢复
 
-- 关闭：不传 `--mode` 即关闭；没有配置项、定时器或升级路径会启用判断。
-- 恢复：原命令、默认配置与 canonical state 从未改变；历史判断证据保持只读可查。
+- 关闭：默认即关闭（`judgment.enabled=false`）；把配置改回 `false` 即单次翻转关闭，`evaluate`/`accept` 立即回到 `capability_disabled`。没有定时器或升级路径会启用判断。
+- 恢复：原命令、默认配置与 canonical state 从未改变；历史判断证据保持只读可查（`status`/`show`/`evidence` 关闭态仍可用）。
 - 数据：关闭/恢复不删除任何用户数据、反馈、翻译或凭据。
 
 ## live canary 前置（未排期，不自动）
