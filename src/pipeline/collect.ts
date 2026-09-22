@@ -127,25 +127,38 @@ export async function collect(
 }
 
 function upsertDailyItem(db: RadarDb, date: string, item: RawItem, layer: number, source: string, fetchedAt: string): void {
-  const existing = db.select().from(dailyItems)
+  let existing = db.select().from(dailyItems)
     .where(and(eq(dailyItems.date, date), eq(dailyItems.platform, item.platform), eq(dailyItems.contentId, item.contentId)))
     .all()[0];
   if (!existing) {
-    db.insert(dailyItems).values({
-      date,
-      platform: item.platform,
-      contentId: item.contentId,
-      title: item.title,
-      url: item.url,
-      authorId: item.authorId ?? "",
-      publishedAt: item.publishedAt ?? "",
-      metricsJson: JSON.stringify({ ...item.metrics }),
-      confidence: item.confidence,
-      degraded: layer >= 2 ? 1 : 0,
-      sourceLayer: layer,
-      updatedAt: fetchedAt,
-    }).run();
-    return;
+    try {
+      db.insert(dailyItems).values({
+        date,
+        platform: item.platform,
+        contentId: item.contentId,
+        title: item.title,
+        url: item.url,
+        authorId: item.authorId ?? "",
+        publishedAt: item.publishedAt ?? "",
+        metricsJson: JSON.stringify({ ...item.metrics }),
+        confidence: item.confidence,
+        degraded: layer >= 2 ? 1 : 0,
+        sourceLayer: layer,
+        updatedAt: fetchedAt,
+      }).run();
+      return;
+    } catch (error) {
+      // A concurrent writer (manual import racing a scheduled collect; the
+      // flock only serializes scheduled units) can land the same
+      // (date, platform, content_id) between our select and insert: fall
+      // through to the cross-observation merge instead of crashing with a
+      // raw constraint error. Anything else rethrows.
+      if (!/UNIQUE constraint|constraint failed/i.test((error as Error).message)) throw error;
+      existing = db.select().from(dailyItems)
+        .where(and(eq(dailyItems.date, date), eq(dailyItems.platform, item.platform), eq(dailyItems.contentId, item.contentId)))
+        .all()[0];
+      if (!existing) throw error;
+    }
   }
   // Cross-observation upsert. The observation from the more authoritative
   // layer owns the row; the other side fills per-key gaps. `sourceLayer`
