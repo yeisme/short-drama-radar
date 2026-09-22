@@ -61,7 +61,7 @@ bun run src/cli.ts market host-serve     # 或已安装的 radar market host-ser
 
 ## dispatch 与对账
 
-- 只接受 `dsh.radar.intent.v1` 且 `kind=proposal`：`opportunityRefs` 0–1 个安全 ref、可选 `editionRef`、必填 `idempotencyKey`（安全 ref）、`confirmed` 布尔。其他 kind 返回 `intent_unsupported`，结构/内容不安全返回 `intent_invalid`/`intent_unsafe`，均零写入。
+- 只接受 `dsh.radar.intent.v1` 且 `kind=proposal`：`opportunityRefs` 0–1 个安全 ref、可选 `editionRef`、必填 `idempotencyKey`（安全 ref）、`confirmed` 布尔。`confirmed` 是主机侧"用户已在 DSH 界面确认"的声明，仅作审计字段——它不构成 Radar 侧门禁，`false` 不拦截 dispatch（Radar 自己的 ready/stale/幂等门才是权威）；reader/watch 类写入仍要求主机在用户明确确认后走 owner CLI。其他 kind 返回 `intent_unsupported`，结构/内容不安全返回 `intent_invalid`/`intent_unsafe`，均零写入。
 - 映射 owner 本地 `createAssignment`：
   - ready → 回执 `outcome=submitted`，含 `assignmentRef`；
   - 空榜/不达标 → `outcome=rejected`，reason 明示 `do_not_shoot`；
