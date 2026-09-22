@@ -4,7 +4,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb, type RadarDb } from "../../src/db/client.ts";
-import { morningEditionEntries } from "../../src/db/schema.ts";
+import { eq } from "drizzle-orm";
+import { morningEditionEntries, opportunities } from "../../src/db/schema.ts";
 import { collect, defaultAdapters } from "../../src/pipeline/collect.ts";
 import { scoreDay } from "../../src/pipeline/scoring.ts";
 import { persistOpportunities, buildOpportunities } from "../../src/pipeline/opportunity.ts";
@@ -247,6 +248,18 @@ describe("morning edition (2.6)", () => {
     const profile = svc.create("blocked-empty", { minimum_fit: 99, blocked_topics: ["revenge"] });
     const { edition } = buildEdition(db, profile, "2026-08-29");
     expect(edition.limitations.join(" ")).toMatch(/hard-filtered by blocked topics/);
+  });
+
+  test("degraded data is never hidden by an empty admission result (M1)", async () => {
+    const db = await seed();
+    db.update(opportunities).set({ degraded: 1 }).where(eq(opportunities.date, "2026-08-29")).run();
+    const svc = new ProfileService(db);
+    const profile = svc.create("degraded-empty", { minimum_fit: 99, minimum_confidence: 99 });
+    const { edition } = buildEdition(db, profile, "2026-08-29");
+    expect(edition.entries).toEqual([]);
+    expect(edition.status).toBe("degraded"); // spec: MUST mark degraded even when nothing is admitted
+    expect(edition.limitations.join(" ")).toMatch(/degraded mode/);
+    expect(edition.limitations.join(" ")).toMatch(/below admission thresholds/); // honest-empty reasons survive too
   });
 
   test("limit 8 by default; no low-quality padding below thresholds", async () => {

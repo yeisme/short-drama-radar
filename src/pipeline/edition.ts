@@ -80,7 +80,11 @@ export function buildEdition(
   const admitted = ranked.filter((r) => r.personalFit >= minFit && r.opportunity.evidenceConfidence >= minConf).slice(0, limit);
 
   const dataDegraded = opps.some((o) => o.degraded);
-  const status: EditionRecord["status"] = admitted.length === 0 ? "empty" : dataDegraded ? "degraded" : "ready";
+  // Degraded data outranks emptiness: a day where every (rejected) candidate
+  // was collected in degraded mode is still a degraded day — the spec
+  // requires the degraded marker (or refusing to generate), and the canary
+  // degradation metric counts exactly these otherwise-invisible days.
+  const status: EditionRecord["status"] = dataDegraded ? "degraded" : admitted.length === 0 ? "empty" : "ready";
   const limitations: string[] = [];
   if (admitted.length === 0) {
     if (opps.length === 0) limitations.push("no scored opportunities for this date; run 'radar collect' and 'radar score' first");
@@ -88,7 +92,7 @@ export function buildEdition(
     if (blockedCount > 0) limitations.push(`${blockedCount} candidates hard-filtered by blocked topics`);
     if (suppressedCount > 0) limitations.push(`${suppressedCount} candidates suppressed as already_seen`);
   }
-  if (dataDegraded && admitted.length > 0) limitations.push("some evidence collected in degraded mode; treat metrics as lower bounds");
+  if (dataDegraded) limitations.push("some evidence collected in degraded mode; treat metrics as lower bounds");
   if (override.minimumFit !== undefined) limitations.push(`admission threshold overridden for this build only: min_fit=${override.minimumFit} (profile unchanged)`);
 
   const generatedAt = now.toISOString();
