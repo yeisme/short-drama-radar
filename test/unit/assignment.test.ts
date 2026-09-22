@@ -1,9 +1,10 @@
 import { expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "../../src/db/client.ts";
-import { preferenceFeedback } from "../../src/db/schema.ts";
+import { preferenceFeedback, runs } from "../../src/db/schema.ts";
 import { ProfileService } from "../../src/profile/service.ts";
 import { collect, defaultAdapters } from "../../src/pipeline/collect.ts";
 import { scoreDay } from "../../src/pipeline/scoring.ts";
@@ -177,5 +178,46 @@ test("do_not_shoot assignments cannot be submitted", async () => {
       profile, assignmentRef: created.assignment.assignment_ref, auctraPath: "/tmp/auctra-project",
       runAuctra: () => ({ exitCode: 0, stdout: "{}", stderr: "" }),
     })).toThrow(/ready assignment/);
+  } finally { db.$client.close(); }
+});
+
+test("a crashed external submission surfaces as unknown and never silently re-submits (L3)", async () => {
+  const db = await seeded();
+  try {
+    const profiles = new ProfileService(db);
+    const profile = profiles.create("crash-assign", { minimum_fit: 0, minimum_confidence: 0 });
+    buildEdition(db, profile, "2026-08-29");
+    const created = createAssignment(db, { profile });
+    const ref = created.assignment.assignment_ref;
+    // Simulate the crash window: the external Auctra call succeeded but the
+    // process died before the assignment row was updated — only the
+    // in-flight journal row survives. The retry must refuse with the
+    // reconcile error instead of spawning a second proposal.
+    db.insert(runs).values({
+      id: `assignment-submit:${ref}`, kind: "assignment-submit", startedAt: new Date().toISOString(),
+      finishedAt: "", status: "unknown", summaryJson: "{}",
+    }).run();
+    expect(() => submitAssignment(db, {
+      profile, assignmentRef: ref, auctraPath: "/tmp/auctra-project",
+      runAuctra: () => { throw new Error("must not re-submit an attempt with an unrecorded outcome"); },
+    })).toThrow(/unrecorded outcome/);
+    // A known failure (exit != 0) keeps retries allowed: the journal row
+    // settles to failed and the next attempt reopens cleanly.
+    db.update(runs).set({ status: "failed" }).where(eq(runs.id, `assignment-submit:${ref}`)).run();
+    const submitted = submitAssignment(db, {
+      profile, assignmentRef: ref, auctraPath: "/tmp/auctra-project",
+      runAuctra: () => ({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          status: "success", facts: { unit_ref: "scene_001" },
+          data: { proposal_ref: "proposal:xyz", review_ref: "review:xyz", status: "pending_review" },
+        }),
+        stderr: "",
+      }),
+    });
+    expect(submitted.assignment.downstream_status).toBe("submitted");
+    const journal = db.select().from(runs).where(eq(runs.id, `assignment-submit:${ref}`)).get();
+    expect(journal?.status).toBe("ok");
+    expect(journal?.summaryJson).toContain("proposal:xyz");
   } finally { db.$client.close(); }
 });

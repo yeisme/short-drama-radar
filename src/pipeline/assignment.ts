@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { desc, eq } from "drizzle-orm";
 import type { RadarDb } from "../db/client.ts";
-import { radarAssignments } from "../db/schema.ts";
+import { radarAssignments, runs } from "../db/schema.ts";
 import { marketDigest, MarketStoreError } from "../market/repository.ts";
 import { marketBriefByRef } from "../market/brief.ts";
 import { editionByRef, latestEdition, type EditionEntry, type EditionRecord } from "./edition.ts";
@@ -201,6 +201,33 @@ export interface AuctraRunResult {
 
 export type AuctraRunner = (args: string[]) => AuctraRunResult;
 
+// Journals an external-submission attempt in the runs table. The assignment
+// row's own idempotency only covers the local update: a crash between a
+// successful external call and that update must surface on retry as an
+// unknown outcome to reconcile, never as a silent second submission.
+function journalExternalAttempt(db: RadarDb, kind: "assignment-submit" | "assignment-produce", ref: string, now: Date): string {
+  const runId = `${kind}:${ref}`;
+  const prior = db.select().from(runs).where(eq(runs.id, runId)).get();
+  if (prior?.status === "unknown") {
+    throw new MarketStoreError(`${kind.replace("-", "_")}_unknown`,
+      `A previous ${kind.split("-")[1]} attempt for ${ref} has an unrecorded outcome (crashed mid-flight); check the downstream project before retrying instead of submitting a second time.`);
+  }
+  if (prior) {
+    db.update(runs).set({ status: "unknown", startedAt: now.toISOString(), finishedAt: "",
+      summaryJson: JSON.stringify({ assignment_ref: ref, note: "external call in flight; outcome is journaled after it returns" }) })
+      .where(eq(runs.id, runId)).run();
+  } else {
+    db.insert(runs).values({ id: runId, kind, startedAt: now.toISOString(), finishedAt: "", status: "unknown",
+      summaryJson: JSON.stringify({ assignment_ref: ref, note: "external call in flight; outcome is journaled after it returns" }) }).run();
+  }
+  return runId;
+}
+
+function settleExternalAttempt(db: RadarDb, runId: string, outcome: "ok" | "failed", summary: Record<string, unknown>, now: Date): void {
+  db.update(runs).set({ status: outcome, finishedAt: now.toISOString(), summaryJson: JSON.stringify(summary) })
+    .where(eq(runs.id, runId)).run();
+}
+
 export function submitAssignment(db: RadarDb, input: {
   profile: ProfileRecord;
   assignmentRef: string;
@@ -220,6 +247,7 @@ export function submitAssignment(db: RadarDb, input: {
   }
   const projectRoot = input.auctraPath.trim();
   if (!projectRoot) throw new MarketStoreError("value_required", "Provide --auctra-path <project-root>.");
+  const runId = journalExternalAttempt(db, "assignment-submit", current.assignment_ref, now);
   const packetDir = join(tmpdir(), "short-drama-radar");
   mkdirSync(packetDir, { recursive: true });
   const packetPath = join(packetDir, `${current.assignment_ref}.json`);
@@ -229,9 +257,13 @@ export function submitAssignment(db: RadarDb, input: {
     const runner = input.runAuctra ?? defaultAuctraRunner(bin);
     const result = runner(["text", "proposal", "from-radar", "--path", projectRoot, "--from", packetPath, "--json"]);
     if (result.exitCode !== 0) {
+      // The command itself reported failure: the outcome is known (nothing
+      // was created by this invocation), so retry stays allowed.
+      settleExternalAttempt(db, runId, "failed", { assignment_ref: current.assignment_ref, reason: "auctra_exit_nonzero" }, now);
       throw new MarketStoreError("auctra_failed", auctraFailureMessage(result));
     }
     const handoff = parseAuctraHandoff(result.stdout, projectRoot);
+    settleExternalAttempt(db, runId, "ok", { assignment_ref: current.assignment_ref, proposal_ref: handoff.proposal_ref, project_ref: handoff.project_ref }, now);
     const next: ProductionAssignment = {
       ...current,
       downstream_status: "submitted",
@@ -343,11 +375,18 @@ export function produceAssignment(db: RadarDb, input: {
   mkdirSync(scaenaRoot, { recursive: true });
   const packetPath = join(scaenaRoot, "radar-skeleton.json");
   writeFileSync(packetPath, JSON.stringify(packet), { encoding: "utf8", mode: 0o600 });
+  // The scaena import is the mutating external call: journal it in flight so
+  // a crash after a successful import never replays a second skeleton.
+  const runId = journalExternalAttempt(db, "assignment-produce", current.assignment_ref, now);
   const scaena = (input.runScaena ?? defaultAuctraRunner(scaenaBin))([
     "handoff", "radar", "import", "--project", scaenaRoot, "--from", "radar-skeleton.json", "--confirm", "--json",
   ]);
-  if (scaena.exitCode !== 0) throw new MarketStoreError("scaena_failed", auctraFailureMessage(scaena));
+  if (scaena.exitCode !== 0) {
+    settleExternalAttempt(db, runId, "failed", { assignment_ref: current.assignment_ref, reason: "scaena_exit_nonzero" }, now);
+    throw new MarketStoreError("scaena_failed", auctraFailureMessage(scaena));
+  }
   const receiptRef = parseScaenaReceipt(scaena.stdout);
+  settleExternalAttempt(db, runId, "ok", { assignment_ref: current.assignment_ref, receipt_ref: receiptRef, project_ref: scaenaRoot }, now);
   const next: ProductionAssignment = {
     ...current,
     downstream_status: "produced",
