@@ -20,7 +20,7 @@
 
 显式阅读进度已支持 reader show/mark/unread/receipt。先运行 `bun run src/cli.ts market reader show --json` 获取当前reader revision和policy_revision，再用 `bun run src/cli.ts market reader mark --signal <ref> --signal-revision <n> --revision <n> --policy-revision <digest> --key <key> --json` 标记指定修订。撤销使用unread；回执丢失可用reader receipt --key查询，不使用新键重复写入。打开简报或Agent读取不会自动记已读。
 
-本地市场版次已支持 `bun run src/cli.ts market brief build --start 2026-09-10T00:00:00Z --end 2026-09-11T00:00:00Z --json` 和 `bun run src/cli.ts market brief show --json`。构建读取已有信号，不联网，固定输入复用原版次；show使用当前内容禁区，保留原版次ref/digest。当前来源资格不完整，非空版次标degraded。市场调度单元已可生成与安装（market schedule show / install [--print]，analyze 08:50、brief 09:00 本地时区，observe 在来源资格完成前保持 planned）；写入单元不启用 timer，启用为 owner 动作。
+本地市场版次已支持 `bun run src/cli.ts market brief build --start 2026-09-10T00:00:00Z --end 2026-09-11T00:00:00Z --json` 和 `bun run src/cli.ts market brief show --json`。构建读取已有信号，不联网，固定输入复用原版次；show使用当前内容禁区，保留原版次ref/digest。当前来源资格不完整，非空版次标degraded。市场调度为建议计划（market schedule show：analyze 08:50、brief 09:00 本地时区，observe 在来源资格完成前保持 planned）；Radar 不生成或安装任何调度单元（install 已退役），定时接线由客户侧自行完成（docs/runtime/schedule.md）。
 
 基础分析现已支持 `bun run src/cli.ts market analyze --start 2026-09-10T00:00:00Z --end 2026-09-14T00:00:00Z --json`，读取已入库观察并生成首次观察和可比指标信号，不联网。可用 `bun run src/cli.ts market signal show --signal <ref> --revision <n> --json` 回查绑定修订；缺失修订不会回退最新。七类命题（含 listing/topic-mix/cross-market 证据门与版本化排序）、更正生命周期与不可变简报均已交付。
 
@@ -84,7 +84,7 @@ radar market sync --to pg --allow-target-change             # 确认更换目标
 - 凭据来源与脱敏：连接串只来自 `RADAR_PG_URL` 或用户级 config 的 `pgArchive.url`（env 优先）；诊断与输出只含来源类型、脱敏 host/db/schema 与指纹前 12 位，DSN 一律 `<redacted>`；含 DSN 的 config 文件非 0600 时警告不阻止。
 - 具名错误码：`pg_config_missing`、`pg_unavailable`、`pg_auth_failed`、`schema_mismatch`、`sync_target_changed`、`sync_conflict`、`cursor_invalid`、`sync_target_unsupported`（verify 不一致另报 `verify_diverged`），各附恢复命令。
 - 个人阅读/关注状态、Profile/feedback、opportunities/editions、assignments、runs 与旧两平台管线表显式不出库。
-- 调度边界：同步默认手动；`radar market schedule show/install` 只把 sync 列为可选挂接（owner 可在 market-brief 单元后自行追加 unit 的示例），不生成、不启用任何 sync 定时器，同步不在 cutoff/freeze 语义内。
+- 调度边界：同步默认手动；`radar market schedule show` 只把 sync 列为可选挂接（owner 在客户侧自建定时器的示例见 docs/runtime/schedule.md），Radar 不生成、不启用任何 sync 定时器，同步不在 cutoff/freeze 语义内。
 
 真实 PG 集成回放（Testcontainers / `RADAR_TEST_PG_URL`）覆盖：首同步全量→重放零新增、杀进程后续传一致、篡改触发 `sync_conflict` 零改写、指纹门、损坏游标重放；证据在 `temp/integration-test-runs/`。
 
@@ -213,7 +213,7 @@ openspec validate radar-market-observation-and-brief-v1 --strict --no-interactiv
 
 2026-09-13 软件最终门已通过：typecheck、全量 bun test、bun run test:integration（带证据）与 strict openspec validate 全部退出 0，具体结果及证据位于 change 的 tasks.md。真实 14 天试用与已授权来源资格仍属外部门，未由本页推断完成。
 
-本地回顾支持 `radar market review build --start <UTC时间> --end <UTC时间> --as-of <UTC截止时间>` 和 `radar market review show --review <回顾引用>`。回顾冻结原始与后续信号版本，缺少后续证据表示证据不足；读取旧回顾继续执行当前禁区。不指定窗口时，`radar market brief build` 采用配置时区的上一完整日，`radar market review build` 采用上一完整周（周一到周一），回顾截止默认为当前时间。日历计算覆盖夏令时的 23/25 小时日；不存在的本地日期明确报错，不按固定 24 小时猜测。自动定时触发以 market schedule install 生成的 systemd 单元为准（写入不启用，启用为 owner 动作）；本容器等无 systemd 环境只输出安装说明，不报告已调度。operator 侧本地构建（market analyze / market brief build / market review build）参数仍要求显式窗口，以命令 `--help` 为准。
+本地回顾支持 `radar market review build --start <UTC时间> --end <UTC时间> --as-of <UTC截止时间>` 和 `radar market review show --review <回顾引用>`。回顾冻结原始与后续信号版本，缺少后续证据表示证据不足；读取旧回顾继续执行当前禁区。不指定窗口时，`radar market brief build` 采用配置时区的上一完整日，`radar market review build` 采用上一完整周（周一到周一），回顾截止默认为当前时间。日历计算覆盖夏令时的 23/25 小时日；不存在的本地日期明确报错，不按固定 24 小时猜测。自动定时触发由客户侧自建定时器承担（接线示例见 docs/runtime/schedule.md，Radar 不生成单元）；doctor 不报告"已调度"。operator 侧本地构建（market analyze / market brief build / market review build）参数仍要求显式窗口，以命令 `--help` 为准。
 
 本地跨市场对照支持 `radar market compare --left <信号引用> --left-revision <版本> --right <信号引用> --right-revision <版本>`。两侧保留各自原名、地区依据、采样范围、时间及指标口径，不合成跨平台热度。候选同作映射只表示待核实，任一侧触发当前禁区时整个请求拒绝。当前已验证目录夹具与安全读取（`radar market compare` CLI 入口）；已验证同作的评审流程和 DSH 展示仍待接入。
 

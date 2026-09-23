@@ -50,7 +50,7 @@ describe("probeLayer2 readiness (Layer 2 unlock)", () => {
   test("every missing prerequisite produces a named reason; ready only when all present", async () => {
     const home = mkdtempSync(join(tmpdir(), "radar-l2-"));
     // Restore afterwards: leaking RADAR_HOME shifts every later
-    // env-sensitive golden (schedule unit generation embeds it).
+    // env-sensitive probe (doctor schedule check reads RADAR_HOME).
     const saved = {
       home: process.env.RADAR_HOME,
       accounts: process.env.RADAR_ACCOUNTS_PATH,

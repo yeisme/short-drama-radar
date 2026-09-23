@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { probeXhsBackend, probeXhsReadiness } from "./adapters/agentreach-xhs.ts";
 import { openSecretStore, SecretsError } from "./adapters/secrets.ts";
-import type { RadarConfig } from "./config.ts";
-import { SCHEDULE_NEXT_STEPS, detectScheduleBackend, launchdUserDir, windowsTaskDir } from "./schedule.ts";
+import { RADAR_HOME, type RadarConfig } from "./config.ts";
+import { probeRunLock } from "./runlock.ts";
 
 // Real backing probes for `radar doctor`. Unimplemented or unreachable capabilities are
 // reported blocked/unavailable with the exact next command — never "ready".
@@ -52,7 +52,7 @@ export async function probeRuntime(cfg: RadarConfig, opts: { fetchImpl?: typeof 
   checks["playwright"] = await checkPlaywright();
   checks["account-pool"] = checkAccountPool(cfg.accountsPath);
 
-  checks["schedule"] = probeSchedule(process.env.HOME ?? "/tmp");
+  checks["schedule"] = probeSchedule(RADAR_HOME);
 
   // DB always present (opened before probing).
   checks["db"] = { status: "ok", detail: cfg.dbPath };
@@ -60,47 +60,20 @@ export async function probeRuntime(cfg: RadarConfig, opts: { fetchImpl?: typeof 
   return { checks };
 }
 
-const SESSION_PLAN_NEXT = "radar schedule session-plan --runtime both --json";
-
-export function probeSchedule(home: string, platform = process.platform): CheckResult {
-  const backend = detectScheduleBackend(platform);
-  if (backend === "launchd") {
-    const plist = join(launchdUserDir(home), "com.yeisme.short-drama-radar.collect.plist");
-    if (!existsSync(plist)) {
-      return { status: "unavailable", detail: "launchd agent not installed", nextCommand: "radar schedule install --backend launchd" };
-    }
-    return { status: "blocked", detail: "launchd plist written; enable with launchctl bootstrap (not claimed running)", nextCommand: "launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.yeisme.short-drama-radar.collect.plist" };
-  }
-  if (backend === "windows") {
-    const xml = join(windowsTaskDir(home), "short-drama-radar-collect.xml");
-    if (!existsSync(xml)) {
-      return { status: "unavailable", detail: "Windows task XML not installed", nextCommand: "radar schedule install --backend windows" };
-    }
-    return { status: "blocked", detail: "task XML written; register with schtasks (not claimed running)", nextCommand: WINDOWS_REGISTER };
-  }
-  const timerPath = join(home, ".config/systemd/user/short-drama-radar-collect.timer");
-  if (!existsSync(timerPath)) {
-    return { status: "unavailable", detail: "systemd timer not installed", nextCommand: "radar schedule install" };
-  }
-  const timers = ["short-drama-radar-collect.timer", "short-drama-radar-score.timer", "short-drama-radar-card.timer"];
-  let enabled = false, systemdAvailable = true;
+// Wall-clock scheduling is customer-owned: Radar generates no units and
+// probes no OS managers. This check only reports run-lock availability, so a
+// customer-side timer knows overlapping triggers queue instead of racing.
+export function probeSchedule(home: string): CheckResult {
   try {
-    const systemd = Bun.spawnSync(["systemctl", "--user", "is-enabled", ...timers], { stdout: "pipe", stderr: "pipe" });
-    enabled = systemd.exitCode === 0;
-  } catch {
-    systemdAvailable = false;
+    const probe = probeRunLock(home);
+    if (probe.status === "ok") {
+      return { status: "ok", detail: "run lock available; wall-clock scheduling is customer-owned (docs/runtime/schedule.md)" };
+    }
+    return { status: "degraded", detail: `run lock held by pid ${probe.holder.pid} (${probe.holder.command})` };
+  } catch (err) {
+    return { status: "blocked", detail: `run lock path unavailable: ${(err as Error).message}` };
   }
-  if (enabled) return { status: "ok", detail: "systemd user timers installed and enabled" };
-  return {
-    status: "blocked",
-    detail: systemdAvailable
-      ? "timer units exist but the systemd user manager is unavailable or timers are disabled"
-      : "timer units exist but systemctl is unavailable on this host",
-    nextCommand: systemdAvailable ? SCHEDULE_NEXT_STEPS[1] : SESSION_PLAN_NEXT,
-  };
 }
-
-const WINDOWS_REGISTER = 'schtasks /Create /TN "short-drama-radar-collect" /XML "%LOCALAPPDATA%\\short-drama-radar\\tasks\\short-drama-radar-collect.xml" /F';
 
 function checkDouyinCookie(): CheckResult {
   // Login material presence only, never values.

@@ -179,3 +179,51 @@ describe("doctor probes", () => {
   }, 45_000);
 
 });
+
+describe("scheduler retirement (customer-owned wiring)", () => {
+  // radar-scheduler-retirement-v1: Radar generates no OS units. install is a
+  // named retirement on every surface, and mutating commands serialize on the
+  // CLI run lock instead of a unit-level flock.
+
+  test("schedule install is retired with a stable code and zero writes", () => {
+    const home = mkdtempSync(join(tmpdir(), "radar-cli-retired-"));
+    const { stdout, exitCode } = runCli(home, ["schedule", "install", "--backend", "launchd"]);
+    expect(exitCode).not.toBe(0);
+    expect(stdout).toContain("command_retired");
+    expect(stdout).toContain("docs/runtime/schedule.md");
+    expect(stdout).not.toContain("OnCalendar");
+  });
+
+  test("market schedule install is retired the same way", () => {
+    const home = mkdtempSync(join(tmpdir(), "radar-cli-retired-"));
+    const { stdout, exitCode } = runCli(home, ["market", "schedule", "install", "--print"]);
+    expect(exitCode).not.toBe(0);
+    expect(stdout).toContain("command_retired");
+  });
+
+  test("schedule show stays advisory and never offers install", () => {
+    const home = mkdtempSync(join(tmpdir(), "radar-cli-retired-"));
+    const { stdout, exitCode } = runCli(home, ["schedule", "show", "--json"]);
+    expect(exitCode).toBe(0);
+    const env = JSON.parse(stdout);
+    expect(env.summary.toLowerCase()).toContain("customer-owned");
+    const commands = env.actions.map((a: { command: string }) => a.command).join(" ");
+    expect(commands).not.toContain("install");
+    expect(env.data.pipeline.find((j: { id: string }) => j.id === "collect").local_times).toEqual(["08:10", "08:30"]);
+  });
+
+  test("mutating commands refuse to run while the run lock is held", () => {
+    const home = mkdtempSync(join(tmpdir(), "radar-cli-lock-"));
+    const { writeFileSync } = require("node:fs");
+    writeFileSync(join(home, "radar.lock"), JSON.stringify({ pid: process.pid, command: "radar run", startedAt: new Date().toISOString() }));
+    const proc = Bun.spawnSync([process.execPath, CLI, "score", "--json"], {
+      env: { ...process.env, RADAR_HOME: home, RADAR_DB_PATH: join(home, "radar.db"), RADAR_LOCK_WAIT_MS: "0" },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stdout = proc.stdout.toString();
+    expect(proc.exitCode ?? -1).not.toBe(0);
+    expect(stdout).toContain("lock_busy");
+    expect(stdout).toContain(String(process.pid));
+  });
+});

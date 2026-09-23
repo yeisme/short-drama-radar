@@ -91,7 +91,7 @@ export async function observeCatalog(db: RadarDb, input: ObserveInput) {
       ...(receipt.limitations ?? []),
       input.mode === "verify-sample"
         ? "Verification samples do not mark coverage mature or promote readiness."
-        : "Production observe does not enable timers; enabling schedule units is an owner action.",
+        : "Production observe does not enable timers; wiring any timer is a customer-side action (docs/runtime/schedule.md).",
     ],
   };
 }

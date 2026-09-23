@@ -29,12 +29,9 @@ import { resolvePgConnection, pgConnectionDiagnostics } from "./sync-config.ts";
 import { postgresArchive, syncMarketToPg, unsupportedTargetError, verifyMarketPg } from "./sync.ts";
 import { normalizeChunkSize } from "./sync-plan.ts";
 import type { EventWriter } from "../output/events.ts";
-import { buildMarketScheduleUnits, MARKET_SCHEDULE_NEXT_STEPS, MARKET_SCHEDULE_SYNC_HOOK, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
+import { MARKET_SCHEDULE_SYNC_HOOK, MARKET_SCHEDULE_TIMES } from "./schedule.ts";
 import { observeCatalog } from "./observe.ts";
 import { marketHostServe, MARKET_HOST_FRAME_SPEC } from "./host-serve.ts";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { systemdUserDir } from "../schedule.ts";
 
 export async function marketCommand(command: string[], flags: Map<string, string[]>, db: RadarDb, events?: EventWriter): Promise<CommandResult> {
   const [, group, action, nested] = command;
@@ -418,37 +415,23 @@ export async function marketCommand(command: string[], flags: Map<string, string
     checkFlags(["days"]);
     throw new MarketStoreError("capability_unavailable",
       "The 14-day market canary is planned but not started; it requires real source qualification and a real observation window, and when implemented must consume persisted observation quality records (radar.observation_quality.v1) as coverage and parse-regression evidence. The personal canary report (radar canary report) keeps its original meaning.");
-  } else if (group === "schedule" && (action === "show" || action === "install")) {
-    checkFlags(["print"]);
-    if (action === "show") {
-      if (flags.has("print")) throw new MarketStoreError("flag_invalid", "Use 'market schedule install --print' for unit contents.");
-      const planned = [{ stage: "observe", status: "planned" as const,
-        reason: "Scheduled observation starts only after a source passes qualification and the owner CLI exposes observe; no timer is generated for it yet." }];
-      data = { scheduled_stages: ["analyze", "brief"],
-        planned_stages: planned,
-        local_times: MARKET_SCHEDULE_TIMES,
-        observe_policy: "two slots per day 12h apart, per-source 60s timeout, at most two read-only retries (2s/8s backoff), global concurrency 2, 24h cooldown on login/risk-control failures",
-        sync_hook: MARKET_SCHEDULE_SYNC_HOOK,
-        installed_note: "Printing or writing units never enables a timer; enable steps are owner actions." };
-    } else {
-      const execStart = `${process.execPath} ${join(import.meta.dir, "../cli.ts")}`;
-      const units = buildMarketScheduleUnits(execStart);
-      const target = systemdUserDir(process.env.HOME ?? "~");
-      if (flags.has("print")) {
-        data = { units_written: 0, target, units, sync_hook: MARKET_SCHEDULE_SYNC_HOOK };
-      } else {
-        mkdirSync(target, { recursive: true });
-        for (const [name, content] of Object.entries(units)) writeFileSync(join(target, name), content);
-        data = { units_written: Object.keys(units).length, target,
-          next_steps: MARKET_SCHEDULE_NEXT_STEPS,
-          sync_hook: MARKET_SCHEDULE_SYNC_HOOK,
-          note: "Units were written but not enabled; enabling the timers is an explicit owner action." };
-      }
-    }
+  } else if (group === "schedule" && action === "show") {
+    checkFlags([]);
+    const planned = [{ stage: "observe", status: "planned" as const,
+      reason: "Scheduled observation starts only after a source passes qualification and the owner CLI exposes observe; wire your own timer (docs/runtime/schedule.md)." }];
+    data = { scheduled_stages: ["analyze", "brief"],
+      planned_stages: planned,
+      local_times: MARKET_SCHEDULE_TIMES,
+      observe_policy: "two slots per day 12h apart, per-source 60s timeout, at most two read-only retries (2s/8s backoff), global concurrency 2, 24h cooldown on login/risk-control failures",
+      sync_hook: MARKET_SCHEDULE_SYNC_HOOK,
+      installed_note: "Radar generates no units; creating and enabling timers is a customer-side action." };
+  } else if (group === "schedule" && action === "install") {
+    // Retired per radar-scheduler-retirement-v1: scheduling is customer-owned.
+    throw new MarketStoreError("command_retired", "radar market schedule install is retired — scheduling is customer-owned; see docs/runtime/schedule.md for cron/systemd wiring that calls market analyze/brief directly");
   } else if (group === "schedule" && !action) {
-    throw new MarketStoreError("command_unknown", "Use 'market schedule show' or 'market schedule install [--print]'.");
+    throw new MarketStoreError("command_unknown", "Use 'market schedule show'.");
   } else {
-    throw new MarketStoreError("command_unknown", "Supported market commands: translation add/show, reading list, init, import-legacy, import-catalog, work list/show/review/gate show|report/decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show/install, observe, sync, host-serve.");
+    throw new MarketStoreError("command_unknown", "Supported market commands: translation add/show, reading list, init, import-legacy, import-catalog, work list/show/review/gate show|report/decisions/review-batch/review-batch-receipt/promote, analyze, brief build/show, review build/show, signal show/correct/restore, evidence show, compare, reader show/mark/unread/catchup/receipt, watch list/add/pause/resume/remove/changes/receipt, question context, source list/show/set/qualify/gaps/register-candidate, config show/set, schedule show, observe, sync, host-serve.");
   }
   if (group === "reading" && action === "list") {
     const reading = data as ReturnType<typeof listChineseReading>;

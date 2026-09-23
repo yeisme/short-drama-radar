@@ -13,7 +13,7 @@ bun run test:integration
 openspec list   # 应无 active change（或仅剩已知在途项）
 ```
 
-> 前提注记：墙钟采集在 Linux 用 systemd user timer，macOS 用 LaunchAgents，Windows 用 Task Scheduler；`radar schedule install --backend auto` 只写单元，不启用。devcontainer/无 OS 调度器时 doctor 的 `schedule` 为 unavailable/blocked 属预期——可改用 `radar schedule session-plan` 做只读巡检，或按手动节奏逐日运行 collect/score/cluster/card/edition。session loop 不能代替 08:10 live collect。Linux 三服务已通过共享 flock + After/Wants 串行化。完整命令见 [runtime/schedule.md](../runtime/schedule.md)。
+> 前提注记：墙钟采集定时器由你在客户侧接线（Linux systemd/cron、macOS LaunchAgents/cron、Windows Task Scheduler；示例见 [runtime/schedule.md](../runtime/schedule.md)）——Radar 不生成、不安装任何调度单元（`schedule install` 已退役），写库命令内建跨进程运行锁，重叠触发自动排队。devcontainer/无 OS 调度器时可改用 `radar schedule session-plan` 做只读巡检，或按手动节奏逐日运行 collect/score/cluster/card/edition。session loop 不能代替 08:10 live collect。doctor 的 `schedule` 检查只报告运行锁可用性，不代表定时器已接线。
 
 随后确认真实来源。`establish-crawler-first-radar` 的任务 6 以“后端已 provision、Agent Reach 可发现、适配器对离线/未登录显式降级”为完成标准；14 天 canary 的运行前置更严格：`agent-reach doctor --json` 中 `xiaohongshu.active_backend` 必须非空，且 `bun run src/cli.ts doctor --json` 中 `xhs-backend.status` 必须为 `ok`。未登录可以验证降级合同，但不能开始高质量 canary 窗口。
 
@@ -37,7 +37,7 @@ bun run src/cli.ts doctor --json
 ## D1–D3：基线
 
 1. `radar profile create --name <main> --topic ... --hook ... --blocked-topic ...` 建立主 Profile（必须显式设置 blocked topics 至少 1 项，用于验证硬过滤）。
-2. 运行 `radar schedule install`，然后按输出执行 `systemctl --user daemon-reload` 与 `systemctl --user enable --now short-drama-radar-xhs.service short-drama-radar-collect.timer short-drama-radar-score.timer short-drama-radar-card.timer`。`systemctl --user status short-drama-radar-xhs.service` 应显示 active；`systemctl --user list-timers 'short-drama-radar-*'` 应显示 collect/score/card 三个 timer；再运行 `systemctl --user cat short-drama-radar-collect.timer short-drama-radar-score.timer short-drama-radar-card.timer | grep '^OnCalendar='`，确认共 5 个触发时间（08:10、08:30、08:42、08:55、08:59）。
+2. 按 [runtime/schedule.md](../runtime/schedule.md) 的 systemd 示例自建 collect/score/card 三个 timer 并 `systemctl --user enable --now`。`systemctl --user list-timers 'short-drama-radar-*'` 应显示三个 timer；`systemctl --user cat` 确认共 5 个触发时间（08:10、08:30、08:42、08:55、08:59）。定时器是你自己的文件，Radar 不代写（`schedule install` 已退役）。
 3. 当前定时器只运行 collect、score 与兼容 card，不会代替个人 Edition builder。每天最后一次 card 触发后显式运行 `radar cluster build` 和 `radar edition build --limit 8`；只有拿到当天 edition ref 才算“按时生成”。
 4. 每天 09:00 后运行 `radar health 3`，记录 days_with_collection、degraded_days、stable_id_violations。
 5. 安装 [radar-personal-brief skill](./radar-personal-brief-skill.md)（reader lane），每天让 Hermes 出一次简报。

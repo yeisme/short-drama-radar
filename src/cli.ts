@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { loadConfig, ensureRadarHome, ConfigError, type RadarConfig } from "./config.ts";
+import { loadConfig, ensureRadarHome, ConfigError, RADAR_HOME, type RadarConfig } from "./config.ts";
 import { openDb, type RadarDb } from "./db/client.ts";
 import { desc } from "drizzle-orm";
 import { runs } from "./db/schema.ts";
@@ -14,13 +14,11 @@ import { buildEdition, DEFAULT_LIMIT, editionByRef, latestEdition } from "./pipe
 import { opportunityReviews } from "./db/schema.ts";
 import { ProfileService, ProfileError, type ProfileRecord } from "./profile/service.ts";
 import {
-  buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir,
-  buildLaunchdUnits, launchdUserDir, LAUNCHD_NEXT_STEPS,
-  buildWindowsUnits, windowsTaskDir, WINDOWS_NEXT_STEPS,
   buildSchedulePlan, parseScheduleBackend, parseSessionRuntime,
   buildSessionPlan, sessionPlanActions,
   type ScheduleBackend,
 } from "./schedule.ts";
+import { acquireRunLock, RunLockBusyError } from "./runlock.ts";
 import { probeRuntime } from "./diagnostics.ts";
 import type { AppDeps } from "./app/actions.ts";
 import { feedbackAddAction, opportunityReviewAction, collectAction, scoreAction, clusterBuildAction, editionBuildAction, editionShowAction, dailyRunAction, importAction, recordRun, ActionError } from "./app/actions.ts";
@@ -101,7 +99,15 @@ async function main(): Promise<void> {
     ensureRadarHome();
     const db = openDb(cfg.dbPath);
     const profiles = new ProfileService(db);
-    const result = await dispatch(args, cfg, db, profiles);
+    // Mutating pipeline commands serialize on the run lock before dispatch —
+    // the guarantee the retired generated units used to get from flock.
+    const release = needsRunLock(args) ? await lockFor(commandId(args.command)) : null;
+    let result: CommandResult;
+    try {
+      result = await dispatch(args, cfg, db, profiles);
+    } finally {
+      release?.();
+    }
     // The stdio host seam owns stdout for its whole lifetime: frames were the
     // only output, so no envelope is rendered after the loop ends.
     if (args.command[0] === "market" && args.command[1] === "host-serve") process.exit(result.exitCode);
@@ -119,6 +125,33 @@ async function main(): Promise<void> {
       emit(result, args);
     }
     process.exit(result.exitCode);
+  }
+}
+
+// Mutating pipeline commands serialize on the run lock. `run` covers its
+// internal collect/score/card passes with one acquisition; read commands and
+// the long-lived host-serve seam never lock.
+function needsRunLock(args: Args): boolean {
+  const [group, sub] = args.command;
+  if (["run", "collect", "score", "card"].includes(group)) return true;
+  if (group === "cluster") return sub === "build";
+  if (group === "market") {
+    if (["observe", "analyze", "sync"].includes(sub ?? "")) return true;
+    return sub === "brief" && args.command[2] === "build";
+  }
+  return false;
+}
+
+async function lockFor(command: string): Promise<() => void> {
+  try {
+    const lock = await acquireRunLock(RADAR_HOME, command);
+    return () => lock.release();
+  } catch (err) {
+    if (err instanceof RunLockBusyError) {
+      throw new CliError("lock_busy",
+        `run lock busy: held by pid ${err.holder.pid} (${err.holder.command}) since ${err.holder.startedAt} — another radar command is writing; retry or raise RADAR_LOCK_WAIT_MS`);
+    }
+    throw err;
   }
 }
 
@@ -565,7 +598,7 @@ function scheduleCommand(sub: string, args: Args, cfg: RadarConfig): CommandResu
     try { backend = parseScheduleBackend(first(args, "backend")); }
     catch { throw new CliError("backend_invalid", "schedule show --backend must be auto, systemd, launchd, or windows"); }
     const plan = buildSchedulePlan(cfg);
-    return ok("radar.schedule.show", `Schedule plan uses ${backend} for wall-clock jobs; session-plan is separate.`, {
+    return ok("radar.schedule.show", `Advisory schedule plan — wall-clock execution is customer-owned (docs/runtime/schedule.md); session-plan is separate.`, {
       backend,
       backend_auto: plan.backend_auto,
       pipeline_jobs: plan.pipeline.length,
@@ -573,7 +606,6 @@ function scheduleCommand(sub: string, args: Args, cfg: RadarConfig): CommandResu
     }, {
       data: { ...plan, selected_backend: backend },
       actions: [
-        { name: "install", command: `radar schedule install --backend ${backend}` },
         { name: "session", command: "radar schedule session-plan --runtime both --json" },
       ],
     });
@@ -592,48 +624,13 @@ function scheduleCommand(sub: string, args: Args, cfg: RadarConfig): CommandResu
       actions: sessionPlanActions(plan),
     });
   }
-  if (sub !== "install") throw new CliError("unknown_command", "usage: radar schedule show|install|session-plan");
-  let backend: ScheduleBackend;
-  try { backend = parseScheduleBackend(first(args, "backend")); }
-  catch { throw new CliError("backend_invalid", "schedule install --backend must be auto, systemd, launchd, or windows"); }
-  const execStart = `${process.execPath} ${join(import.meta.dir, "cli.ts")}`;
-  const home = process.env.HOME ?? "~";
-  const pack = schedulePack(backend, cfg, execStart, home);
-  if (first(args, "print") !== undefined) {
-    return ok("radar.schedule.install", `Printed ${Object.keys(pack.units).length} ${backend} units (dry run).`, {
-      backend,
-      units: Object.keys(pack.units).length,
-      target: pack.target,
-      enabled: false,
-    }, {
-      data: pack.units,
-      actions: pack.next.slice(0, 1).map((c) => ({ name: "next", command: c })),
-    });
+  if (sub === "install") {
+    // Retired per radar-scheduler-retirement-v1: Radar generates no OS units;
+    // wall-clock wiring is a customer-side action.
+    throw new CliError("command_retired",
+      "radar schedule install is retired — scheduling is customer-owned; see docs/runtime/schedule.md for cron/launchd/Task Scheduler wiring that calls the radar CLI directly");
   }
-  mkdirSync(pack.target, { recursive: true });
-  if (backend === "systemd") mkdirSync(join(home, ".agent-reach", "xiaohongshu"), { recursive: true });
-  if (backend === "launchd") mkdirSync(join(home, ".short-drama-radar", "logs"), { recursive: true });
-  for (const [name, content] of Object.entries(pack.units)) {
-    writeFileSync(join(pack.target, name), content);
-  }
-  return ok("radar.schedule.install", `Wrote ${Object.keys(pack.units).length} ${backend} units to ${pack.target}. Not enabled.`, {
-    backend,
-    units: Object.keys(pack.units).length,
-    target: pack.target,
-    enabled: false,
-  }, {
-    actions: pack.next.map((c) => ({ name: "step", command: c })),
-  });
-}
-
-function schedulePack(backend: ScheduleBackend, cfg: RadarConfig, execStart: string, home: string): {
-  units: Record<string, string>;
-  target: string;
-  next: string[];
-} {
-  if (backend === "launchd") return { units: buildLaunchdUnits(cfg, execStart, home), target: launchdUserDir(home), next: LAUNCHD_NEXT_STEPS };
-  if (backend === "windows") return { units: buildWindowsUnits(cfg, execStart), target: windowsTaskDir(home), next: WINDOWS_NEXT_STEPS };
-  return { units: buildScheduleUnits(cfg, execStart), target: systemdUserDir(home), next: SCHEDULE_NEXT_STEPS };
+  throw new CliError("unknown_command", "usage: radar schedule show|session-plan");
 }
 
 async function doctorCommand(cfg: RadarConfig): Promise<CommandResult> {
@@ -731,8 +728,7 @@ Collection & scoring:
   health [window-days]             Collection health report (default 14 days)
   canary report [window-days]      Personal Edition usefulness gates (default 14 days)
   schedule show [--backend auto|systemd|launchd|windows]
-  schedule install [--backend auto|systemd|launchd|windows] [--print]
-                                   Write (or print) OS units; does not enable timers
+                                   Advisory plan; wall-clock timers are customer-owned (docs/runtime/schedule.md)
   schedule session-plan [--runtime grok|claude|both]
                                    Print Claude/Grok /loop payloads; does not collect
 
@@ -758,8 +754,7 @@ Market foundation (local only):
   market config set --revision <n> --clear-blocked-topics
   market analyze --start <UTC-instant> --end <UTC-instant>
   market analyze (without windows: previous complete local day)
-  market schedule show                 Market pipeline schedule description (planned vs schedulable)
-  market schedule install [--print]    Write (or print) market-only systemd user units; never enables timers
+  market schedule show                 Market pipeline schedule description (planned vs schedulable); wiring is customer-owned
   market observe --source hongguo|reelshort-ja|reelshort-ko --mode verify-sample|production [--confirm-live|--fixture] [--observed-at UTC]
   market sync --to pg [--verify] [--chunk-size N] [--reset-cursor --confirm-reset] [--allow-target-change]
                                    Archive market tables to PostgreSQL (append-only, resumable); RADAR_PG_URL or config pgArchive.url

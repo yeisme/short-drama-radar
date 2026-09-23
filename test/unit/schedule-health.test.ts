@@ -1,62 +1,35 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "../../src/db/client.ts";
 import { dailyItems, rawSnapshots, runs } from "../../src/db/schema.ts";
 import { buildHealthReport, isStableId } from "../../src/pipeline/health.ts";
-import { buildScheduleUnits, SCHEDULE_NEXT_STEPS, systemdUserDir } from "../../src/schedule.ts";
+import { buildSchedulePlan } from "../../src/schedule.ts";
+import { probeSchedule } from "../../src/diagnostics.ts";
 import { defaultConfig } from "../../src/config.ts";
 
-describe("schedule units (task: systemd wiring)", () => {
-  // Unit content embeds the ambient PATH and any documented env overrides
-  // (RADAR_HOME first among them), which are machine-specific: an
-  // interactive shell can accumulate arbitrary directory names (e.g. temp
-  // "*-token-usage" worktrees) that would trip the strict secret-leak regex
-  // without any generator change. Pin a clean environment so the golden
-  // assertions are hermetic; real installs still embed the owner's runtime
-  // values. The ambient environment is restored once the describe completes.
-  const ambientPath = process.env.PATH;
-  const ambientHome = process.env.RADAR_HOME;
-  let units: ReturnType<typeof buildScheduleUnits>;
-  beforeAll(() => {
-    process.env.PATH = "/usr/local/bin:/usr/bin:/bin";
-    delete process.env.RADAR_HOME;
-    units = buildScheduleUnits(defaultConfig, "/usr/local/bin/bun /opt/radar/src/cli.ts");
-  });
-  afterAll(() => {
-    process.env.PATH = ambientPath;
-    if (ambientHome === undefined) delete process.env.RADAR_HOME;
-    else process.env.RADAR_HOME = ambientHome;
+describe("schedule surface (customer-owned wiring)", () => {
+  test("advisory plan still exposes the wall-clock passes", () => {
+    const plan = buildSchedulePlan(defaultConfig);
+    expect(plan.spec).toBe("radar.schedule.plan.v1");
+    const collect = plan.pipeline.find((j) => j.id === "collect")!;
+    expect(collect.class).toBe("wall_clock");
+    expect(collect.local_times).toEqual(["08:10", "08:30"]);
+    const brief = plan.market.find((j) => j.id === "market-brief")!;
+    expect(brief.command).toBe("market brief build");
   });
 
-  test("collect timer wires both morning passes", () => {
-    expect(units["short-drama-radar-collect.timer"]).toContain("OnCalendar=*-*-* 08:10:00");
-    expect(units["short-drama-radar-collect.timer"]).toContain("OnCalendar=*-*-* 08:30:00");
-    expect(units["short-drama-radar-collect.timer"]).toContain("Persistent=true");
-    expect(units["short-drama-radar-collect.timer"]).toContain("WantedBy=timers.target");
-  });
-
-  test("score and card timers hit 08:42 and 08:55/08:59", () => {
-    expect(units["short-drama-radar-score.timer"]).toContain("OnCalendar=*-*-* 08:42:00");
-    expect(units["short-drama-radar-card.timer"]).toContain("OnCalendar=*-*-* 08:55:00");
-    expect(units["short-drama-radar-card.timer"]).toContain("OnCalendar=*-*-* 08:59:00");
-  });
-
-  test("services are hardened oneshots with json envelopes to the journal", () => {
-    const svc = units["short-drama-radar-collect.service"];
-    expect(svc).toContain("Type=oneshot");
-    expect(svc).toContain("ExecStart=/usr/bin/flock -w 600 %h/.short-drama-radar/radar.lock /usr/local/bin/bun /opt/radar/src/cli.ts collect --json");
-    expect(svc).toContain("NoNewPrivileges=yes");
-    expect(svc).toContain("PrivateTmp=yes");
-    expect(svc).toContain('Environment="PATH=');
-    expect(svc).not.toMatch(/cookie|password|token/i);
-  });
-
-  test("install next steps are systemd user commands", () => {
-    expect(SCHEDULE_NEXT_STEPS[0]).toBe("systemctl --user daemon-reload");
-    expect(SCHEDULE_NEXT_STEPS.join(" ")).toContain("enable --now");
-    expect(systemdUserDir("/home/u")).toBe("/home/u/.config/systemd/user");
+  test("doctor schedule check reports run-lock availability, not OS units", () => {
+    const dir = mkdtempSync(join(tmpdir(), "radar-sched-"));
+    const free = probeSchedule(dir);
+    expect(free.status).toBe("ok");
+    expect(free.detail).toContain("customer-owned");
+    expect(free.nextCommand).toBeUndefined();
+    writeFileSync(join(dir, "radar.lock"), JSON.stringify({ pid: process.pid, command: "radar run", startedAt: new Date().toISOString() }));
+    const busy = probeSchedule(dir);
+    expect(busy.status).toBe("degraded");
+    expect(busy.detail).toContain(String(process.pid));
   });
 });
 
